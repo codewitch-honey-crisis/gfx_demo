@@ -1,0 +1,10 @@
+/.vscode
+src/gfx_bitmap
+src/gfx_pixel
+src/gfx_positioning
+src/bits
+src/gfx_drawing
+bitmap
+core
+fontgen
+reference/demo

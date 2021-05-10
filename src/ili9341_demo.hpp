@@ -213,14 +213,24 @@ void scroll_text_demo() {
     }
 }
 void lines_demo() {
+    /*file_stream fs("/spiffs/Bm437_Verite_9x16.FON");
+    if(!fs.caps().read) {
+        printf("Font file not found.\r\n");
+        vTaskDelay(portMAX_DELAY);
+    }
+    font f(&fs);
+    */
+    const font& f=Bm437_ATI_9x16_FON;
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
-    const font& f = Bm437_ATI_9x16_FON;
     const char* text = "ESP32 GFX Demo";
-    srect16 text_rect = srect16(spoint16(0,0),
-                            f.measure_text((ssize16)lcd.dimensions(),
-                            text));
+    srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
+                            text).bounds();
 
-    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),text,f,lcd_color::dark_blue);
+    draw::text(lcd,
+            text_rect.center((srect16)lcd.bounds()),
+            text,
+            f,
+            lcd_color::dark_blue);
 
     for(int i = 1;i<100;++i) {
         // calculate our extents
@@ -376,11 +386,7 @@ static void display_pretty_colors()
 
 void app_main(void)
 {
-    file_stream fs("/spiffs/image.jpg");
-    jpeg_image::load(&fs,[](const typename jpeg_image::region_type& region,point16 location,void* state){
 
-        return gfx_result::canceled;
-    },nullptr);
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");

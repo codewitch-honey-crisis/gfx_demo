@@ -118,7 +118,10 @@ gfx::gfx_result decode_image(uint16_t ***pixels)
         }
         return gfx::gfx_result::success;
     },*pixels);
-    
+    if(gfx::gfx_result::success!=ret) {
+        printf("Bad result %d\r\n",(int)ret);
+        vTaskDelay(portMAX_DELAY);
+    }
     return ret;
 err:
     //Something went wrong! Exit cleanly, de-allocating everything we allocated.

@@ -965,7 +965,7 @@ namespace gfx {
             JpegDev *jd = (JpegDev *)decoder->device;
             //jd->result=gfx_result::success;
             jd->result=jd->out(region_type(size16(rect->right-rect->left+1,rect->bottom-rect->top+1),bitmap),point16(rect->left,rect->top),jd->state);
-            return gfx_result::success!=jd->result;
+            return (gfx_result::success!=jd->result)?0:1;
         }
 
     public:
@@ -989,6 +989,7 @@ namespace gfx {
             jd.stream=input;
             jd.state = state;
             jd.out = out_func;
+            jd.result = gfx_result::success;
             //Prepare and decode the jpeg.
             r = jd_prepare(&decoder, infunc, work, WORKSZ, (void *)&jd);
             if(JDR_OK!=r) {

@@ -970,7 +970,7 @@ namespace gfx {
 
     public:
         
-        static gfx_result load(io::stream* input,callback out_func,void* state) {
+        static gfx_result load(io::stream* input,callback out_func,void* state=nullptr) {
             if(nullptr==input)
                 return gfx_result::invalid_argument;
             if(nullptr==out_func)

@@ -146,6 +146,7 @@ void print_source(const Source& src) {
 static const size16 bmp_size(32,32);
 using bmp_type = bitmap<typename lcd_type::pixel_type>;
 using bmp_color = color<typename lcd_type::pixel_type>;
+
 // declare the bitmap
 uint8_t bmp_buf[2048];
 bmp_type bmp(bmp_size,bmp_buf);
@@ -363,7 +364,7 @@ static void display_pretty_colors()
                         in+=3;
                     }
                 }
-                return true;
+                return gfx_result::success;
 
             },pixels);
 #ifdef ASCII_JPEGS
@@ -375,6 +376,11 @@ static void display_pretty_colors()
 
 void app_main(void)
 {
+    file_stream fs("/spiffs/image.jpg");
+    jpeg_image::load(&fs,[](const typename jpeg_image::region_type& region,point16 location,void* state){
+
+        return gfx_result::canceled;
+    },nullptr);
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");

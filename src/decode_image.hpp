@@ -116,7 +116,7 @@ gfx::gfx_result decode_image(uint16_t ***pixels)
                 in+=3;
             }
         }
-        return true;
+        return gfx::gfx_result::success;
     },*pixels);
     
     return ret;

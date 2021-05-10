@@ -588,7 +588,7 @@ public:
         // GFX Bindings
         using type = ssd1306_i2c<Width,Height,I2CPort,Address,Vdc3_3,PinRst,ResetBeforeInit,Timeout>;
         using pixel_type = gfx::gsc_pixel<1>;
-        using caps = gfx::gfx_caps< false,false,false,false,true,true,false>;
+        using caps = gfx::gfx_caps< false,false,false,false,true,false>;
     private:
         gfx::gfx_result xlt_err(result r) {
             switch(r) {

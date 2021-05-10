@@ -58,8 +58,8 @@ using lcd_color = color<typename lcd_type::pixel_type>;
 using bmp_type = bitmap<typename lcd_type::pixel_type>;
 using bmp_color = color<typename lcd_type::pixel_type>;
 // declare the bitmap
-static const size16 bmp_size(16,16);
-uint8_t bmp_buf[16*16/8];
+constexpr static const size16 bmp_size(16,16);
+uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 bmp_type bmp(bmp_size,bmp_buf);
 void bmp_demo() {
     lcd.clear(lcd.bounds());

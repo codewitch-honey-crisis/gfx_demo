@@ -164,7 +164,7 @@ namespace gfx {
         using type = bitmap<PixelType>;
         // the type of the pixel used for the bitmap
         using pixel_type = PixelType;
-        using caps = gfx::gfx_caps<true,false,false,false,false,true,true>;
+        using caps = gfx::gfx_caps<true,false,false,false,false,true>;
         
         // constructs a new bitmap with the specified size and buffer
         bitmap(size16 dimensions,void* buffer) : m_dimensions(dimensions),m_begin((uint8_t*)buffer) {}
@@ -350,11 +350,11 @@ namespace gfx {
         }
         
         // computes the minimum required size for a bitmap buffer, in bytes
-        inline static size_t sizeof_buffer(size16 size) {
+        constexpr inline static size_t sizeof_buffer(size16 size) {
             return (size.width*size.height*pixel_type::bit_depth+7)/8;
         }
         // computes the minimum required size for a bitmap buffer, in bytes
-        inline static size_t sizeof_buffer(uint16_t width,uint16_t height) {
+        constexpr inline static size_t sizeof_buffer(uint16_t width,uint16_t height) {
             return sizeof_buffer(size16(width,height));
         }
         // this check is already guaranteed by asserts in the pixel itself

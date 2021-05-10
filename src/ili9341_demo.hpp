@@ -215,15 +215,25 @@ void lines_demo() {
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "ESP32 GFX Demo";
-    srect16 text_rect = srect16(spoint16(0,0),f.measure_text((ssize16)lcd.dimensions(),text));
-    text_rect=text_rect.offset((lcd_type::width-text_rect.width())/2,(lcd_type::height-text_rect.height())/2);
-    draw::text(lcd,text_rect,text,f,lcd_color::dark_blue);
+    srect16 text_rect = srect16(spoint16(0,0),
+                            f.measure_text((ssize16)lcd.dimensions(),
+                            text));
+
+    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),text,f,lcd_color::dark_blue);
 
     for(int i = 1;i<100;++i) {
-        draw::line(lcd,srect16(0,i*(lcd_type::height/100.0),i*(lcd_type::width/100.0),lcd_type::height-1),lcd_color::light_blue);
-        draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/100.0)-1,0,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/100.0)-1),lcd_color::hot_pink);
-        draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/100.0),i*(lcd_type::width/100.0)-1,0),lcd_color::pale_green);
-        draw::line(lcd,srect16(lcd_type::width-1,i*(lcd_type::height/100.0),lcd_type::width-i*(lcd_type::width/100.0)-1,lcd_type::height-1),lcd_color::yellow);
+        // calculate our extents
+        srect16 r(i*(lcd_type::width/100.0),
+                i*(lcd_type::height/100.0),
+                lcd_type::width-i*(lcd_type::width/100.0)-1,
+                lcd_type::height-i*(lcd_type::height/100.0)-1);
+        // draw the four lines
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::light_blue);
+        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::hot_pink);
+        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::pale_green);
+        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
+        // the ESP32 wdt will get tickled
+        // unless we do this:
         vTaskDelay(1);
     }
 }

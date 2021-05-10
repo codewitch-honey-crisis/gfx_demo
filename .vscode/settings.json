@@ -5,6 +5,14 @@
         "functional": "cpp",
         "random": "cpp",
         "istream": "cpp",
-        "streambuf": "cpp"
+        "streambuf": "cpp",
+        "*.ipp": "cpp",
+        "chrono": "cpp",
+        "cmath": "cpp",
+        "future": "cpp",
+        "limits": "cpp",
+        "memory": "cpp",
+        "ostream": "cpp",
+        "tuple": "cpp"
     }
 }

@@ -508,7 +508,7 @@ namespace espidf {
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver
-        using caps = gfx::gfx_caps<false,true,true,true,false>;
+        using caps = gfx::gfx_caps<false,true,true,true,false,false,false>;
  
  private:
         gfx::gfx_result xlt_err(result r) {

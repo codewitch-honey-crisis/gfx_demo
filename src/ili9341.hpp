@@ -508,7 +508,7 @@ namespace espidf {
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver
-        using caps = gfx::gfx_caps<false,true,true,true,false,false,false>;
+        using caps = gfx::gfx_caps<false,true,true,true,false,false>;
  
  private:
         gfx::gfx_result xlt_err(result r) {
@@ -694,7 +694,7 @@ namespace espidf {
             return gfx::gfx_result::success;
         }
         // copies source data to a frame
-        template<typename Source>
+        template<typename Source> 
         inline gfx::gfx_result copy_from(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
             return copy_from_impl(src_rect,src,location,false);
         }

@@ -60,7 +60,7 @@ namespace gfx {
                 gfx_result r = helpers::suspend_helper<Destination,Destination::caps::suspend>::suspend(dst);
                 if(gfx_result::success!=r)
                     return r;
-                r = helpers::batch_helper<Destination,Destination::caps::batch_write>::begin_batch(dst,dstr);
+                r = helpers::batch_helper<Destination,Destination::caps::batch>::begin_batch(dst,dstr);
                 if(gfx_result::success!=r)
                     return r;
                 int sox = srcr.left(),soy=srcr.top();
@@ -76,14 +76,14 @@ namespace gfx {
                         typename Destination::pixel_type dpx;
                         if(!spx.template convert(&dpx))
                             return gfx_result::invalid_format;
-                        r = helpers::batch_helper<Destination,Destination::caps::batch_write>::write_batch(dst,point16(dox+dx,doy+dy),dpx);
+                        r = helpers::batch_helper<Destination,Destination::caps::batch>::write_batch(dst,point16(dox+dx,doy+dy),dpx);
                         if(gfx_result::success!=r)
                             return r;
                         ++dx;
                     }
                     ++dy;
                 }
-                r = helpers::batch_helper<Destination,Destination::caps::batch_write>::commit_batch(dst);
+                r = helpers::batch_helper<Destination,Destination::caps::batch>::commit_batch(dst);
                 if(gfx_result::success!=r)
                     return r;
                 return helpers::suspend_helper<Destination,Destination::caps::suspend>::resume(dst);

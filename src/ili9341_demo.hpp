@@ -213,14 +213,12 @@ void scroll_text_demo() {
     }
 }
 void lines_demo() {
-    /*file_stream fs("/spiffs/Bm437_Verite_9x16.FON");
+    file_stream fs("/spiffs/Bm437_Verite_9x16.FON");
     if(!fs.caps().read) {
         printf("Font file not found.\r\n");
         vTaskDelay(portMAX_DELAY);
     }
     font f(&fs);
-    */
-    const font& f=Bm437_ATI_9x16_FON;
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
     const char* text = "ESP32 GFX Demo";
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),

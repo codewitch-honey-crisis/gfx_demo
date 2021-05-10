@@ -94,7 +94,7 @@ namespace gfx {
             inline static gfx::gfx_result do_draw(Destination& destination, Source& source, const gfx::rect16& src_rect,gfx::point16 location) {
                 // suspend if we can
                 suspend_token<Destination> stok(destination);
-                return copy_from_impl_helper<Destination,Source,Destination::caps::batch_write,false>::do_draw(destination,src_rect,source,location);
+                return copy_from_impl_helper<Destination,Source,Destination::caps::batch,false>::do_draw(destination,src_rect,source,location);
                 //return destination.copy_from(src_rect,source,location);
             }
         };
@@ -542,9 +542,9 @@ namespace gfx {
             if((int)bitmap_flags::resize!=((int)options&(int)bitmap_flags::resize)) {
                 gfx_result r;
                 if(async)
-                    r=draw_bmp_batch_caps_helper<Destination,Source,Destination::caps::batch_write,Destination::caps::async>::do_draw(destination,dstr,source,srcr,o);
+                    r=draw_bmp_batch_caps_helper<Destination,Source,Destination::caps::batch,Destination::caps::async>::do_draw(destination,dstr,source,srcr,o);
                 else
-                    r=draw_bmp_batch_caps_helper<Destination,Source,Destination::caps::batch_write,false>::do_draw(destination,dstr,source,srcr,o);
+                    r=draw_bmp_batch_caps_helper<Destination,Source,Destination::caps::batch,false>::do_draw(destination,dstr,source,srcr,o);
                 if(gfx_result::success!=r)
                     return r;
                
@@ -1624,7 +1624,7 @@ namespace gfx {
                                 if(transparent_background)
                                     r=draw_font_batch_helper<Destination,false,Destination::caps::async>::do_draw(destination,font,fc,chr,color,backcolor,transparent_background,clip,async);
                                 else
-                                    r=draw_font_batch_helper<Destination,Destination::caps::batch_write,Destination::caps::async>::do_draw(destination,font,fc,chr,color,backcolor,transparent_background,clip,async);
+                                    r=draw_font_batch_helper<Destination,Destination::caps::batch,Destination::caps::async>::do_draw(destination,font,fc,chr,color,backcolor,transparent_background,clip,async);
                                 if(gfx_result::success!=r) {
                                     return r;
                                 }

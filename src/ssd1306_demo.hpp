@@ -15,7 +15,6 @@ extern "C" { void app_main(); }
 #include "stream.hpp"
 #include "gfx_color_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
-#include "../fonts/Bm437_ACM_VGA_9x16.h"
 #include "../fonts/Bm437_ATI_9x16.h"
 using namespace espidf;
 using namespace io;
@@ -66,7 +65,7 @@ void bmp_demo() {
     lcd.clear(lcd.bounds());
     
     // draw stuff
-    bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
+    bmp.clear(bmp.bounds());
 
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1));
@@ -76,7 +75,10 @@ void bmp_demo() {
     draw::filled_ellipse(bmp,bounds,bmp_color::yellow);
     
     // draw the left eye
-    srect16 eye_bounds_left(spoint16(bounds.width()/5,bounds.height()/5),ssize16(bounds.width()/5,bounds.height()/3));
+    srect16 eye_bounds_left(spoint16(bounds.width()/5,
+                                    bounds.height()/5),
+                                    ssize16(bounds.width()/5,
+                                            bounds.height()/3));
     draw::filled_ellipse(bmp,eye_bounds_left,bmp_color::black);
     
     // draw the right eye
@@ -88,13 +90,40 @@ void bmp_demo() {
     draw::filled_ellipse(bmp,eye_bounds_right,bmp_color::black);
     
     // draw the mouth
-    srect16 mouth_bounds=bounds.inflate(-bounds.width()/7,-bounds.height()/8).normalize();
+    srect16 mouth_bounds=bounds.inflate(-bounds.width()/7,
+                                        -bounds.height()/8).normalize();
     // we need to clip part of the circle we'll be drawing
-    srect16 mouth_clip(mouth_bounds.x1,mouth_bounds.y1+mouth_bounds.height()/(float)1.6,mouth_bounds.x2,mouth_bounds.y2);
+    srect16 mouth_clip(mouth_bounds.x1,
+                    mouth_bounds.y1+mouth_bounds.height()/(float)1.6,
+                    mouth_bounds.x2,
+                    mouth_bounds.y2);
+
     draw::ellipse(bmp,mouth_bounds,bmp_color::black,&mouth_clip);
     int dx = 1;
     int dy=2;
     int i =0;
+    draw::bitmap(lcd,(srect16)bmp.bounds(),bmp,bmp.bounds());
+    // demonstrates using a display as a draw *source*, from which 
+    // you can read portions of the display and draw them to bitmaps
+    // or even back to the display** (see the comments below)
+    while(i<50) {
+        srect16 sr = (srect16)lcd.bounds().offset(
+                        (rand()%lcd.dimensions().width)-bmp.dimensions().width,
+                        (rand()%lcd.dimensions().height)-bmp.dimensions().height);
+        // **we have to make sure we don't read and write from the same location at the same time
+        // if we do we we will get garbage, so eliminate the possibility of appearing in the 
+        // uper left
+        if(sr.x1<bmp_size.width)
+            sr=sr.offset(bmp_size.width,0);
+        if(sr.y1<bmp_size.height)
+            sr=sr.offset(0,bmp_size.height);
+        sr=sr.crop((srect16)lcd.bounds());
+        draw::bitmap(lcd,sr,lcd,bmp.bounds());
+        ++i;
+    }
+    lcd.clear(lcd.bounds());
+    // now we're going to draw the bitmap to the lcd instead, animating it
+    i=0;
     srect16 r =(srect16)bmp.bounds().center(lcd.bounds());
     while(i<150) {
 #ifdef SUSPEND_RESUME
@@ -166,30 +195,77 @@ void dump_frame_buffer() {
     printf("\r\n");
 }
 void lines_demo() {
-    lcd.clear(lcd.bounds());
+    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
     const font& f = Bm437_Acer_VGA_8x8_FON;
     const char* text = "ESP32 GFX";
-    srect16 text_rect = srect16(spoint16(0,0),f.measure_text((ssize16)lcd.dimensions(),text));
-    text_rect=text_rect.offset((lcd.dimensions().width-text_rect.width())/2,(lcd.dimensions().height-text_rect.height())/2);
-    draw::text(lcd,text_rect,text,f,lcd_color::white);
-    
+    srect16 text_rect = srect16(spoint16(0,0),
+                            f.measure_text((ssize16)lcd.dimensions(),
+                            text));
+                            
+    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),text,f,lcd_color::white);
+
     for(int i = 1;i<100;i+=10) {
 #ifdef SUSPEND_RESUME
         draw::suspend(lcd);
 #endif
-        draw::line(lcd,srect16(0,i*(lcd.dimensions().height/100.0),i*(lcd.dimensions().width/100.0),lcd.dimensions().height-1),lcd_color::white);
-        draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/100.0)-1,0,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/100.0)-1),lcd_color::white);
-        draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/100.0),i*(lcd.dimensions().width/100.0)-1,0),lcd_color::white);
-        draw::line(lcd,srect16(lcd.dimensions().width-1,i*(lcd.dimensions().height/100.0),lcd.dimensions().width-i*(lcd.dimensions().width/100.0)-1,lcd.dimensions().height-1),lcd_color::white);
-        vTaskDelay(1);
+        // calculate our extents
+        srect16 r(i*(lcd_type::width/100.0),
+                i*(lcd_type::height/100.0),
+                lcd_type::width-i*(lcd_type::width/100.0)-1,
+                lcd_type::height-i*(lcd_type::height/100.0)-1);
+
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::white);
+        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::white);
+        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::white);
+        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::white);
 #ifdef SUSPEND_RESUME
         draw::resume(lcd);
 #endif
+        vTaskDelay(1);
     }
     
     vTaskDelay(500/portTICK_PERIOD_MS);
 }
+void intro() {
+    
+#ifdef SUSPEND_RESUME
+    lcd.suspend();
+#endif
 
+    lcd.clear(lcd.bounds());
+    const char* text = "presenting...";
+    const font& f = Bm437_ATI_9x16_FON;
+    srect16 sr = f.measure_text((ssize16)lcd.dimensions(),text).bounds();
+    sr=sr.center((srect16)lcd.bounds());
+    draw::text(lcd,sr,text,f,lcd_color::white);
+#ifdef SUSPEND_RESUME
+    lcd.resume();
+#endif
+    vTaskDelay(1500/portTICK_PERIOD_MS);
+#ifdef SUSPEND_RESUME
+    lcd.suspend();
+#endif
+    for(int i=0;i<lcd.dimensions().width;i+=4) {
+        draw::line(lcd,srect16(i,0,i+1,lcd.dimensions().height-1),lcd_color::white);
+        vTaskDelay(50/portTICK_PERIOD_MS);
+    }
+#ifdef SUSPEND_RESUME
+    lcd.resume();
+#endif
+    vTaskDelay(100/portTICK_PERIOD_MS);
+    
+#ifdef SUSPEND_RESUME
+    lcd.suspend();
+#endif
+    for(int i=2;i<lcd.dimensions().width;i+=4) {
+        draw::line(lcd,srect16(i,0,i+1,lcd.dimensions().height-1),lcd_color::white);
+        vTaskDelay(50/portTICK_PERIOD_MS);
+    }
+#ifdef SUSPEND_RESUME
+    lcd.resume();
+#endif
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+}
 void app_main(void)
 {
     // check to make sure SPI was initialized successfully
@@ -204,29 +280,11 @@ void app_main(void)
         printf("display initialization error.\r\n");
         vTaskDelay(portMAX_DELAY);
     }
-#ifdef SUSPEND_RESUME
-    lcd.suspend();
-#endif
-    lcd.clear(lcd.bounds());
-    for(int i=0;i<lcd.dimensions().width;i+=4) {
-        draw::line(lcd,srect16(i,0,i+1,lcd.dimensions().height-1),lcd_color::white);
-    }
-#ifdef SUSPEND_RESUME
-    lcd.resume();
-#endif
-    vTaskDelay(100/portTICK_PERIOD_MS);
-#ifdef SUSPEND_RESUME
-    lcd.suspend();
-#endif
-    for(int i=2;i<lcd.dimensions().width;i+=4) {
-        draw::line(lcd,srect16(i,0,i+1,lcd.dimensions().height-1),lcd_color::white);
-    }
-#ifdef SUSPEND_RESUME
-    lcd.resume();
-#endif
+    
+    intro();
     while(true) {
-       lines_demo();
-       scroll_text_demo();
+     lines_demo();
+     scroll_text_demo();
        bmp_demo();
     }
 }

@@ -22,12 +22,10 @@ using namespace espidf;
 using namespace io;
 using namespace gfx;
 
-// the following is configured for the ESP-WROVER-KIT
-// make sure to set the pins to your set up.
-#define LCD_WIDTH 320
-#define LCD_HEIGHT 240
 #ifdef CONFIG_IDF_TARGET_ESP32
 #if defined(ESP_WROVER_KIT)
+#define LCD_WIDTH 320
+#define LCD_HEIGHT 240
 #define PARALLEL_LINES 16
 #define LCD_HOST    HSPI_HOST
 #define DMA_CHAN    2
@@ -54,6 +52,8 @@ using namespace gfx;
 #define PIN_NUM_RST  GPIO_NUM_NC
 #define PIN_NUM_BCKL GPIO_NUM_4
 #else
+#define LCD_WIDTH 320
+#define LCD_HEIGHT 240
 #define PARALLEL_LINES 16
 #define LCD_HOST    VSPI_HOST
 #define DMA_CHAN    2
@@ -109,7 +109,7 @@ spi_master spi_host(nullptr,
                     PIN_NUM_MOSI,
                     GPIO_NUM_NC,
                     GPIO_NUM_NC,
-                    PARALLEL_LINES*320*2+8,
+                    PARALLEL_LINES*LCD_WIDTH*2+8,
                     DMA_CHAN);
 
 // we use the default, modest buffer - it makes things slower but uses less
@@ -194,17 +194,17 @@ void scroll_text_demo() {
     while(true) {
 
        draw::filled_rectangle(lcd,text_rect,lcd_color::black);
-        if(text_rect.x2>=320) {
-           draw::filled_rectangle(lcd,text_rect.offset(-320,0),lcd_color::black);
+        if(text_rect.x2>=lcd.dimensions().width) {
+           draw::filled_rectangle(lcd,text_rect.offset(-lcd.dimensions().width,0),lcd_color::black);
         }
 
         text_rect=text_rect.offset(2,0);
         draw::text(lcd,text_rect,text,f,lcd_color::old_lace,lcd_color::black,false);
-        if(text_rect.x2>=320){
-            draw::text(lcd,text_rect.offset(-320,0),text,f,lcd_color::old_lace,lcd_color::black,false);
+        if(text_rect.x2>=lcd.dimensions().width){
+            draw::text(lcd,text_rect.offset(-lcd.dimensions().width,0),text,f,lcd_color::old_lace,lcd_color::black,false);
         }
-        if(text_rect.x1>=320) {
-            text_rect=text_rect.offset(-320,0);
+        if(text_rect.x1>=lcd.dimensions().width) {
+            text_rect=text_rect.offset(-lcd.dimensions().width,0);
             first=false;
         }
         
@@ -261,8 +261,8 @@ static void display_pretty_colors()
     }
     using lines_bmp_type = bitmap<typename lcd_type::pixel_type>;
     lines_bmp_type line_bmps[2] {
-        lines_bmp_type(size16(320,PARALLEL_LINES),lines[0]),
-        lines_bmp_type(size16(320,PARALLEL_LINES),lines[1])
+        lines_bmp_type(size16(lcd.dimensions().width,PARALLEL_LINES),lines[0]),
+        lines_bmp_type(size16(lcd.dimensions().width,PARALLEL_LINES),lines[1])
     };
     
     int frame=0;
@@ -279,7 +279,7 @@ static void display_pretty_colors()
             scroll_text_demo();
         }
         ++frame;
-        for (int y=0; y<240; y+=PARALLEL_LINES) {
+        for (int y=0; y<lcd.dimensions().height; y+=PARALLEL_LINES) {
             //Calculate a line.
             pretty_effect_calc_lines(lines[calc_line], y, frame, PARALLEL_LINES);
             // wait for the last frame to finish. Don't need this unless transactions are > 7
@@ -401,9 +401,16 @@ void app_main(void)
     ret=esp_vfs_spiffs_register(&conf);
     ESP_ERROR_CHECK(ret);   
     gfx_result rr;
+#ifndef ESP32_TTGO
     rr=pretty_effect_init();
     if(gfx_result::success!=rr) {
         printf("Error loading demo: %d\r\n",(int)rr);
     }
     display_pretty_colors();
+#else
+    while(true) {
+        lines_demo();
+        scroll_text_demo();
+    }
+#endif
 }

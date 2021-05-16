@@ -10,6 +10,50 @@
 #include "gfx_pixel.hpp"
 
 namespace espidf {
+     namespace st7789_helpers {
+     struct init_cmd {
+            uint8_t cmd;
+            uint8_t data[16];
+            uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
+        };
+        DRAM_ATTR static const init_cmd init_cmds[] = {
+            //Place data into DRAM. Constant data gets placed into DROM by default, which is not accessible by DMA.
+    /* Memory Data Access Control */
+    {0x36, {0xA0}, 1},
+    /* Interface Pixel Format, 16bits/pixel for RGB/MCU interface */
+    {0x3A, {0x55}, 1},
+    /* Porch Setting */
+    {0xB2, {0x0c, 0x0c, 0x00, 0x33, 0x33}, 5},
+    /* Gate Control, Vgh=13.65V, Vgl=-10.43V */
+    {0xB7, {0x45}, 1},
+    /* VCOM Setting, VCOM=1.175V */
+    {0xBB, {0x2B}, 1},
+    /* LCM Control, XOR: BGR, MX, MH */
+    {0xC0, {0x2C}, 1},
+    // display inversion ON - not sure why this is necessary
+    {0x21, {},0},
+    /* VDV and VRH Command Enable, enable=1 */
+    {0xC2, {0x01, 0xff}, 2},
+    /* VRH Set, Vap=4.4+... */
+    {0xC3, {0x11}, 1},
+    /* VDV Set, VDV=0 */
+    {0xC4, {0x20}, 1},
+    /* Frame Rate Control, 60Hz, inversion=0 */
+    {0xC6, {0x0f}, 1},
+    /* Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V */
+    {0xD0, {0xA4, 0xA1}, 1},
+    /* Positive Voltage Gamma Control */
+    {0xE0, {0xD0, 0x00, 0x05, 0x0E, 0x15, 0x0D, 0x37, 0x43, 0x47, 0x09, 0x15, 0x12, 0x16, 0x19}, 14},
+    /* Negative Voltage Gamma Control */
+    {0xE1, {0xD0, 0x00, 0x05, 0x0D, 0x0C, 0x06, 0x2D, 0x44, 0x40, 0x0E, 0x1C, 0x18, 0x16, 0x19}, 14},
+    /* Sleep Out */
+    {0x11, {0}, 0x80},
+    /* Display On */
+    {0x29, {0}, 0x80},
+    {0, {0}, 0xff}
+
+        };
+     }
     // the driver for the ST7789 display
     template<uint16_t Width,
             uint16_t Height,
@@ -62,48 +106,7 @@ namespace espidf {
         // the maximum number of "in the air" transactions that can be queued
         constexpr static const size_t max_transactions = (0==MaxTransactions)?1:MaxTransactions;
     private:
-        struct init_cmd {
-            uint8_t cmd;
-            uint8_t data[16];
-            uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
-        };
-        DRAM_ATTR static const init_cmd init_cmds[] = {
-            //Place data into DRAM. Constant data gets placed into DROM by default, which is not accessible by DMA.
-    /* Memory Data Access Control */
-    {0x36, {0xA0}, 1},
-    /* Interface Pixel Format, 16bits/pixel for RGB/MCU interface */
-    {0x3A, {0x55}, 1},
-    /* Porch Setting */
-    {0xB2, {0x0c, 0x0c, 0x00, 0x33, 0x33}, 5},
-    /* Gate Control, Vgh=13.65V, Vgl=-10.43V */
-    {0xB7, {0x45}, 1},
-    /* VCOM Setting, VCOM=1.175V */
-    {0xBB, {0x2B}, 1},
-    /* LCM Control, XOR: BGR, MX, MH */
-    {0xC0, {0x2C}, 1},
-    // display inversion ON - not sure why this is necessary
-    {0x21, {},0},
-    /* VDV and VRH Command Enable, enable=1 */
-    {0xC2, {0x01, 0xff}, 2},
-    /* VRH Set, Vap=4.4+... */
-    {0xC3, {0x11}, 1},
-    /* VDV Set, VDV=0 */
-    {0xC4, {0x20}, 1},
-    /* Frame Rate Control, 60Hz, inversion=0 */
-    {0xC6, {0x0f}, 1},
-    /* Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V */
-    {0xD0, {0xA4, 0xA1}, 1},
-    /* Positive Voltage Gamma Control */
-    {0xE0, {0xD0, 0x00, 0x05, 0x0E, 0x15, 0x0D, 0x37, 0x43, 0x47, 0x09, 0x15, 0x12, 0x16, 0x19}, 14},
-    /* Negative Voltage Gamma Control */
-    {0xE1, {0xD0, 0x00, 0x05, 0x0D, 0x0C, 0x06, 0x2D, 0x44, 0x40, 0x0E, 0x1C, 0x18, 0x16, 0x19}, 14},
-    /* Sleep Out */
-    {0x11, {0}, 0x80},
-    /* Display On */
-    {0x29, {0}, 0x80},
-    {0, {0}, 0xff}
-
-        };
+       
         spi_driver_result write_window_impl(const spi_driver_rect& win,bool queued,spi_driver_set_window_flags set_flags) {
             //printf("(%d, %d)-(%d, %d)\r\n",win.x1,win.y1,win.x2,win.y2);
             
@@ -164,16 +167,16 @@ namespace espidf {
                 vTaskDelay(ts);
                 
                 //Send all the commands
-                while (init_cmds[cmd].databytes!=0xff) {
-                    spi_driver_result r = this->send_init_command(init_cmds[cmd].cmd);
+                while (st7789_helpers::init_cmds[cmd].databytes!=0xff) {
+                    spi_driver_result r = this->send_init_command(st7789_helpers::init_cmds[cmd].cmd);
                     if(spi_driver_result::success!= r) {
                         return r;
                     }
-                    r=this->send_init_data(init_cmds[cmd].data,init_cmds[cmd].databytes&0x1F);
+                    r=this->send_init_data(st7789_helpers::init_cmds[cmd].data,st7789_helpers::init_cmds[cmd].databytes&0x1F);
                     if(spi_driver_result::success!= r) {
                         return spi_driver_result::io_error;
                     }
-                    if (init_cmds[cmd].databytes&0x80) {
+                    if (st7789_helpers::init_cmds[cmd].databytes&0x80) {
                         vTaskDelay(ts);
                     }
                     ++cmd;
@@ -407,55 +410,5 @@ protected:
         }
         
     };
-#ifdef FUCK
-    template<uint16_t Width,
-            uint16_t Height,
-            spi_host_device_t HostId,
-            gpio_num_t PinCS,
-            gpio_num_t PinDC,
-            gpio_num_t PinRst,
-            gpio_num_t PinBacklight,
-            size_t BufferSize,
-            size_t MaxTransactions,
-            TickType_t Timeout,
-            bool UsePolling>
-    
-    const typename st7789<Width,Height,HostId,PinCS,PinDC,PinRst,PinBacklight,BufferSize,MaxTransactions,Timeout,UsePolling>::init_cmd st7789<Width,Height,HostId,PinCS,PinDC,PinRst,PinBacklight,BufferSize,MaxTransactions,Timeout,UsePolling>::init_cmds[]={
-            //Place data into DRAM. Constant data gets placed into DROM by default, which is not accessible by DMA.
-    // Memory Data Access Control 
-    {0x36, {0xA0}, 1},
-    // Interface Pixel Format, 16bits/pixel for RGB/MCU interface 
-    {0x3A, {0x55}, 1},
-    // Porch Setting 
-    {0xB2, {0x0c, 0x0c, 0x00, 0x33, 0x33}, 5},
-    // Gate Control, Vgh=13.65V, Vgl=-10.43V 
-    {0xB7, {0x45}, 1},
-    // VCOM Setting, VCOM=1.175V 
-    {0xBB, {0x2B}, 1},
-    // LCM Control, XOR: BGR, MX, MH 
-    {0xC0, {0x2C}, 1},
-    // display inversion ON - not sure why this is necessary
-    {0x21, {},0},
-    // VDV and VRH Command Enable, enable=1 
-    {0xC2, {0x01, 0xff}, 2},
-    // VRH Set, Vap=4.4+... 
-    {0xC3, {0x11}, 1},
-    // VDV Set, VDV=0 */
-    {0xC4, {0x20}, 1},
-    // Frame Rate Control, 60Hz, inversion=0 
-    {0xC6, {0x0f}, 1},
-    // Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V 
-    {0xD0, {0xA4, 0xA1}, 1},
-    // Positive Voltage Gamma Control 
-    {0xE0, {0xD0, 0x00, 0x05, 0x0E, 0x15, 0x0D, 0x37, 0x43, 0x47, 0x09, 0x15, 0x12, 0x16, 0x19}, 14},
-    // Negative Voltage Gamma Control 
-    {0xE1, {0xD0, 0x00, 0x05, 0x0D, 0x0C, 0x06, 0x2D, 0x44, 0x40, 0x0E, 0x1C, 0x18, 0x16, 0x19}, 14},
-    // Sleep Out 
-    {0x11, {0}, 0x80},
-    // Display On 
-    {0x29, {0}, 0x80},
-    {0, {0}, 0xff}
 
-        };
-#endif
 }

@@ -1,4 +1,3 @@
-//#define USE_SPI
 extern "C" { void app_main(); }
 
 #include <stdio.h>
@@ -7,13 +6,8 @@ extern "C" { void app_main(); }
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "i2c_master.hpp"
 #include "esp_spiffs.h"
-#ifdef USE_SPI
-#include "ssd1306_spi.hpp"
-#else
-#include "ssd1306_i2c.hpp"
-#endif
+#include "ssd1351.hpp"
 #include "gfx_drawing.hpp"
 #include "gfx_image.hpp"
 #include "gfx_drawing.hpp"
@@ -25,65 +19,106 @@ using namespace espidf;
 using namespace io;
 using namespace gfx;
 
+// the following is configured for the ESP-WROVER-KIT
+// make sure to set the pins to your set up.
+#define LCD_WIDTH 128
+#define LCD_HEIGHT 128
+#ifdef CONFIG_IDF_TARGET_ESP32
+#if defined(ESP_WROVER_KIT)
+#define PARALLEL_LINES 16
+#define LCD_HOST    HSPI_HOST
+#define DMA_CHAN    2
+#define PIN_NUM_MISO GPIO_NUM_25
+#define PIN_NUM_MOSI GPIO_NUM_23
+#define PIN_NUM_CLK  GPIO_NUM_19
+#define PIN_NUM_CS   GPIO_NUM_22
 
-#ifndef USE_SPI
-// ensure the following is configured for your setup
-#define LCD_PORT I2C_NUM_0
-#define PIN_SDA GPIO_NUM_21
-#define PIN_SCL GPIO_NUM_22
-#define I2C_FREQ 400000
-#define PIN_NUM_RST GPIO_NUM_NC
-i2c_master i2c(nullptr,LCD_PORT,PIN_SDA,PIN_SCL,true,true,I2C_FREQ);
-#else // USE_SPI
+#define PIN_NUM_DC   GPIO_NUM_21
+#define PIN_NUM_RST  GPIO_NUM_18
+#define PIN_NUM_BCKL GPIO_NUM_5
+#elif defined(ESP32_TTGO)
+#define LCD_WIDTH 240
+#define LCD_HEIGHT 135
+#define PARALLEL_LINES 16
+#define LCD_HOST    HSPI_HOST
+#define DMA_CHAN    2
+#define PIN_NUM_MISO GPIO_NUM_NC
+#define PIN_NUM_MOSI GPIO_NUM_19
+#define PIN_NUM_CLK  GPIO_NUM_18
+#define PIN_NUM_CS   GPIO_NUM_5
+
+#define PIN_NUM_DC   GPIO_NUM_16
+#define PIN_NUM_RST  GPIO_NUM_NC
+#define PIN_NUM_BCKL GPIO_NUM_4
+#else
+#define PARALLEL_LINES 16
 #define LCD_HOST    VSPI_HOST
 #define DMA_CHAN    2
-#define PIN_NUM_MISO GPIO_NUM_19 // not used with the SSD1306
+#define PIN_NUM_MISO GPIO_NUM_NC
 #define PIN_NUM_MOSI GPIO_NUM_23
 #define PIN_NUM_CLK  GPIO_NUM_18
 #define PIN_NUM_CS   GPIO_NUM_5
-#define PIN_NUM_RST GPIO_NUM_17
-#define PIN_NUM_DC GPIO_NUM_16
-spi_master spi(nullptr,
-                LCD_HOST,
-                PIN_NUM_CLK,
-                PIN_NUM_MISO,
-                PIN_NUM_MOSI,
-                GPIO_NUM_NC,
-                GPIO_NUM_NC,
-                1024+8, // we don't need much DMA for this display
-                DMA_CHAN);
+
+#define PIN_NUM_DC   GPIO_NUM_2
+#define PIN_NUM_RST  GPIO_NUM_4
+#define PIN_NUM_BCKL GPIO_NUM_15
 #endif
 
-#define LCD_WIDTH 128
-#define LCD_HEIGHT 64
+#elif defined CONFIG_IDF_TARGET_ESP32S2
+#define PARALLEL_LINES 16
+#define LCD_HOST    SPI2_HOST
+#define DMA_CHAN    LCD_HOST
 
+#define PIN_NUM_MISO GPIO_NUM_37
+#define PIN_NUM_MOSI GPIO_NUM_35
+#define PIN_NUM_CLK  GPIO_NUM_36
+#define PIN_NUM_CS   GPIO_NUM_34
 
-//#define LCD_VDC_5
-#if defined(LCD_VDC_5)
-#define LCD_VDC_3_3 false
-#else
-#define LCD_VDC_3_3 true
+#define PIN_NUM_DC   GPIO_NUM_4
+#define PIN_NUM_RST  GPIO_NUM_5
+#define PIN_NUM_BCKL GPIO_NUM_6
+#elif defined CONFIG_IDF_TARGET_ESP32C3
+#define LCD_ILI9341
+#define PARALLEL_LINES 16
+#define LCD_HOST    SPI2_HOST
+#define DMA_CHAN    LCD_HOST
+
+#define PIN_NUM_MISO GPIO_NUM_2
+#define PIN_NUM_MOSI GPIO_NUM_7
+#define PIN_NUM_CLK  GPIO_NUM_6
+#define PIN_NUM_CS   GPIO_NUM_10
+
+#define PIN_NUM_DC   GPIO_NUM_9
+#define PIN_NUM_RST  GPIO_NUM_18
+#define PIN_NUM_BCKL GPIO_NUM_19
 #endif
 
-// drivers that support double buffering expose it
-// through suspend and resume calls
-// GFX will use it automatically, but it can't know
-// about your own series of line draws for example,
-// only about individual lines, so if you want to
-// extend the scope and extents of the buffered
-// drawing you can use draw::suspend<>() and 
-// draw::resume<>().
 
-// Undefine this to see
-// the difference
-#define SUSPEND_RESUME
+// enable this to dump the jpeg images as ascii upon load
+//#define ASCII_JPEGS
+// To speed up transfers, every SPI transfer sends as much data as possible. 
 
-using lcd_type = 
-#ifndef USE_SPI
-    ssd1306_i2c<LCD_WIDTH,LCD_HEIGHT,LCD_PORT,0x3C,LCD_VDC_3_3,PIN_NUM_RST>;
-#else
-    ssd1306_spi<LCD_WIDTH,LCD_HEIGHT,LCD_VDC_3_3,false,LCD_HOST,PIN_NUM_CS,PIN_NUM_DC,PIN_NUM_RST>;
-#endif
+// configure the spi bus. Must be done before the driver
+spi_master spi_host(nullptr,
+                    LCD_HOST,
+                    PIN_NUM_CLK,
+                    PIN_NUM_MISO,
+                    PIN_NUM_MOSI,
+                    GPIO_NUM_NC,
+                    GPIO_NUM_NC,
+                    PARALLEL_LINES*LCD_WIDTH*2+8,
+                    DMA_CHAN);
+
+// we use the default, modest buffer - it makes things slower but uses less
+// memory. it usually works fine at default but you can change it for performance 
+// tuning. It's the final parameter: Note that it shouldn't be any bigger than 
+// the DMA size
+using lcd_type = ssd1351<LCD_HOST,
+                        PIN_NUM_CS,
+                        PIN_NUM_DC,
+                        PIN_NUM_RST>;
+
+
 
 lcd_type lcd;
 
@@ -136,33 +171,11 @@ void bmp_demo() {
     int dx = 1;
     int dy=2;
     int i =0;
-    draw::bitmap(lcd,(srect16)bmp.bounds(),bmp,bmp.bounds());
-    // demonstrates using a display as a draw *source*, from which 
-    // you can read portions of the display and draw them to bitmaps
-    // or even back to the display** (see the comments below)
-    while(i<50) {
-        srect16 sr = (srect16)lcd.bounds().offset(
-                        (rand()%lcd.dimensions().width)-bmp.dimensions().width,
-                        (rand()%lcd.dimensions().height)-bmp.dimensions().height);
-        // **we have to make sure we don't read and write from the same location at the same time
-        // if we do we we will get garbage, so eliminate the possibility of appearing in the 
-        // uper left
-        if(sr.x1<bmp_size.width)
-            sr=sr.offset(bmp_size.width,0);
-        if(sr.y1<bmp_size.height)
-            sr=sr.offset(0,bmp_size.height);
-        sr=sr.crop((srect16)lcd.bounds());
-        draw::bitmap(lcd,sr,lcd,bmp.bounds());
-        ++i;
-    }
     lcd.clear(lcd.bounds());
     // now we're going to draw the bitmap to the lcd instead, animating it
     i=0;
     srect16 r =(srect16)bmp.bounds().center(lcd.bounds());
     while(i<150) {
-#ifdef SUSPEND_RESUME
-        draw::suspend(lcd);
-#endif
         draw::filled_rectangle(lcd,r,lcd_color::black);
         srect16 r2 = r.offset(dx,dy);
         if(!((srect16)lcd.bounds()).contains(r2)) {
@@ -174,9 +187,6 @@ void bmp_demo() {
         } else
             r=r2;
         draw::bitmap(lcd,r,bmp,bmp.bounds());
-#ifdef SUSPEND_RESUME
-        draw::resume(lcd);
-#endif
         vTaskDelay(10/portTICK_PERIOD_MS);
         ++i;
         
@@ -193,9 +203,6 @@ void scroll_text_demo() {
     int16_t text_start = text_rect.x1;
     bool first=true;
     while(true) {
-#ifdef SUSPEND_RESUME
-        draw::suspend(lcd);
-#endif
         draw::filled_rectangle(lcd,text_rect,lcd_color::black);
         if(text_rect.x2>=320) {
             draw::filled_rectangle(lcd,text_rect.offset(-lcd.dimensions().width,0),lcd_color::black);
@@ -210,119 +217,48 @@ void scroll_text_demo() {
             text_rect=text_rect.offset(-lcd.dimensions().width,0);
             first=false;
         }
-#ifdef SUSPEND_RESUME
-        draw::resume(lcd);
-#endif
         if(!first && text_rect.x1>=text_start)
             break;
         vTaskDelay(1);
     }
 }
-void dump_frame_buffer() {
-    
-    for(int i=0;i<lcd_type::width*lcd_type::height/8;++i) {
-        if(0==i%lcd_type::width) {
-            printf("\r\n");
-        }
-        printf("%02X",(int)lcd.frame_buffer()[i]);
-    }
-    printf("\r\n");
-}
+
 void lines_demo() {
-    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
+    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
     const font& f = Bm437_Acer_VGA_8x8_FON;
     const char* text = "ESP32 GFX";
     srect16 text_rect = srect16(spoint16(0,0),
                             f.measure_text((ssize16)lcd.dimensions(),
                             text));
                             
-    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),text,f,lcd_color::white);
-
-    for(int i = 1;i<100;i+=10) {
-#ifdef SUSPEND_RESUME
-        draw::suspend(lcd);
-#endif
+    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),text,f,lcd_color::dark_blue);
+    for(int i = 1;i<100;i+=2) {
         // calculate our extents
         srect16 r(i*(lcd_type::width/100.0),
                 i*(lcd_type::height/100.0),
                 lcd_type::width-i*(lcd_type::width/100.0)-1,
                 lcd_type::height-i*(lcd_type::height/100.0)-1);
-
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::white);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::white);
-        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::white);
-        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::white);
-#ifdef SUSPEND_RESUME
-        draw::resume(lcd);
-#endif
+        // draw the four lines
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::light_blue);
+        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::hot_pink);
+        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::pale_green);
+        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
+        // the ESP32 wdt will get tickled
+        // unless we do this:
         vTaskDelay(1);
     }
     
     vTaskDelay(500/portTICK_PERIOD_MS);
 }
-void intro() {
-    
-#ifdef SUSPEND_RESUME
-    lcd.suspend();
-#endif
 
-    lcd.clear(lcd.bounds());
-    const char* text = "presenting...";
-    const font& f = Bm437_ATI_9x16_FON;
-    srect16 sr = f.measure_text((ssize16)lcd.dimensions(),text).bounds();
-    sr=sr.center((srect16)lcd.bounds());
-    draw::text(lcd,sr,text,f,lcd_color::white);
-#ifdef SUSPEND_RESUME
-    lcd.resume();
-#endif
-    vTaskDelay(1500/portTICK_PERIOD_MS);
-#ifdef SUSPEND_RESUME
-    lcd.suspend();
-#endif
-    for(int i=0;i<lcd.dimensions().width;i+=4) {
-        draw::line(lcd,srect16(i,0,i+1,lcd.dimensions().height-1),lcd_color::white);
-        vTaskDelay(50/portTICK_PERIOD_MS);
-    }
-#ifdef SUSPEND_RESUME
-    lcd.resume();
-#endif
-    vTaskDelay(100/portTICK_PERIOD_MS);
-    
-#ifdef SUSPEND_RESUME
-    lcd.suspend();
-#endif
-    for(int i=2;i<lcd.dimensions().width;i+=4) {
-        draw::line(lcd,srect16(i,0,i+1,lcd.dimensions().height-1),lcd_color::white);
-        vTaskDelay(50/portTICK_PERIOD_MS);
-    }
-#ifdef SUSPEND_RESUME
-    lcd.resume();
-#endif
-    vTaskDelay(1000/portTICK_PERIOD_MS);
-}
 void app_main(void)
 {
     // check to make sure host or port was initialized successfully
-#ifndef USE_SPI
-    if(!i2c.initialized()) {
-        printf("I2C port initialization error.\r\n");
-        vTaskDelay(portMAX_DELAY);
-    }
-#else
-    if(!spi.initialized()) {
+    if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");
         vTaskDelay(portMAX_DELAY);
     }
-#endif
-    
-    lcd_type::result r= lcd.initialize();
-    
-    if(lcd_type::result::success!=r) {
-        printf("display initialization error.\r\n");
-        vTaskDelay(portMAX_DELAY);
-    }
-    
-    intro();
+
     while(true) {
      lines_demo();
      scroll_text_demo();

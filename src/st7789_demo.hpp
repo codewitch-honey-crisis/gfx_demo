@@ -8,7 +8,7 @@ extern "C" { void app_main(); }
 #include "esp_system.h"
 #include "spi_master.hpp"
 #include "esp_spiffs.h"
-#include "ili9341.hpp"
+#include "st7789.hpp"
 #include "gfx_drawing.hpp"
 #include "gfx_image.hpp"
 #include "gfx_drawing.hpp"
@@ -21,11 +21,13 @@ extern "C" { void app_main(); }
 using namespace espidf;
 using namespace io;
 using namespace gfx;
+
 // the following is configured for the ESP-WROVER-KIT
 // make sure to set the pins to your set up.
+#define LCD_WIDTH 320
+#define LCD_HEIGHT 240
 #ifdef CONFIG_IDF_TARGET_ESP32
 #if defined(ESP_WROVER_KIT)
-#define LCD_ILI9341
 #define PARALLEL_LINES 16
 #define LCD_HOST    HSPI_HOST
 #define DMA_CHAN    2
@@ -38,7 +40,6 @@ using namespace gfx;
 #define PIN_NUM_RST  GPIO_NUM_18
 #define PIN_NUM_BCKL GPIO_NUM_5
 #elif defined(ESP32_TTGO)
-#define LCD_ST7789
 #define LCD_WIDTH 240
 #define LCD_HEIGHT 135
 #define PARALLEL_LINES 16
@@ -53,22 +54,20 @@ using namespace gfx;
 #define PIN_NUM_RST  GPIO_NUM_NC
 #define PIN_NUM_BCKL GPIO_NUM_4
 #else
-#define LCD_ILI9341
 #define PARALLEL_LINES 16
-#define LCD_HOST    HSPI_HOST
+#define LCD_HOST    VSPI_HOST
 #define DMA_CHAN    2
-#define PIN_NUM_MISO GPIO_NUM_12
-#define PIN_NUM_MOSI GPIO_NUM_13
-#define PIN_NUM_CLK  GPIO_NUM_14
-#define PIN_NUM_CS   GPIO_NUM_22
+#define PIN_NUM_MISO GPIO_NUM_NC
+#define PIN_NUM_MOSI GPIO_NUM_23
+#define PIN_NUM_CLK  GPIO_NUM_18
+#define PIN_NUM_CS   GPIO_NUM_5
 
-#define PIN_NUM_DC   GPIO_NUM_21
-#define PIN_NUM_RST  GPIO_NUM_15
-#define PIN_NUM_BCKL GPIO_NUM_5
+#define PIN_NUM_DC   GPIO_NUM_2
+#define PIN_NUM_RST  GPIO_NUM_4
+#define PIN_NUM_BCKL GPIO_NUM_15
 #endif
 
 #elif defined CONFIG_IDF_TARGET_ESP32S2
-#define LCD_ILI9341
 #define PARALLEL_LINES 16
 #define LCD_HOST    SPI2_HOST
 #define DMA_CHAN    LCD_HOST
@@ -117,7 +116,9 @@ spi_master spi_host(nullptr,
 // memory. it usually works fine at default but you can change it for performance 
 // tuning. It's the final parameter: Note that it shouldn't be any bigger than 
 // the DMA size
-using lcd_type = ili9341<LCD_HOST,
+using lcd_type = st7789<LCD_WIDTH,
+                        LCD_HEIGHT,
+                        LCD_HOST,
                         PIN_NUM_CS,
                         PIN_NUM_DC,
                         PIN_NUM_RST,
@@ -153,11 +154,11 @@ bmp_type bmp(bmp_size,bmp_buf);
 
 // produced by request
 void scroll_text_demo() {
-    
     lcd.clear(lcd.bounds());
+    
     // draw stuff
     bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
-    
+
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1)/(4/3.0));
     rect16 ubounds(0,0,bounds.x2,bounds.y2);
@@ -223,13 +224,14 @@ void lines_demo() {
     const char* text = "ESP32 GFX Demo";
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                             text).bounds();
+
     draw::text(lcd,
             text_rect.center((srect16)lcd.bounds()),
             text,
             f,
             lcd_color::dark_blue);
 
-    for(int i = 1;i<100;i+=2) {
+    for(int i = 1;i<100;++i) {
         // calculate our extents
         srect16 r(i*(lcd_type::width/100.0),
                 i*(lcd_type::height/100.0),
@@ -281,9 +283,8 @@ static void display_pretty_colors()
             //Calculate a line.
             pretty_effect_calc_lines(lines[calc_line], y, frame, PARALLEL_LINES);
             // wait for the last frame to finish. Don't need this unless transactions are > 7
-            if(-1!=sending_line) {
+            if(-1!=sending_line)
                 draw::wait_all_async(lcd);
-            }
             //Swap sending_line and calc_line
             sending_line=calc_line;
             calc_line=(calc_line==1)?0:1;

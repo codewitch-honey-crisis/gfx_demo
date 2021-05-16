@@ -170,11 +170,12 @@ namespace espidf {
             trans->rx_buffer = nullptr;
             //memset(trans->rx_data,0,sizeof(trans->rx_data));
             trans->rxlength = 0;
-            if(size>sizeof(trans->tx_data)) {
+            if(size>4) {
                 trans->flags = 0;
                 trans->tx_buffer = data;
             } else {
                 trans->flags = SPI_TRANS_USE_TXDATA;
+                trans->tx_buffer = nullptr;
                 memcpy(trans->tx_data,data,size);
             }
             //memset(trans->tx_data,0,sizeof(trans->tx_data));

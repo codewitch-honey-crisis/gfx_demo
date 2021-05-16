@@ -13,6 +13,12 @@
         "limits": "cpp",
         "memory": "cpp",
         "ostream": "cpp",
-        "tuple": "cpp"
+        "tuple": "cpp",
+        "codecvt": "cpp",
+        "exception": "cpp",
+        "algorithm": "cpp",
+        "iterator": "cpp",
+        "ratio": "cpp",
+        "type_traits": "cpp"
     }
 }

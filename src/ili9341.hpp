@@ -8,7 +8,7 @@
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
-
+#include "spi_driver.hpp"
 namespace espidf {
     // the driver for an ILI9341 display
     template<spi_host_device_t HostId,
@@ -16,330 +16,106 @@ namespace espidf {
             gpio_num_t PinDC,
             gpio_num_t PinRst,
             gpio_num_t PinBacklight,
-            size_t BufferSize=64,
             size_t MaxTransactions=7,
+            bool UsePolling = true,
+            size_t DmaSize = -1,
             TickType_t Timeout=5000/portTICK_PERIOD_MS,
-            bool UsePolling=true>
-    struct ili9341 {
-        // the SPI host to use
-        constexpr static const spi_host_device_t host_id = HostId;
-        // the CS pin
-        constexpr static const gpio_num_t pin_cs = PinCS;
-        // the DC pin
-        constexpr static const gpio_num_t pin_dc = PinDC;
+            size_t BatchBufferSize=64
+            >
+    struct ili9341 : 
+            public spi_driver<320,
+                            240,
+                            HostId,
+                            PinCS,
+                            PinDC,
+#ifdef HTCW_ILI9341_OVERCLOCK
+                            26*1000*1000,
+#else
+                            10*1000*1000,
+#endif
+                            MaxTransactions,
+                            UsePolling,
+                            DmaSize,
+                            Timeout,
+                            BatchBufferSize> {
+        using base_type = spi_driver<320,
+                            240,
+                            HostId,
+                            PinCS,
+                            PinDC,
+#ifdef HTCW_ILI9341_OVERCLOCK
+                            26*1000*1000,
+#else
+                            10*1000*1000,
+#endif
+                            MaxTransactions,
+                            UsePolling,
+                            DmaSize,
+                            Timeout,
+                            BatchBufferSize>;
         // the RST pin
         constexpr static const gpio_num_t pin_rst = PinRst;
         // the BL pin
         constexpr static const gpio_num_t pin_backlight = PinBacklight;
-        // indicates the buffer size. If specified, will end up being a multiple of 2. The minimum value is 4, for efficiency
-        constexpr static const size_t buffer_size = ((BufferSize<4?4:BufferSize)/2)*2;
-        // the width of the display
-        constexpr static const uint16_t width = 320;
-        // the height of the display
-        constexpr static const uint16_t height = 240;
         // the maximum number of "in the air" transactions that can be queued
         constexpr static const size_t max_transactions = (0==MaxTransactions)?1:MaxTransactions;
-        // the timeout for queued sends
-        constexpr static const TickType_t timeout = Timeout;
-        // indicates whether non queued transactions use polling
-        constexpr static const bool use_polling = UsePolling;
-        // indicates the result of driver operations
-        enum struct result {
-            // the operation completed successfully
-            success = 0,
-            // an invalid argument was passed
-            invalid_argument=1,
-            // there is no more memory
-            out_of_memory=2,
-            // an I/O error occurred
-            io_error=3,
-            // the operation timed out
-            timeout=4,
-            // there is too much I/O pending
-            io_pending=5
-        };
     private:
-        uint8_t m_buffer[buffer_size];
-        bool m_initialized;
-        size_t m_batch_left;
-        spi_device m_spi;
-        spi_device_manager<max_transactions,timeout> m_spi_mgr;
-        // address window caching
-        uint16_t m_batch_x1;
-        uint16_t m_batch_y1;
-        uint16_t m_batch_x2;
-        uint16_t m_batch_y2;
         struct init_cmd {
             uint8_t cmd;
             uint8_t data[16];
             uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
         };
         DRAM_ATTR static const init_cmd s_init_cmds[];
-        
-
-        inline static spi_device_interface_config_t get_device_config() {
-            spi_device_interface_config_t devcfg={
-                .command_bits=0,
-                .address_bits=0,
-                .dummy_bits=0,
-                .mode=0,
-                .duty_cycle_pos=0,
-                .cs_ena_pretrans=0,
-                .cs_ena_posttrans=0,
-        #ifdef HTCW_ILI9341_OVERCLOCK
-                .clock_speed_hz=26*1000*1000,           //Clock out at 26 MHz
-        #else
-                .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
-        #endif
-                .input_delay_ns = 0,
-                .spics_io_num=pin_cs,               //CS pin
-                .flags =0,
-                .queue_size=max_transactions,                          //We want to be able to queue 7 transactions at a time
-                .pre_cb=[](spi_transaction_t*t){
-                    int dc=(int)t->user;
-                    gpio_set_level(pin_dc, dc);
-                },  //Specify pre-transfer callback to handle D/C line
-                .post_cb=NULL
-            };
-            return devcfg;
-        } 
-        static result xlt_err(spi_result rr) {
+        spi_driver_result write_window_impl(const spi_driver_rect& win,bool queued,spi_driver_set_window_flags set_flags) {
+            //printf("(%d, %d)-(%d, %d)\r\n",win.x1,win.y1,win.x2,win.y2);
             
-            if(spi_result::success!=rr) {
-                switch(rr) {
-                    case spi_result::timeout:
-                        return result::timeout;
-                    case spi_result::out_of_memory:
-                        return result::out_of_memory;
-                    case spi_result::previous_transactions_pending:
-                        return result::io_pending;
-                    default:
-                        return result::io_error;
-                }
-            }
-            return result::success;
-        }
-       
-        result commit_batch_internal(bool queued) {
-            result r=send_next_data(m_buffer,m_batch_left*2,queued,true);
-            if(result::success!=r)
-                return r;
-            m_batch_left=0;
-            return result::success;
-        }
-        result send_next_internal(const uint8_t* data,size_t size,bool queued,bool user,bool skip_batch_commit) {
-            if(!initialized()) {
-                result r = initialize();
-                if(result::success!=r)
-                    return r;
-            }
-            spi_result rr;
-            if(!skip_batch_commit&&m_batch_left!=0) {
-                result r=commit_batch_internal(queued);
-                if(result::success!=r)
-                    return r;
-            }
-            rr = m_spi_mgr.write(data,size,(void*)user,(queued)?spi_transaction_type::queued:(use_polling)?spi_transaction_type::polling:spi_transaction_type::interrupt);
-            if(spi_result::success!=rr)
-                return xlt_err(rr);
-            return result::success;
-        }
-        inline result send_next_command(uint8_t cmd,bool queued,bool skip_batch_commit=false) {
-            return send_next_internal(&cmd,1,queued,false,skip_batch_commit);
-        }
-        inline result send_next_data(const uint8_t* data,size_t size,bool queued,bool skip_batch_commit=false) {
-            return send_next_internal(data,size,queued,true,skip_batch_commit);
-        }
-        result batch_write_commit_impl(bool queued) {
-            if(m_batch_left==0)  {
-                return result::success;
-            }
-           result r = send_next_data(m_buffer,m_batch_left*2,queued,true);
-            if(result::success!=r)
-                return r;
-            m_batch_left=0;
-            return result::success;
-        }
-        result batch_write_begin_impl(uint16_t x1,
-                                    uint16_t y1,
-                                    uint16_t x2,
-                                    uint16_t y2,
-                                    bool queued,
-                                    bool set_full) {
-             // normalize values
-            uint16_t tmp;
-            if(x1>x2) {
-                tmp=x1;
-                x1=x2;
-                x2=tmp;
-            }
-            if(y1>y2) {
-                tmp=y1;
-                y1=y2;
-                y2=tmp;
-            }
-            result r;
+            spi_driver_result r;
             uint8_t tx_data[4];
-            bool sent = false;
-            if(set_full||x1!=m_batch_x1||x2!=m_batch_x2) {
-                //Column Address Set
-                r=send_next_command(0x2A,queued);
-                if(result::success!=r)
+            //Column Address Set
+            r=this->send_next_command(0x2A,queued);
+            if(spi_driver_result::success!=r)
+                return r;
+            if(set_flags.x1 || set_flags.x2) {
+                tx_data[0]=win.x1>>8;             //Start Col High
+                tx_data[1]=win.x1&0xFF;           //Start Col Low
+                tx_data[2]=win.x2>>8;             //End Col High
+                tx_data[3]=win.x2&0xff;           //End Col Low
+                r=this->send_next_data(tx_data,4,queued,true);
+                if(spi_driver_result::success!=r)
                     return r;
-                tx_data[0]=x1>>8;             //Start Col High
-                tx_data[1]=x1&0xFF;           //Start Col Low
-                tx_data[2]=x2>>8;             //End Col High
-                tx_data[3]=x2&0xff;           //End Col Low
-                r=send_next_data(tx_data,4,queued,true);
-                if(result::success!=r)
-                    return r;
-                m_batch_x1=x1;
-                m_batch_x2=x2;
-                sent = true;
-            } 
-            if(set_full||!sent||y1!=m_batch_y1||y2!=m_batch_y2) {
+            }
+            if(set_flags.y1 || set_flags.y2 || !(set_flags.x1 || set_flags.x2)) {
                 //Page address set
-                r=send_next_command(0x2B,queued,true);
-                if(result::success!=r)
+                r=this->send_next_command(0x2B,queued,true);
+                if(spi_driver_result::success!=r)
                     return r;
-                tx_data[0]=y1>>8;        //Start page high
-                tx_data[1]=y1&0xff;      //start page low
-                tx_data[2]=y2>>8;        //end page high
-                tx_data[3]=y2&0xff;      //end page low
-                r=send_next_data(tx_data,4,queued,true);
-                if(result::success!=r)
+                tx_data[0]=win.y1>>8;        //Start page high
+                tx_data[1]=win.y1&0xff;      //start page low
+                tx_data[2]=win.y2>>8;        //end page high
+                tx_data[3]=win.y2&0xff;      //end page low
+                r=this->send_next_data(tx_data,4,queued,true);
+                if(spi_driver_result::success!=r)
                     return r;
-                m_batch_y1=y1;
-                m_batch_y2=y2;
             }
             // Memory write
-            return send_next_command(0x2C,queued,true);
-        }       
-        result batch_write_impl(const uint16_t* pixels,
-                                size_t count,
-                                bool queued) {
-            if(!m_initialized)
-                return result::io_error;
-            result r;
-            size_t index = m_batch_left;
-            if(index==buffer_size/2) {
-                 r=send_next_data(m_buffer,buffer_size,queued,true);
-                if(result::success!=r) {
-                    return r;
-                }
-                m_batch_left=0;
-                index = 0;
-            }
-            uint16_t* p=((uint16_t*)m_buffer)+index;
-            while(0<count) {    
-                *p=*pixels;
-                --count;
-                ++m_batch_left;
-                ++pixels;
-                ++p;
-                if(m_batch_left==(buffer_size/2)) {
-                    r=send_next_data(m_buffer,buffer_size,queued,true);
-                    if(result::success!=r)
-                        return r;
-                    p=(uint16_t*)m_buffer;
-                    m_batch_left=0;
-                }
-            }
-            return result::success;
-        }
-        result frame_fill_impl(uint16_t x1,
-                            uint16_t y1, 
-                            uint16_t x2,
-                            uint16_t y2,
-                            uint16_t color,
-                            bool queued) {
-            // normalize values
-            uint16_t tmp;
-            if(x1>x2) {
-                tmp=x1;
-                x1=x2;
-                x2=tmp;
-            }
-            if(y1>y2) {
-                tmp=y1;
-                y1=y2;
-                y2=tmp;
-            }
-            uint16_t w = x2-x1+1;
-            uint16_t h = y2-y1+1;
-            result r;
-            if(w==1&&h==1) {
-                return pixel_write_impl(x1,y1,color,queued);
-            }
-            spi_result sr = m_spi.acquire_bus(portMAX_DELAY);
-            if(spi_result::success!=sr)
-                return xlt_err(sr);
-            r=batch_write_begin_impl(x1,y1,x2,y2,queued,false);
-            if(result::success!=r) {
-                m_spi.release_bus();
-                return r;
-            }
-            size_t pc=w*h;
-            while(pc>0) {
-                r=batch_write_impl(&color,1,queued);
-                if(result::success!=r) {
-                    m_spi.release_bus();
-                    return r;
-                }
-                --pc;
-            }
-            r=batch_write_commit_impl(queued);
-            m_spi.release_bus();
-            return r;           
-        }
-        result pixel_write_impl(uint16_t x,
-                                uint16_t y,
-                                uint16_t color,
-                                bool queued) {
-            // check values
-            if(x>=width || y>=height)
-                return result::success;
-            
-            // set the address window. we're not
-            // actually batching here.
-            result r=batch_write_begin_impl(x,y,x,y,queued,false);
-            if(result::success!=r)
-                return r;
-            return send_next_data((uint8_t*)&color,2,queued,false);
+            return this->send_next_command(0x2C,queued,true);
         }
     public:
         // constructs a new instance of the driver
-        ili9341(result* out_result = nullptr) : 
-            m_initialized(false),
-            m_batch_left(0),
-            m_spi(host_id,get_device_config()),
-            m_spi_mgr(m_spi),
-            m_batch_x1(uint16_t(-1)),
-            m_batch_y1(uint16_t(-1)),
-            m_batch_x2(uint16_t(-1)),
-            m_batch_y2(uint16_t(-1)) {
-            if(!m_spi.initialized()) {
-                if(nullptr!=out_result) {
-                    *out_result=result::io_error;
-                }
-                return;
-            }
+        ili9341() {
+            
         }
-        // indicates if the driver is initialized
-        inline bool initialized() const {
-            return m_initialized;
-        }
+        virtual ~ili9341() {}
         // forces initialization of the driver
-        result initialize()
+        spi_driver_result initialize()
         {
-            if(!m_initialized) {
-                m_batch_left=0;
+            if(!this->initialized()) {
                 static const TickType_t ts = 100/portTICK_RATE_MS;
 
                 int cmd=0;
                 
                 //Initialize non-SPI GPIOs
-                gpio_set_direction(pin_dc, GPIO_MODE_OUTPUT);
+                gpio_set_direction(base_type::pin_dc, GPIO_MODE_OUTPUT);
                 gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);
                 gpio_set_direction(pin_backlight, GPIO_MODE_OUTPUT);
 
@@ -351,173 +127,49 @@ namespace espidf {
                 
                 //Send all the commands
                 while (s_init_cmds[cmd].databytes!=0xff) {
-                    if(spi_result::success!= m_spi.write(&s_init_cmds[cmd].cmd,1)) {
-                        return result::io_error;
+                    spi_driver_result r = this->send_init_command(s_init_cmds[cmd].cmd);
+                    if(spi_driver_result::success!= r) {
+                        return r;
                     }
-                    if(spi_result::success!= m_spi.write(s_init_cmds[cmd].data,s_init_cmds[cmd].databytes&0x1F,(void*)1)) {
-                        return result::io_error;
+                    r=this->send_init_data(s_init_cmds[cmd].data,s_init_cmds[cmd].databytes&0x1F);
+                    if(spi_driver_result::success!= r) {
+                        return spi_driver_result::io_error;
                     }
                     if (s_init_cmds[cmd].databytes&0x80) {
                         vTaskDelay(ts);
                     }
                     ++cmd;
                 }
-
                 ///Enable backlight
                 gpio_set_level(pin_backlight, 0);
-
-                m_initialized=true;
             }
-            return result::success;
+            return spi_driver_result::success;
         }
-        // writes bitmap data to the frame buffer
-        result frame_write(uint16_t x1,uint16_t y1, uint16_t x2, uint16_t y2,const uint8_t* bmp_data) {
-            // normalize values
-            uint16_t tmp;
-            if(x1>x2) {
-                tmp=x1;
-                x1=x2;
-                x2=tmp;
-            }
-            if(y1>y2) {
-                tmp=y1;
-                y1=y2;
-                y2=tmp;
-            }
-            if(x1>=width || y1>=height)
-                return result::success;
-            result r=batch_write_begin(x1,y1,x2,y2);
-            if(result::success!=r)
-                return r;
-            return send_next_data(bmp_data,(x2-x1+1)*(y2-y1+1)*2,false,true);
+protected:
+        virtual spi_driver_result write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags) {
+            return write_window_impl(bounds,false,set_flags);
         }
-        // queues a frame write operation. The bitmap data must be valid 
-        // for the duration of the operation (until queued_wait_all())
-        result queued_frame_write(uint16_t x1,
-                                uint16_t y1, 
-                                uint16_t x2, 
-                                uint16_t y2,
-                                uint8_t* bmp_data,
-                                bool preflush=false) {
-            
-            // normalize values
-            uint16_t tmp;
-            if(x1>x2) {
-                tmp=x1;
-                x1=x2;
-                x2=tmp;
-            }
-            if(y1>y2) {
-                tmp=y1;
-                y1=y2;
-                y2=tmp;
-            }
-            if(x1>=width || y1>=height)
-                return result::success;
-            result r;
-            if(preflush) {
-                // flush any pending batches or 
-                // transactions if necessary:
-                r=batch_write_commit_impl(true);
-                if(result::success!=r) {
-                    return r;
-                }
-                r=queued_wait_all();
-                if(result::success!=r)
-                    return r;
-            }
-            // set the address window - we don't actually do a batch
-            // here, but we use this for our own purposes
-            r=batch_write_begin_impl(x1,y1,x2,y2,true,true);
-            if(result::success!=r)
-                return r;
-            
-            r=send_next_data(bmp_data,
-                            (x2-x1+1)*(y2-y1+1)*2,
-                            true);
-            
-            // When we are here, the SPI driver is busy (in the background) 
-            // getting the transactions sent. That happens mostly using DMA, 
-            // so the CPU doesn't have much to do here. We're not going to 
-            // wait for the transaction to finish because we may as well spend
-            // the time doing something else. When that is done, we can call
-            // queued_wait_all(), which will wait for the transfers to be done.
-            // otherwise, the transactions will be queued as the old ones finish
-            return r;  
-        }
-        // fills the target rectangle of the frame buffer with a pixel
-        result frame_fill(uint16_t x1,uint16_t y1, uint16_t x2, uint16_t y2,uint16_t color) {
-            if(x1==x2&&y1==y2)
-               return pixel_write_impl(x1,x2,color,false);
-            return frame_fill_impl(x1,y1,x2,y2,color,false);
-        }
-        // queues the fill of a target rectangle with the specified pixel
-        result queued_frame_fill(uint16_t x1,uint16_t y1, uint16_t x2, uint16_t y2,uint16_t color) {
-            if(x1==x2&&y1==y2)
-                return pixel_write_impl(x1,x2,color,false);
-            return frame_fill_impl(x1,y1,x2,y2,color,true);
+        virtual spi_driver_result queued_write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags) {
+            return write_window_impl(bounds,true,set_flags);
         }
 
-        // begins a batch write for the given target coordinates
-        result batch_write_begin(uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2) {
-            return batch_write_begin_impl(x1,y1,x2,y2,false,true);
-        }
-        // queues the beginning of a batch write for the target coordinates
-        result queued_batch_write_begin(uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2) {
-            return batch_write_begin_impl(x1,y1,x2,y2,true,true);
-        }
-        // does a batch write. the batch operation must have been started with
-        // batch_write_begin() or queued_batch_write_begin()
-        result batch_write(const uint16_t* pixels,size_t count) {
-            return batch_write_impl(pixels,count,false);
-        }
-        // does a queued batch write. the batch operation must have been started with
-        // batch_write_begin() or queued_batch_write_begin()
-        result queued_batch_write(const uint16_t* pixels,size_t count) {
-            return batch_write_impl(pixels,count,true);
-        }
-        // commits any pending batch
-        result batch_write_commit() {
-            return batch_write_commit_impl(false);
-        }
-        // queues the commit of any pending batch
-        result queued_batch_write_commit() {
-            return batch_write_commit_impl(true);
-        }
-        // writes a pixel at the specified coordinates
-        inline result pixel_write(uint16_t x,uint16_t y,uint16_t color) {
-            return pixel_write_impl(x,y,color,false);
-        }
-        // queues a write of a pixel at the specified coordinates
-        inline result queued_pixel_write(uint16_t x,uint16_t y,uint16_t color) {
-            return pixel_write_impl(x,y,color,true);
-        }
-        // waits for all pending queued operations
-        result queued_wait_all()
-        {
-            spi_result rr = m_spi_mgr.wait_all();
-            if(spi_result::success!=rr)
-                return xlt_err(rr);
-            return result::success;
-        }
-        
         // GFX bindings
  public:
         // indicates the type, itself
-        using type = ili9341<HostId,PinCS,PinDC,PinRst,PinBacklight,BufferSize,MaxTransactions,Timeout>;
+        using type = ili9341<HostId,PinCS,PinDC,PinRst,PinBacklight,MaxTransactions,UsePolling,DmaSize,Timeout,BatchBufferSize>;
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver
         using caps = gfx::gfx_caps<false,true,true,true,false,false>;
  
  private:
-        gfx::gfx_result xlt_err(result r) {
+        gfx::gfx_result xlt_err(spi_driver_result r) {
             switch(r) {
-                case result::io_error:
+                case spi_driver_result::io_error:
                     return gfx::gfx_result::device_error;
-                case result::out_of_memory:
+                case spi_driver_result::out_of_memory:
                     return gfx::gfx_result::out_of_memory;
-                case result::success:
+                case spi_driver_result::success:
                     return gfx::gfx_result::success;
                 default:
                     return gfx::gfx_result::invalid_argument;
@@ -525,7 +177,7 @@ namespace espidf {
         }
         template<typename Source>
         gfx::gfx_result copy_from_impl(const gfx::rect16& src_rect,const Source& src,gfx::point16 location,bool async) {
-            result r;
+            spi_driver_result r;
             gfx::rect16 srcr = src_rect.normalize().crop(src.bounds());
             gfx::rect16 dstr(location,src_rect.dimensions());
             dstr=dstr.crop(bounds());
@@ -538,11 +190,12 @@ namespace espidf {
             if(gfx::helpers::is_same<pixel_type,typename Source::pixel_type>::value && Source::caps::blt) {
                 // direct blt
                 if(src.bounds().width()==srcr.width() && srcr.x1==0) {
+                    spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
                     if(!async)
-                        r=frame_write(dstr.x1,dstr.y1,dstr.x2,dstr.y2,src.begin()+(srcr.y1*src.dimensions().width*2));
+                        r=this->frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
                     else
-                        r=queued_frame_write(dstr.x1,dstr.y1,dstr.x2,dstr.y2,src.begin()+(srcr.y1*src.dimensions().width*2));
-                    if(result::success!=r) {
+                        r=this->queued_frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
+                    if(spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
                     return gfx::gfx_result::success;
@@ -552,11 +205,12 @@ namespace espidf {
                 uint16_t hh=srcr.height();
                 uint16_t ww = src.dimensions().width;
                 while(yy<hh) {
+                    spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
                     if(!async)
-                        r = frame_write(dstr.x1,dstr.y1+yy,dstr.x2,dstr.x2+yy,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
+                        r = this->frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
                     else
-                        r = queued_frame_write(dstr.x1,dstr.y1+yy,dstr.x2,dstr.x2+yy,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
-                    if(result::success!=r) {
+                        r = this->queued_frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
+                    if(spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
                     ++yy;
@@ -565,11 +219,12 @@ namespace espidf {
             }
             uint16_t w = dstr.dimensions().width;
             uint16_t h = dstr.dimensions().height;
+            spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
             if(!async)
-                r=batch_write_begin(dstr.x1,dstr.y1,dstr.x2,dstr.y2);
+                r=this->batch_write_begin(drr);
             else
-                r=queued_batch_write_begin(dstr.x1,dstr.y1,dstr.x2,dstr.y2);
-            if(result::success!=r) {
+                r=this->queued_batch_write_begin(drr);
+            if(spi_driver_result::success!=r) {
                 return xlt_err(r);
             }
             for(uint16_t y=0;y<h;++y) {
@@ -584,19 +239,19 @@ namespace espidf {
                     }
                     uint16_t pv = p.value();
                     if(!async)
-                        r = batch_write(&pv,1);
+                        r = this->batch_write(&pv,1);
                     else
-                        r = queued_batch_write(&pv,1);
-                    if(result::success!=r) {
+                        r = this->queued_batch_write(&pv,1);
+                    if(spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
                 }
             }
             if(!async)
-                r=batch_write_commit();
+                r=this->batch_write_commit();
             else
-                r=queued_batch_write_commit();
-            if(result::success!=r) {
+                r=this->queued_batch_write_commit();
+            if(spi_driver_result::success!=r) {
                 return xlt_err(r);
             }
             return gfx::gfx_result::success;
@@ -604,7 +259,7 @@ namespace espidf {
  public:
         // retrieves the dimensions of the screen
         constexpr inline gfx::size16 dimensions() const {
-            return gfx::size16(width,height);
+            return gfx::size16(base_type::width,base_type::height);
         }
         // retrieves the bounds of the screen
         constexpr inline gfx::rect16 bounds() const {
@@ -612,90 +267,92 @@ namespace espidf {
         }
         // sets a point to the specified pixel
         gfx::gfx_result point(gfx::point16 location,pixel_type pixel) {
-            result r = pixel_write(location.x,location.y,pixel.value());
-            if(result::success!=r)
+            spi_driver_result r = this->pixel_write(location.x,location.y,pixel.value());
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // asynchronously sets a point to the specified pixel
         gfx::gfx_result point_async(gfx::point16 location,pixel_type pixel) {
-            result r = queued_pixel_write(location.x,location.y,pixel.value());
-            if(result::success!=r)
+            spi_driver_result r = this->queued_pixel_write(location.x,location.y,pixel.value());
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // fills the specified rectangle with the specified pixel
-        gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
-            //printf("fill\r\n");
-            result r=frame_fill(rect.x1,rect.y1,rect.x2,rect.y2,color.value());
-            if(result::success!=r)
+        gfx::gfx_result fill(const gfx::rect16& bounds,pixel_type color) {
+            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            spi_driver_result r=this->frame_fill(b,color.value());
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // asynchronously fills the specified rectangle with the specified pixel
-        gfx::gfx_result fill_async(const gfx::rect16& rect,pixel_type color) {
-            result r=queued_frame_fill(rect.x1,rect.y1,rect.x2,rect.y2,color.value());
-            if(result::success!=r)
+        gfx::gfx_result fill_async(const gfx::rect16& bounds,pixel_type color) {
+            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            spi_driver_result r=this->queued_frame_fill(b,color.value());
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // clears the specified rectangle
-        inline gfx::gfx_result clear(const gfx::rect16& rect) {
+        inline gfx::gfx_result clear(const gfx::rect16& bounds) {
             pixel_type p;
-            return fill(rect,p);
+            return fill(bounds,p);
         }
         // asynchronously clears the specified rectangle
-        inline gfx::gfx_result clear_async(const gfx::rect16& rect) {
+        inline gfx::gfx_result clear_async(const gfx::rect16& bounds) {
             pixel_type p;
-            return fill_async(rect,p);
+            return fill_async(bounds,p);
         }
         // begins a batch operation for the specified rectangle
-        gfx::gfx_result begin_batch(const gfx::rect16& rect) {
-            if(result::success!=batch_write_begin(rect.x1,rect.y1,rect.x2,rect.y2))
+        gfx::gfx_result begin_batch(const gfx::rect16& bounds) {
+            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            if(spi_driver_result::success!= this->batch_write_begin(b))
                 return gfx::gfx_result::device_error;
             return gfx::gfx_result::success;
         }
         // asynchronously begins a batch operation for the specified rectangle
-        gfx::gfx_result begin_batch_async(const gfx::rect16& rect) {
-            result r =queued_batch_write_begin(rect.x1,rect.y1,rect.x2,rect.y2);
-            if(result::success!=r)
+        gfx::gfx_result begin_batch_async(const gfx::rect16& bounds) {
+            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            spi_driver_result r = this->queued_batch_write_begin(b);
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // writes a pixel to a pending batch
         gfx::gfx_result write_batch(pixel_type color) {
             uint16_t p = color.value();
-            result r = this->batch_write(&p,1);
-            if(result::success!=r)
+            spi_driver_result r = this->batch_write(&p,1);
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // asynchronously writes a pixel to a pending batch
         gfx::gfx_result write_batch_async(pixel_type color) {
             uint16_t p = color.value();
-            result r = this->queued_batch_write(&p,1);
-            if(result::success!=r)
+            spi_driver_result r = this->queued_batch_write(&p,1);
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // commits a pending batch
         gfx::gfx_result commit_batch() {
-            result r=batch_write_commit();
-            if(result::success!=r)
+            spi_driver_result r=this->batch_write_commit();
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
                 
             return gfx::gfx_result::success;
         }
         // asynchronously commits a pending batch
         gfx::gfx_result commit_batch_async() {
-            result r=queued_batch_write_commit();
-            if(result::success!=r)
+            spi_driver_result r=this->queued_batch_write_commit();
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // copies source data to a frame
-        template<typename Source> 
-        inline gfx::gfx_result copy_from(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
+        template<typename Source> inline gfx::gfx_result copy_from(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
             return copy_from_impl(src_rect,src,location,false);
         }
         // asynchronously writes source data to a frame
@@ -705,18 +362,25 @@ namespace espidf {
         }
         // waits for all pending asynchronous operations to complete
         gfx::gfx_result wait_all_async() {
-            result r = batch_write_commit_impl(m_spi_mgr.has_queued_transactions());
-            if(result::success!=r)
-                return xlt_err(r);
-            r=queued_wait_all();
-            if(result::success!=r)
+            spi_driver_result r=this->queued_wait_all();
+            if(spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         
     };
-    template<spi_host_device_t HostId,gpio_num_t PinCS,gpio_num_t PinDC,gpio_num_t PinRst,gpio_num_t PinBacklight,size_t BufferSize,size_t MaxTransactions,TickType_t Timeout,bool UsePolling>
-    const typename ili9341<HostId,PinCS,PinDC,PinRst,PinBacklight,BufferSize,MaxTransactions,Timeout,UsePolling>::init_cmd ili9341<HostId,PinCS,PinDC,PinRst,PinBacklight,BufferSize,MaxTransactions,Timeout,UsePolling>::s_init_cmds[]={
+     template<spi_host_device_t HostId,
+            gpio_num_t PinCS,
+            gpio_num_t PinDC,
+            gpio_num_t PinRst,
+            gpio_num_t PinBacklight,
+            size_t MaxTransactions,
+            bool UsePolling,
+            size_t DmaSize,
+            TickType_t Timeout,
+            size_t BatchBufferSize
+            >
+    const typename ili9341<HostId,PinCS,PinDC,PinRst,PinBacklight,MaxTransactions,UsePolling,DmaSize,Timeout,BatchBufferSize>::init_cmd ili9341<HostId,PinCS,PinDC,PinRst,PinBacklight,MaxTransactions,UsePolling,DmaSize,Timeout,BatchBufferSize>::s_init_cmds[]={
             /* Power contorl B, power control = 0, DC_ENA = 1 */
             {0xCF, {0x00, 0x83, 0X30}, 3},
             /* Power on sequence control,

@@ -42,7 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include "i2c_master.hpp"
+#include "spi_master.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
@@ -86,13 +86,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace espidf {
     template<uint16_t Width,
             uint16_t Height,
-            i2c_port_t I2CPort=I2C_NUM_0,
-            uint8_t Address=0x3C,
-            bool Vdc3_3=true,
-            gpio_num_t PinRst=GPIO_NUM_NC,
-            bool ResetBeforeInit=false,
-            TickType_t Timeout=5000/portTICK_PERIOD_MS>
-    struct ssd1306_i2c final {
+            bool Vdc3_3,
+            bool ResetBeforeInit,
+            spi_host_device_t HostId,
+            gpio_num_t PinCS,
+            gpio_num_t PinDC,
+            gpio_num_t PinRst,
+            size_t BufferSize=64,
+            size_t MaxTransactions=7,
+            TickType_t Timeout=5000/portTICK_PERIOD_MS,
+            bool UsePolling=true>
+    struct ssd1306_spi final {
         enum struct result {
             success = 0,
             invalid_argument = 1,
@@ -100,20 +104,32 @@ namespace espidf {
             out_of_memory = 3,
             timeout = 4,
             not_supported=5,
-            i2c_not_initalized=6,
-            invalid_state=7
+            io_busy =6
         };
         constexpr static const uint16_t width=Width;
         constexpr static const uint16_t height=Height;
-        constexpr static const i2c_port_t i2c_port = I2CPort;
-        constexpr static const uint8_t address = Address;
         constexpr static const bool vdc_3_3 = Vdc3_3;
-        constexpr static const gpio_num_t pin_rst = PinRst;
         constexpr static const bool reset_before_init = ResetBeforeInit;
+        // the SPI host to use
+        constexpr static const spi_host_device_t host_id = HostId;
+        // the CS pin
+        constexpr static const gpio_num_t pin_cs = PinCS;
+        // the DC pin
+        constexpr static const gpio_num_t pin_dc = PinDC;
+        // the RST pin
+        constexpr static const gpio_num_t pin_rst = PinRst;
+
+        // indicates the buffer size. If specified, will end up being a multiple of 2. The minimum value is 4, for efficiency
+        constexpr static const size_t buffer_size = ((BufferSize<4?4:BufferSize)/2)*2;
+        // the maximum number of "in the air" transactions that can be queued
+        constexpr static const size_t max_transactions = (0==MaxTransactions)?1:MaxTransactions;
+        // the timeout for queued sends
         constexpr static const TickType_t timeout = Timeout;
+        // indicates whether non queued transactions use polling
+        constexpr static const bool use_polling = UsePolling;
 private:
         unsigned int m_initialized;
-        
+        spi_device m_spi;
         unsigned int m_suspend_x1;
         unsigned int m_suspend_y1;
         unsigned int m_suspend_x2;
@@ -129,90 +145,10 @@ private:
         };
         uint8_t m_contrast;
         uint8_t m_frame_buffer[width*height/8];
-        result command_impl(uint8_t cmd) {
-            i2c_master_command mc;
-            i2c_result ir = mc.start();
-            if(i2c_result::success!=ir) {
-                return result::io_error;
-            }
-            ir= mc.begin_write(address);
-            if(ir!=i2c_result::success) {
-                return result::io_error;
-            }
-            ir = mc.write(0);
-            if(ir!=i2c_result::success) {
-                return result::io_error;
-            }
-            ir = mc.write(cmd);
-//printf("cmd: 0x%02X\r\n",(int)cmd);
-            if(ir!=i2c_result::success) {
-                return result::io_error;
-            }
-            ir=mc.stop();
-            if(ir!=i2c_result::success) {
-                return result::io_error;
-            }
-            ir=i2c_master::execute(i2c_port,mc,timeout);
-            if(ir!=i2c_result::success) {
-                return (i2c_result::bus_timeout==ir)?result::timeout:result::io_error;
-            }   
-            return result::success;
+        inline result command_impl(uint8_t cmd) {
+            return write_bytes(&cmd,1,false);
         }
-        result start_trans(i2c_master_command& mc,uint8_t payload) {
-            i2c_result ir = mc.start();
-            if(i2c_result::success!=ir) {
-                return result::io_error;
-            }
-            ir= mc.begin_write(address);
-            if(ir!=i2c_result::success) {
-                return result::io_error;
-            }
-            ir = mc.write(payload);
-            if(ir!=i2c_result::success) {
-                return result::io_error;
-            }
-            return result::success;
-        }
-        result commands_impl(const uint8_t *cmds, size_t count) {
-            i2c_master_command mc;
-            i2c_result ir;
-            result r=start_trans(mc,0);
-            if(result::success!=r) {
-                return r;
-            }
-            int buf_count = 1;
-            while (count--) {
-                if (buf_count >= i2c_master::buffer_length) {
-                    mc.stop();
-                    ir=i2c_master::execute(i2c_port,mc,timeout);
-                    if(ir!=i2c_result::success) {
-                        return (i2c_result::bus_timeout==ir)?result::timeout:result::io_error;
-                    }       
-                    
-                    mc = i2c_master_command();
-                    r=start_trans(mc,0);
-                    if(result::success!=r) {
-                        return r;
-                    }
-                    buf_count = 1;
-                }
-
-                ir = mc.write(*cmds,true);
-                if(i2c_result::success!=ir) {
-                    return result::io_error;
-                }
-                ++cmds;
-                ++buf_count;
-            }
-            mc.stop();
-
-            ir=i2c_master::execute(i2c_port,mc);
-
-            if(ir!=i2c_result::success) {
-                return (i2c_result::bus_timeout==ir)?result::timeout:result::io_error;
-            }
-            return result::success;;
-        }
+        
         result reset_impl() {
             if(GPIO_NUM_NC!=pin_rst) {
                 if(ESP_OK!=gpio_set_level(pin_rst,1)) {
@@ -243,7 +179,7 @@ private:
                                                     SSD1306_SETDISPLAYCLOCKDIV, // 0xD5
                                                     0x80, // the suggested ratio 0x80
                                                     SSD1306_SETMULTIPLEX}; // 0xA8
-            r=commands_impl(init1, sizeof(init1));
+            r=write_bytes(init1, sizeof(init1),false);
 
             if(result::success!=r) {
                 return r;
@@ -257,7 +193,7 @@ private:
                                                     0x0,                      // no offset
                                                     SSD1306_SETSTARTLINE | 0x0, // line #0
                                                     SSD1306_CHARGEPUMP};        // 0x8D
-            r=commands_impl(init2, sizeof(init2));
+            r=write_bytes(init2, sizeof(init2),false);
             if(result::success!=r) {
                 return r;
             }
@@ -269,7 +205,7 @@ private:
                                                     0x00, // 0x0 act like ks0108, but we want mode 1?
                                                     SSD1306_SEGREMAP | 0x1,
                                                     SSD1306_COMSCANDEC};
-            r=commands_impl(init3, sizeof(init3));
+            r=write_bytes(init3, sizeof(init3),false);
             if(result::success!=r) {
                 return r;
             }
@@ -319,7 +255,7 @@ private:
                 SSD1306_NORMALDISPLAY,       // 0xA6
                 SSD1306_DEACTIVATE_SCROLL,
                 SSD1306_DISPLAYON}; // Main screen turn on
-            return commands_impl(init5, sizeof(init5));
+            return write_bytes(init5, sizeof(init5),false);
         }
         static bool normalize_values(uint16_t& x1,uint16_t& y1,uint16_t& x2,uint16_t& y2,bool check_bounds=true) {
             // normalize values
@@ -344,63 +280,33 @@ private:
             }
             return true;
         }
-        static result xlt_err(i2c_result ir) {
-            switch(ir) {
-                case i2c_result::bus_timeout:
+        static result xlt_err(spi_result sr) {
+            switch(sr) {
+                case spi_result::timeout:
                     return result::timeout;
-                case i2c_result::invalid_argument:
+                case spi_result::invalid_argument:
                     return result::invalid_argument;
-                case i2c_result::invalid_handle:
-                case i2c_result::driver_installation_error:
-                case i2c_result::invalid_state:
-                case i2c_result::io_error:
-                    return result::io_error;
-                case i2c_result::success:
+                case spi_result::previous_transactions_pending:
+                case spi_result::host_in_use:
+                case spi_result::dma_in_use:
+                    return result::io_busy;
+                case spi_result::out_of_memory:
+                    return result::out_of_memory;
+                case spi_result::success:
                     return result::success;
                 default:
-                    return result::not_supported;
+                    return result::io_error;
             }
         }
-        result write_bytes(const uint8_t* data,size_t size) {
-
+        result write_bytes(const uint8_t* data,size_t size,bool is_data) {
             if(0==size) return result::success;
-            i2c_master_command mc;
-            i2c_result ir;
-            result r=start_trans(mc,0x40);
-            if(result::success!=r) {
-                return r;
+            esp_err_t err = gpio_set_level(pin_dc,is_data);
+            if(ESP_OK!=err) {
+                return result::io_error;
             }
-            int buf_count = 1;
-            while (size--) {
-                if (buf_count >= i2c_master::buffer_length) {
-                    mc.stop();
-                    ir=i2c_master::execute(i2c_port,mc,timeout);
-                    if(ir!=i2c_result::success) {
-                        return (i2c_result::bus_timeout==ir)?result::timeout:result::io_error;
-                    }       
-                    
-                    mc = i2c_master_command();
-                    r=start_trans(mc,0x40);
-                    if(result::success!=r) {
-                        return r;
-                    }
-                    buf_count = 1;
-                }
-
-                ir = mc.write(*data,true);
-                if(i2c_result::success!=ir) {
-                    return result::io_error;
-                }
-                ++data;
-                ++buf_count;
-            }
-            mc.stop();
-
-            ir=i2c_master::execute(i2c_port,mc);
-
-            if(ir!=i2c_result::success) {
-                return (i2c_result::bus_timeout==ir)?result::timeout:result::io_error;
-            }
+            spi_result sr = m_spi.write(data,size);
+            if(spi_result::success!=sr)
+                return xlt_err(sr);
             return result::success;
         }
         result display_update(uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2) {
@@ -417,7 +323,7 @@ private:
                     uint8_t(y1/8),                   // Page start address
                     uint8_t(0xFF),                   // Page end (not really, but works here)
                     SSD1306_COLUMNADDR, uint8_t(x1)};// Column start address
-                result sr=commands_impl(dlist1, sizeof(dlist1));
+                result sr=write_bytes(dlist1, sizeof(dlist1),false);
                 if(result::success!=sr) {
                     return sr;
                 }
@@ -428,13 +334,13 @@ private:
                 i2c_master_command mc;
                 if(x1==0&&y1==0&&x2==width-1&&y2==height-1) {
                     // special case for whole screen
-                    return write_bytes(m_frame_buffer,width*height/8);
+                    return write_bytes(m_frame_buffer,width*height/8,true);
                 }
                 const int be = (y2+8)/8;
                 const int w = x2-x1+1;
                 for(int b=y1/8;b<be;++b) {
                     uint8_t* p = m_frame_buffer+(b*width)+x1;
-                    sr = write_bytes(p,w);
+                    sr = write_bytes(p,w,true);
                     if(result::success!=sr)
                         return sr;
                 }
@@ -520,9 +426,31 @@ private:
                 }
             }
         }
-       
+        inline static spi_device_interface_config_t get_device_config() {
+            spi_device_interface_config_t devcfg={
+                .command_bits=0,
+                .address_bits=0,
+                .dummy_bits=0,
+                .mode=0,
+                .duty_cycle_pos=0,
+                .cs_ena_pretrans=0,
+                .cs_ena_posttrans=0,
+        #ifdef HTCW_SSD1306_OVERCLOCK
+                .clock_speed_hz=26*1000*1000,           //Clock out at 26 MHz
+        #else
+                .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
+        #endif
+                .input_delay_ns = 0,
+                .spics_io_num=pin_cs,               //CS pin
+                .flags =0,
+                .queue_size=max_transactions,                          //We want to be able to queue 7 transactions at a time
+                .pre_cb=NULL,
+                .post_cb=NULL
+            };
+            return devcfg;
+        } 
 public:
-        ssd1306_i2c() : m_initialized(false),m_suspend_count(0),m_suspend_first(0)  {
+        ssd1306_spi() : m_initialized(false),m_spi(host_id,get_device_config()), m_suspend_count(0),m_suspend_first(0)  {
         }
         bool initialized() const {
             return m_initialized;
@@ -586,14 +514,13 @@ public:
             return result::success;
         }
         // GFX Bindings
-        using type = ssd1306_i2c<Width,Height,I2CPort,Address,Vdc3_3,PinRst,ResetBeforeInit,Timeout>;
+        using type = ssd1306_spi<Width,Height,Vdc3_3,ResetBeforeInit,HostId,PinCS,PinDC,PinRst,BufferSize,MaxTransactions,Timeout,UsePolling>;
         using pixel_type = gfx::gsc_pixel<1>;
         using caps = gfx::gfx_caps< false,false,false,false,true,false>;
     private:
         gfx::gfx_result xlt_err(result r) {
             switch(r) {
                 case result::io_error:
-                case result::i2c_not_initalized:
                     return gfx::gfx_result::device_error;
                 case result::out_of_memory:
                     return gfx::gfx_result::out_of_memory;

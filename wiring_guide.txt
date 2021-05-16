@@ -1,0 +1,11 @@
+SPI Displays:
+CLK 18
+MOSI 23
+MISO 19 (not all devices)
+DC 2
+RST 4
+BKL 15
+
+I2C Displays:
+SCL 22
+SDA 21

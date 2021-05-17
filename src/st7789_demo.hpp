@@ -49,7 +49,7 @@ using namespace gfx;
 #define PIN_NUM_CS   GPIO_NUM_5
 
 #define PIN_NUM_DC   GPIO_NUM_16
-#define PIN_NUM_RST  GPIO_NUM_NC
+#define PIN_NUM_RST  GPIO_NUM_23
 #define PIN_NUM_BCKL GPIO_NUM_4
 #else
 #define LCD_WIDTH 320

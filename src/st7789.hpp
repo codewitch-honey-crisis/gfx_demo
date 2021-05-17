@@ -8,52 +8,73 @@
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
+#define ST_CMD_DELAY 0x80 // special signifier for command lists
 
+#define ST77XX_NOP 0x00
+#define ST77XX_SWRESET 0x01
+#define ST77XX_RDDID 0x04
+#define ST77XX_RDDST 0x09
+
+#define ST77XX_SLPIN 0x10
+#define ST77XX_SLPOUT 0x11
+#define ST77XX_PTLON 0x12
+#define ST77XX_NORON 0x13
+
+#define ST77XX_INVOFF 0x20
+#define ST77XX_INVON 0x21
+#define ST77XX_DISPOFF 0x28
+#define ST77XX_DISPON 0x29
+#define ST77XX_CASET 0x2A
+#define ST77XX_RASET 0x2B
+#define ST77XX_RAMWR 0x2C
+#define ST77XX_RAMRD 0x2E
+
+#define ST77XX_PTLAR 0x30
+#define ST77XX_TEOFF 0x34
+#define ST77XX_TEON 0x35
+#define ST77XX_MADCTL 0x36
+#define ST77XX_COLMOD 0x3A
+
+#define ST77XX_MADCTL_MY 0x80
+#define ST77XX_MADCTL_MX 0x40
+#define ST77XX_MADCTL_MV 0x20
+#define ST77XX_MADCTL_ML 0x10
+#define ST77XX_MADCTL_RGB 0x00
+
+#define ST77XX_RDID1 0xDA
+#define ST77XX_RDID2 0xDB
+#define ST77XX_RDID3 0xDC
+#define ST77XX_RDID4 0xDD
 namespace espidf {
      namespace st7789_helpers {
-     struct init_cmd {
-            uint8_t cmd;
-            uint8_t data[16];
-            uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
-        };
-        DRAM_ATTR static const init_cmd init_cmds[] = {
-            //Place data into DRAM. Constant data gets placed into DROM by default, which is not accessible by DMA.
-    /* Memory Data Access Control */
-    {0x36, {0xA0}, 1},
-    /* Interface Pixel Format, 16bits/pixel for RGB/MCU interface */
-    {0x3A, {0x55}, 1},
-    /* Porch Setting */
-    {0xB2, {0x0c, 0x0c, 0x00, 0x33, 0x33}, 5},
-    /* Gate Control, Vgh=13.65V, Vgl=-10.43V */
-    {0xB7, {0x45}, 1},
-    /* VCOM Setting, VCOM=1.175V */
-    {0xBB, {0x2B}, 1},
-    /* LCM Control, XOR: BGR, MX, MH */
-    {0xC0, {0x2C}, 1},
-    // display inversion ON - not sure why this is necessary
-    {0x21, {},0},
-    /* VDV and VRH Command Enable, enable=1 */
-    {0xC2, {0x01, 0xff}, 2},
-    /* VRH Set, Vap=4.4+... */
-    {0xC3, {0x11}, 1},
-    /* VDV Set, VDV=0 */
-    {0xC4, {0x20}, 1},
-    /* Frame Rate Control, 60Hz, inversion=0 */
-    {0xC6, {0x0f}, 1},
-    /* Power Control 1, AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V */
-    {0xD0, {0xA4, 0xA1}, 1},
-    /* Positive Voltage Gamma Control */
-    {0xE0, {0xD0, 0x00, 0x05, 0x0E, 0x15, 0x0D, 0x37, 0x43, 0x47, 0x09, 0x15, 0x12, 0x16, 0x19}, 14},
-    /* Negative Voltage Gamma Control */
-    {0xE1, {0xD0, 0x00, 0x05, 0x0D, 0x0C, 0x06, 0x2D, 0x44, 0x40, 0x0E, 0x1C, 0x18, 0x16, 0x19}, 14},
-    /* Sleep Out */
-    {0x11, {0}, 0x80},
-    /* Display On */
-    {0x29, {0}, 0x80},
-    {0, {0}, 0xff}
-
-        };
-     }
+        DRAM_ATTR static const uint8_t generic_st7789[] =  {                // Init commands for 7789 screens
+    9,                              //  9 commands in list:
+    ST77XX_SWRESET,   ST_CMD_DELAY, //  1: Software reset, no args, w/delay
+      150,                          //     ~150 ms delay
+    ST77XX_SLPOUT ,   ST_CMD_DELAY, //  2: Out of sleep mode, no args, w/delay
+      10,                          //      10 ms delay
+    ST77XX_COLMOD , 1+ST_CMD_DELAY, //  3: Set color mode, 1 arg + delay:
+      0x55,                         //     16-bit color
+      10,                           //     10 ms delay
+    ST77XX_MADCTL , 1,              //  4: Mem access ctrl (directions), 1 arg:
+      0x08,                         //     Row/col addr, bottom-top refresh
+    ST77XX_CASET  , 4,              //  5: Column addr set, 4 args, no delay:
+      0x00,
+      0,        //     XSTART = 0
+      0,
+      240,  //     XEND = 240
+    ST77XX_RASET  , 4,              //  6: Row addr set, 4 args, no delay:
+      0x00,
+      0,             //     YSTART = 0
+      320>>8,
+      320&0xFF,  //     YEND = 320
+    ST77XX_INVON  ,   ST_CMD_DELAY,  //  7: hack
+      10,
+    ST77XX_NORON  ,   ST_CMD_DELAY, //  8: Normal display on, no args, w/delay
+      10,                           //     10 ms delay
+    ST77XX_DISPON ,   ST_CMD_DELAY, //  9: Main screen turn on, no args, delay
+      10 };                          //    10 ms delay
+    }
     // the driver for the ST7789 display
     template<uint16_t Width,
             uint16_t Height,
@@ -99,6 +120,11 @@ namespace espidf {
                             DmaSize,
                             Timeout,
                             BatchBufferSize>;
+        constexpr static const uint16_t column_start = (Width<240)?((240-Width+1)/2):(Width==240&&Height==280)?0:(240-Width);
+        constexpr static const uint16_t column_start2 = (Width<240)?((240-Width)/2):(Width==240&&Height==280)?0:(240-Width);
+        constexpr static const uint16_t row_start = (Width<240)?((320-Height+1)/2):(Width==240&&Height==280)?20:(320-Height);
+        constexpr static const uint16_t row_start2 = (Width<240)?((320-Height+1)/2):0;
+         
         // the RST pin
         constexpr static const gpio_num_t pin_rst = PinRst;
         // the BL pin
@@ -107,9 +133,15 @@ namespace espidf {
         constexpr static const size_t max_transactions = (0==MaxTransactions)?1:MaxTransactions;
     private:
        
-        spi_driver_result write_window_impl(const spi_driver_rect& win,bool queued,spi_driver_set_window_flags set_flags) {
+        spi_driver_result write_window_impl(const spi_driver_rect& w,bool queued,spi_driver_set_window_flags set_flags) {
             //printf("(%d, %d)-(%d, %d)\r\n",win.x1,win.y1,win.x2,win.y2);
-            
+            spi_driver_rect win;
+            const uint16_t offsx = (320-Width)/2;
+            const uint16_t offsy = (240-Height)/2;
+            win.x1=w.x1+offsx;
+            win.x2=w.x2+offsx;
+            win.y1=w.y1+offsy;
+            win.y2=w.y2+offsy;
             spi_driver_result r;
             uint8_t tx_data[4];
             //Column Address Set
@@ -153,7 +185,6 @@ namespace espidf {
             if(!this->initialized()) {
                 static const TickType_t ts = 100/portTICK_RATE_MS;
 
-                int cmd=0;
                 
                 //Initialize non-SPI GPIOs
                 gpio_set_direction(base_type::pin_dc, GPIO_MODE_OUTPUT);
@@ -166,23 +197,49 @@ namespace espidf {
                 gpio_set_level(pin_rst, 1);
                 vTaskDelay(ts);
                 
-                //Send all the commands
-                while (st7789_helpers::init_cmds[cmd].databytes!=0xff) {
-                    spi_driver_result r = this->send_init_command(st7789_helpers::init_cmds[cmd].cmd);
-                    if(spi_driver_result::success!= r) {
+                uint8_t numCommands, cmd, numArgs;
+                uint16_t ms;
+                const uint8_t* addr = st7789_helpers::generic_st7789;
+                spi_driver_result r;
+                numCommands = *(addr++); // Number of commands to follow
+                while (numCommands--) {              // For each command...
+                    cmd = *(addr++);       // Read command
+                    numArgs = *(addr++);   // Number of args to follow
+                    ms = numArgs & ST_CMD_DELAY;       // If hibit set, delay follows args
+                    numArgs &= ~ST_CMD_DELAY;          // Mask out delay bit
+                    r= this->send_init_command(cmd);
+                    if(spi_driver_result::success!=r) {
                         return r;
                     }
-                    r=this->send_init_data(st7789_helpers::init_cmds[cmd].data,st7789_helpers::init_cmds[cmd].databytes&0x1F);
-                    if(spi_driver_result::success!= r) {
-                        return spi_driver_result::io_error;
+                    r= this->send_init_data(addr, numArgs);
+                    if(spi_driver_result::success!=r) {
+                        return r;
                     }
-                    if (st7789_helpers::init_cmds[cmd].databytes&0x80) {
-                        vTaskDelay(ts);
+                    addr += numArgs;
+                    if (ms) {
+                        ms = *(addr++); // Read post-command delay time (ms)
+                        if (ms == 255)
+                            ms = 500; // If 255, delay for 500 ms
+                        vTaskDelay(ms/portTICK_PERIOD_MS);
                     }
-                    ++cmd;
+                }
+                r= this->send_init_command(ST77XX_RASET);  //  6: Row addr set, 4 args, no delay:
+                if(spi_driver_result::success!= r) {
+                    return r;
+                }
+                uint8_t init_data[] ={0,0,Width>>8,Height&0xFF};
+                r=this->send_init_data(init_data,4);
+                if(spi_driver_result::success!= r) {
+                    return r;
+                }
+                r= this->send_init_command(ST77XX_MADCTL);  
+                cmd = ST77XX_MADCTL_MY | ST77XX_MADCTL_MV | ST77XX_MADCTL_RGB;//ST77XX_MADCTL_MX | ST77XX_MADCTL_MY | ST77XX_MADCTL_RGB;
+                r=this->send_init_data(&cmd,1);
+                if(spi_driver_result::success!=r) {
+                    return r;
                 }
                 ///Enable backlight
-                gpio_set_level(pin_backlight, 0);
+                gpio_set_level(pin_backlight, 1);
             }
             return spi_driver_result::success;
         }

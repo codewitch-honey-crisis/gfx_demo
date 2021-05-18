@@ -2,11 +2,12 @@
 
 GFX is a cross platform graphics library in standard C++14 or C++17
 
-Along with that, there are some drivers for popular displays:
+Along with that, there are some drivers for popular display configurations:
 
-The ILI9341
-The ST7789
-The SSD1306 (I2C only as of yet)
-The SSD1351
-
-And the ST7735 will be added soon
+esp-wrover-kit (ILI9341)
+ILI9341
+ST7789 (several variants)
+ST7735 (green tab 128x128)
+SSD1306 (i2c so far - i need a working spi display)
+SSD1351
+LilyGo TTGO ST7789 variant

@@ -8,7 +8,7 @@ extern "C" { void app_main(); }
 #include "esp_system.h"
 #include "spi_master.hpp"
 #include "esp_spiffs.h"
-#include "st7789.hpp"
+#include "st7735.hpp"
 #include "gfx_drawing.hpp"
 #include "gfx_image.hpp"
 #include "gfx_drawing.hpp"
@@ -22,38 +22,8 @@ using namespace espidf;
 using namespace io;
 using namespace gfx;
 
-#ifdef CONFIG_IDF_TARGET_ESP32
-#if defined(ESP_WROVER_KIT)
-#define LCD_WIDTH 320
-#define LCD_HEIGHT 240
-#define PARALLEL_LINES 16
-#define LCD_HOST    HSPI_HOST
-#define DMA_CHAN    2
-#define PIN_NUM_MISO GPIO_NUM_25
-#define PIN_NUM_MOSI GPIO_NUM_23
-#define PIN_NUM_CLK  GPIO_NUM_19
-#define PIN_NUM_CS   GPIO_NUM_22
-
-#define PIN_NUM_DC   GPIO_NUM_21
-#define PIN_NUM_RST  GPIO_NUM_18
-#define PIN_NUM_BCKL GPIO_NUM_5
-#elif defined(ESP32_TTGO)
-#define LCD_WIDTH 240
-#define LCD_HEIGHT 135
-#define PARALLEL_LINES 16
-#define LCD_HOST    HSPI_HOST
-#define DMA_CHAN    2
-#define PIN_NUM_MISO GPIO_NUM_NC
-#define PIN_NUM_MOSI GPIO_NUM_19
-#define PIN_NUM_CLK  GPIO_NUM_18
-#define PIN_NUM_CS   GPIO_NUM_5
-
-#define PIN_NUM_DC   GPIO_NUM_16
-#define PIN_NUM_RST  GPIO_NUM_23
-#define PIN_NUM_BCKL GPIO_NUM_4
-#else
-#define LCD_WIDTH 320
-#define LCD_HEIGHT 240
+#define LCD_WIDTH 128
+#define LCD_HEIGHT 128
 #define PARALLEL_LINES 16
 #define LCD_HOST    VSPI_HOST
 #define DMA_CHAN    2
@@ -65,37 +35,6 @@ using namespace gfx;
 #define PIN_NUM_DC   GPIO_NUM_2
 #define PIN_NUM_RST  GPIO_NUM_4
 #define PIN_NUM_BCKL GPIO_NUM_15
-#endif
-
-#elif defined CONFIG_IDF_TARGET_ESP32S2
-#define PARALLEL_LINES 16
-#define LCD_HOST    SPI2_HOST
-#define DMA_CHAN    LCD_HOST
-
-#define PIN_NUM_MISO GPIO_NUM_37
-#define PIN_NUM_MOSI GPIO_NUM_35
-#define PIN_NUM_CLK  GPIO_NUM_36
-#define PIN_NUM_CS   GPIO_NUM_34
-
-#define PIN_NUM_DC   GPIO_NUM_4
-#define PIN_NUM_RST  GPIO_NUM_5
-#define PIN_NUM_BCKL GPIO_NUM_6
-#elif defined CONFIG_IDF_TARGET_ESP32C3
-#define LCD_ILI9341
-#define PARALLEL_LINES 16
-#define LCD_HOST    SPI2_HOST
-#define DMA_CHAN    LCD_HOST
-
-#define PIN_NUM_MISO GPIO_NUM_2
-#define PIN_NUM_MOSI GPIO_NUM_7
-#define PIN_NUM_CLK  GPIO_NUM_6
-#define PIN_NUM_CS   GPIO_NUM_10
-
-#define PIN_NUM_DC   GPIO_NUM_9
-#define PIN_NUM_RST  GPIO_NUM_18
-#define PIN_NUM_BCKL GPIO_NUM_19
-#endif
-
 
 // enable this to dump the jpeg images as ascii upon load
 //#define ASCII_JPEGS
@@ -116,7 +55,7 @@ spi_master spi_host(nullptr,
 // memory. it usually works fine at default but you can change it for performance 
 // tuning. It's the final parameter: Note that it shouldn't be any bigger than 
 // the DMA size
-using lcd_type = st7789<LCD_WIDTH,
+using lcd_type = st7735<LCD_WIDTH,
                         LCD_HEIGHT,
                         LCD_HOST,
                         PIN_NUM_CS,
@@ -184,8 +123,8 @@ void scroll_text_demo() {
     srect16 mouth_clip(mouth_bounds.x1,mouth_bounds.y1+mouth_bounds.height()/(float)1.6,mouth_bounds.x2,mouth_bounds.y2);
     draw::ellipse(bmp,mouth_bounds,bmp_color::black,&mouth_clip);
     draw::bitmap(lcd,(srect16)bmp.bounds().center_horizontal(lcd.bounds()),bmp,bmp.bounds());
-    const font& f = Bm437_ATI_9x16_FON;
-    const char* text = "copyright (C) 2021\r\nby honey the codewitch";
+    const font& f = Bm437_Acer_VGA_8x8_FON;
+    const char* text = "(C) 2021\r\nby HTCW";
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
     srect16 text_rect = srect16(spoint16((lcd_type::width-text_size.width)/2,(lcd_type::height-text_size.height)/2),text_size);
     int16_t text_start = text_rect.x1;
@@ -198,7 +137,7 @@ void scroll_text_demo() {
            draw::filled_rectangle(lcd,text_rect.offset(-lcd.dimensions().width,0),lcd_color::black);
         }
 
-        text_rect=text_rect.offset(2,0);
+        text_rect=text_rect.offset(1,0);
         draw::text(lcd,text_rect,text,f,lcd_color::old_lace,lcd_color::black,false);
         if(text_rect.x2>=lcd.dimensions().width){
             draw::text(lcd,text_rect.offset(-lcd.dimensions().width,0),text,f,lcd_color::old_lace,lcd_color::black,false);
@@ -214,12 +153,7 @@ void scroll_text_demo() {
     }
 }
 void lines_demo() {
-    file_stream fs("/spiffs/Bm437_Verite_9x16.FON");
-    if(!fs.caps().read) {
-        printf("Font file not found.\r\n");
-        vTaskDelay(portMAX_DELAY);
-    }
-    font f(&fs);
+    const font& f = Bm437_Acer_VGA_8x8_FON;
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
     const char* text = "ESP32 GFX Demo";
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -231,7 +165,7 @@ void lines_demo() {
             f,
             lcd_color::dark_blue);
 
-    for(int i = 1;i<100;++i) {
+    for(int i = 1;i<100;i+=2) {
         // calculate our extents
         srect16 r(i*(lcd_type::width/100.0),
                 i*(lcd_type::height/100.0),
@@ -348,14 +282,9 @@ static void display_pretty_colors()
             }
             
             file_stream fs(
-#ifdef ESP32_TTGO
-                "/spiffs/image_240.jpg"
-#else
-                ((0==pid)?"/spiffs/image.jpg":
-                (1==pid)?"/spiffs/image2.jpg":
-                "/spiffs/image3.jpg")
-#endif
+                "/spiffs/image_128.jpg"
                 );
+                
                 gfx::jpeg_image::load(&fs,[](const typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
                 uint16_t** out = (uint16_t**)state;
                 // to go as fast as possible, we access the bmp
@@ -410,15 +339,9 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);   
     gfx_result rr;
     rr=pretty_effect_init(
-#ifdef ESP32_TTGO
-    "/spiffs/image_240.jpg",
-    256,
-    151,
-#else
-    "/spiffs/image.jpg",
-    336,
-    256,
-#endif
+    "/spiffs/image_128.jpg",
+    144,
+    144,
     lcd.dimensions().width,
     lcd.dimensions().height
 );

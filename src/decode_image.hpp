@@ -63,26 +63,26 @@ static int outfunc(JDEC *decoder, void *bitmap, JRECT *rect)
  *         - ESP_ERR_NO_MEM if out of memory
  *         - ESP_OK on succesful decode
  */
-gfx::gfx_result decode_image(uint16_t ***pixels)
+gfx::gfx_result decode_image(const char* image, uint16_t image_width, uint16_t image_height,uint16_t ***pixels)
 {
     char *work = NULL;
     *pixels = NULL;
     gfx::gfx_result ret = gfx::gfx_result::success;
-    io::file_stream fs("/spiffs/image.jpg");
+    io::file_stream fs(image);
     if(!fs.caps().read)
     {
         ret =gfx::gfx_result::io_error;
         goto err;
     }
     //Alocate pixel memory. Each line is an array of IMAGE_W 16-bit pixels; the `*pixels` array itself contains pointers to these lines.
-    *pixels = (uint16_t**)calloc(IMAGE_H, sizeof(uint16_t *));
+    *pixels = (uint16_t**)calloc(image_height, sizeof(uint16_t *));
     if (*pixels == NULL) {
         ESP_LOGE(TAG, "Error allocating memory for lines");
         ret = gfx::gfx_result::out_of_memory;
         goto err;
     }
-    for (int i = 0; i < IMAGE_H; i++) {
-        (*pixels)[i] = (uint16_t*)malloc(IMAGE_W * sizeof(uint16_t));
+    for (int i = 0; i < image_height; i++) {
+        (*pixels)[i] = (uint16_t*)malloc(image_width * sizeof(uint16_t));
         if ((*pixels)[i] == NULL) {
             ESP_LOGE(TAG, "Error allocating memory for line %d", i);
             ret = gfx::gfx_result::out_of_memory;
@@ -126,7 +126,7 @@ gfx::gfx_result decode_image(uint16_t ***pixels)
 err:
     //Something went wrong! Exit cleanly, de-allocating everything we allocated.
     if (*pixels != NULL) {
-        for (int i = 0; i < IMAGE_H; i++) {
+        for (int i = 0; i < image_height; i++) {
             free((*pixels)[i]);
         }
         free(*pixels);

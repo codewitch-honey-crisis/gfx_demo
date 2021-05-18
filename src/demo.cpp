@@ -6,4 +6,6 @@
 #include "st7789_demo.hpp"
 #elif defined(SSD1351)
 #include "ssd1351_demo.hpp"
+#elif defined(ST7735)
+#include "st7735_demo.hpp"
 #endif

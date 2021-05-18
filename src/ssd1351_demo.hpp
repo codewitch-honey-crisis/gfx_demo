@@ -92,8 +92,8 @@ void scroll_text_demo() {
     lcd.clear(lcd.bounds());
     
     // draw stuff
-    bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
-
+    bmp.clear(bmp.bounds());
+    
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1)/(4/3.0));
     rect16 ubounds(0,0,bounds.x2,bounds.y2);

@@ -89,8 +89,8 @@ lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;
 
-using bmp_type = bitmap<typename lcd_type::pixel_type>;
-using bmp_color = color<typename lcd_type::pixel_type>;
+using bmp_type = bitmap<rgb_pixel<16>>;
+using bmp_color = color<typename bmp_type::pixel_type>;
 // declare the bitmap
 constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
@@ -99,7 +99,10 @@ void bmp_demo() {
     lcd.clear(lcd.bounds());
     
     // draw stuff
-    bmp.clear(bmp.bounds());
+
+    // fill with the transparent color
+    typename bmp_type::pixel_type tpx = bmp_color::cyan;
+    bmp.fill(bmp.bounds(),tpx);
 
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1));
@@ -136,23 +139,13 @@ void bmp_demo() {
     int dx = 1;
     int dy=2;
     int i =0;
-    draw::bitmap(lcd,(srect16)bmp.bounds(),bmp,bmp.bounds());
-    // demonstrates using a display as a draw *source*, from which 
-    // you can read portions of the display and draw them to bitmaps
-    // or even back to the display** (see the comments below)
+    draw::bitmap(lcd,(srect16)bmp.bounds(),bmp,bmp.bounds(),bitmap_flags::crop,&tpx);
     while(i<50) {
         srect16 sr = (srect16)lcd.bounds().offset(
                         (rand()%lcd.dimensions().width)-bmp.dimensions().width,
                         (rand()%lcd.dimensions().height)-bmp.dimensions().height);
-        // **we have to make sure we don't read and write from the same location at the same time
-        // if we do we we will get garbage, so eliminate the possibility of appearing in the 
-        // uper left
-        if(sr.x1<bmp_size.width)
-            sr=sr.offset(bmp_size.width,0);
-        if(sr.y1<bmp_size.height)
-            sr=sr.offset(0,bmp_size.height);
         sr=sr.crop((srect16)lcd.bounds());
-        draw::bitmap(lcd,sr,lcd,bmp.bounds());
+        draw::bitmap(lcd,sr,bmp,bmp.bounds(),bitmap_flags::crop,&tpx);
         ++i;
     }
     lcd.clear(lcd.bounds());
@@ -173,7 +166,7 @@ void bmp_demo() {
             r=r.offset(dx,dy);
         } else
             r=r2;
-        draw::bitmap(lcd,r,bmp,bmp.bounds());
+        draw::bitmap(lcd,r,bmp,bmp.bounds(),bitmap_flags::crop,&tpx);
 #ifdef SUSPEND_RESUME
         draw::resume(lcd);
 #endif
@@ -324,8 +317,8 @@ void app_main(void)
     
     intro();
     while(true) {
-     lines_demo();
-     scroll_text_demo();
+        lines_demo();
+        scroll_text_demo();
        bmp_demo();
     }
 }

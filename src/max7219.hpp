@@ -71,26 +71,26 @@ private:
             unsigned int y2;
         };
         
-        static bool normalize_values(uint16_t& x1,uint16_t& y1,uint16_t& x2,uint16_t& y2,bool check_bounds=true) {
+        static bool normalize_values(rect& bounds,bool check_bounds=true) {
             // normalize values
             uint16_t tmp;
-            if(x1>x2) {
-                tmp=x1;
-                x1=x2;
-                x2=tmp;
+            if(bounds.x1>bounds.x2) {
+                tmp=bounds.x1;
+                bounds.x1=bounds.x2;
+                bounds.x2=tmp;
             }
-            if(y1>y2) {
-                tmp=y1;
-                y1=y2;
-                y2=tmp;
+            if(bounds.y1>bounds.y2) {
+                tmp=bounds.y1;
+                bounds.y1=bounds.y2;
+                bounds.y2=tmp;
             }
             if(check_bounds) {
-                if(x1>=width||y1>=height)
+                if(bounds.x1>=width||bounds.y1>=height)
                     return false;
-                if(x2>=width)
-                    x2=width-1;
-                if(y2>height)
-                    y2=height-1;
+                if(bounds.x2>=width)
+                    bounds.x2=width-1;
+                if(bounds.y2>height)
+                    bounds.y2=height-1;
             }
             return true;
         }
@@ -187,37 +187,36 @@ private:
             return devcfg;
         } 
         void buffer_fill(const rect& bounds,bool color) {
+            rect b = bounds;
+            if(!normalize_values(b))
+                return;
             if(0!=m_suspend_count) {
                 if(0!=m_suspend_first) {
                     m_suspend_first = 0;
-                    m_suspend_x1 = bounds.x1;
-                    m_suspend_y1 = bounds.y1;
-                    m_suspend_x2 = bounds.x2;
-                    m_suspend_y2 = bounds.y2;
+                    m_suspend_x1 = b.x1;
+                    m_suspend_y1 = b.y1;
+                    m_suspend_x2 = b.x2;
+                    m_suspend_y2 = b.y2;
                 } else {
                     // if we're suspended update the suspended extents
-                    if(m_suspend_x1>bounds.x1)
-                        m_suspend_x1=bounds.x1;
-                    if(m_suspend_y1>bounds.y1)
-                        m_suspend_y1=bounds.y1;
-                    if(m_suspend_x2<bounds.x2)
-                        m_suspend_x2=bounds.x2;
-                    if(m_suspend_y2<bounds.y2)
-                        m_suspend_y2=bounds.y2;
+                    if(m_suspend_x1>b.x1)
+                        m_suspend_x1=b.x1;
+                    if(m_suspend_y1>b.y1)
+                        m_suspend_y1=b.y1;
+                    if(m_suspend_x2<b.x2)
+                        m_suspend_x2=b.x2;
+                    if(m_suspend_y2<b.y2)
+                        m_suspend_y2=b.y2;
                 }
             }
-            const uint16_t w=bounds.x2-bounds.x1+1,h = bounds.y2-bounds.y1+1;
-            if(width==w && bounds.x1==0) {
-                const size_t offs = bounds.y1*width;
+            const uint16_t w=b.x2-b.x1+1,h = b.y2-b.y1+1;
+            
+            for(int y = 0;y<h;++y) {
+                const size_t offs = ((y+b.y1)*width+(b.x1));
                 uint8_t* const pbegin = m_frame_buffer+(offs/8);
-                bits::set_bits(pbegin,0,width*h,color);
-            } else {
-                for(int y = 0;y<h;++y) {
-                    const size_t offs = ((y+bounds.y1)*width+(bounds.x1));
-                    uint8_t* const pbegin = m_frame_buffer+(offs/8);
-                    bits::set_bits(pbegin,offs%8,w,color);
-                }
+                bits::set_bits(pbegin,offs%8,w,color);
             }
+        
         }
         result clear_internal()
         {

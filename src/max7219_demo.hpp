@@ -66,7 +66,15 @@ void app_main() {
         vTaskDelay(portMAX_DELAY);
     }
     const font& f = Bm437_Acer_VGA_8x8_FON;
-    draw::rectangle(matrix,(srect16)matrix.bounds(),matrix_color::white);
-    draw::text(matrix,(srect16)matrix.bounds(),"a",f,matrix_color::white);
-    dump_frame_buffer();
+    const char* text = "ESP32 GFX Demo - MAX7219 **        ";
+    ssize16 sz = f.measure_text(ssize16(strlen(text)*f.average_width(),f.height()),text);
+    while(true) {
+        for(int i = 0;i<sz.width;++i) {
+            draw::suspend(matrix);
+            //draw::filled_rectangle(matrix,(srect16)matrix.bounds(),matrix_color::black);
+            draw::text(matrix,sz.bounds().offset(-i,0),text,f,matrix_color::white,matrix_color::black,false,4);
+            draw::resume(matrix);
+            vTaskDelay(1);
+        }
+    }
 }

@@ -8,4 +8,6 @@
 #include "ssd1351_demo.hpp"
 #elif defined(ST7735)
 #include "st7735_demo.hpp"
+#elif defined(MAX7219)
+#include "max7219_demo.hpp"
 #endif

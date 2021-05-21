@@ -1515,19 +1515,19 @@ namespace gfx {
             // suspend if we can
             suspend_token<Destination> stok(destination,async);
             // top or bottom
-            r=line_async(destination,srect16(rect.x1,rect.y1,rect.x2,rect.y1),color,clip,async);
+            r=line_impl(destination,srect16(rect.x1,rect.y1,rect.x2,rect.y1),color,clip,async);
             if(r!=gfx_result::success)
                 return r;
             // left or right
-            r=line_async(destination,srect16(rect.x1,rect.y1,rect.x1,rect.y2),color,clip,async);
+            r=line_impl(destination,srect16(rect.x1,rect.y1,rect.x1,rect.y2),color,clip,async);
             if(r!=gfx_result::success)
                 return r;
             // right or left
-            r=line_async(destination,srect16(rect.x2,rect.y1,rect.x2,rect.y2),color,clip,async);
+            r=line_impl(destination,srect16(rect.x2,rect.y1,rect.x2,rect.y2),color,clip,async);
             if(r!=gfx_result::success)
                 return r;
             // bottom or top
-            return line_async(destination,srect16(rect.x1,rect.y2,rect.x2,rect.y2),color,clip,async);
+            return line_impl(destination,srect16(rect.x1,rect.y2,rect.x2,rect.y2),color,clip,async);
         }
         template<typename Destination>
         static gfx_result rounded_rectangle_impl(Destination& destination,const srect16& rect,float ratio, typename Destination::pixel_type color,srect16* clip,bool async) {

@@ -12,4 +12,5 @@ Along with that, there are some drivers for popular display configurations:
 ### ST7735 (green tab 128x128)
 ### SSD1306 (i2c so far - i need a working spi display)
 ### SSD1351
-###  LilyGo TTGO ST7789 variant
+### LilyGo TTGO ST7789 variant
+### MAX7219 (experimental)

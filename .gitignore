@@ -3,3 +3,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+lib/gfx/reference/demo.exe
+lib/gfx/reference/bmp.exe
+lib/gfx/src/gfx_bitmap.exe
+lib/gfx/src/gfx_drawing.exe

@@ -42,14 +42,18 @@ spi_master spi_host(nullptr,
 using matrix_type = max7219<LCD_WIDTH,LCD_HEIGHT,LCD_HOST,PIN_NUM_CS> ;
 using matrix_color = color<typename matrix_type::pixel_type>;
 matrix_type matrix;
-void dump_frame_buffer() {
-    
-    for(int y = 0;y<matrix.height;++y) {
-        for(int x = 0;x<matrix.width;x+=8) {
-            const uint8_t* p = matrix.frame_buffer()+(y*matrix.width/8)+(x/8);
-            for(int j=0;j<8;++j) {
-                printf("%c",((1<<(7-j))&*p)?'#':' ');
-            }
+// prints a source as 4-bit grayscale ASCII
+template <typename Source>
+void print_source(const Source& src) {
+    static const char *col_table = " .,-~;*+!=1%O@$#";
+    using gsc4 = pixel<channel_traits<channel_name::L,4>>;
+    for(int y = 0;y<src.dimensions().height;++y) {
+        for(int x = 0;x<src.dimensions().width;++x) {
+            typename Source::pixel_type px;
+            src.point(point16(x,y),&px);
+            const auto px2 = px.template convert<gsc4>();
+            size_t i =px2.template channel<0>();
+            printf("%c",col_table[i]);
         }
         printf("\r\n");
     }
@@ -65,16 +69,25 @@ void app_main() {
         printf("Could not initialize driver.\r\n");
         vTaskDelay(portMAX_DELAY);
     }
-    const font& f = Bm437_Acer_VGA_8x8_FON;
-    const char* text = "ESP32 GFX Demo - MAX7219 **        ";
-    ssize16 sz = f.measure_text(ssize16(strlen(text)*f.average_width(),f.height()),text);
+    const char* text = "ESP32 GFX Demo - MAX7219 **     ";
+    size_t len = strlen(text);
+    using bmp_type = bitmap<typename matrix_type::pixel_type>;
+    const font& f= Bm437_Acer_VGA_8x8_FON;
+    size16 bmp_size = (size16)f.measure_text({int16_t(len*f.average_width()),(int16_t)f.height()}, text);
+    uint8_t* bmp_buf = (uint8_t*)malloc(bmp_type::sizeof_buffer(bmp_size));
+    bmp_type bmp(bmp_size,bmp_buf);
+    bmp.clear(bmp.bounds());
+    draw::text(bmp,(srect16)bmp.bounds(),text,f,matrix_color::white);
+    print_source(bmp);   
+    int x = 0;
     while(true) {
-        for(int i = 0;i<sz.width;++i) {
             draw::suspend(matrix);
-            //draw::filled_rectangle(matrix,(srect16)matrix.bounds(),matrix_color::black);
-            draw::text(matrix,sz.bounds().offset(-i,0),text,f,matrix_color::white,matrix_color::black,false,4);
+            draw::bitmap(matrix,srect16(spoint16(0,0),(ssize16)matrix.dimensions()),bmp,rect16(point16(x,0),matrix.dimensions()));
             draw::resume(matrix);
-            vTaskDelay(1);
-        }
+            vTaskDelay(50/portTICK_PERIOD_MS);
+        	if( ++x > bmp.dimensions().width ) {
+                x = 0;
+            }
     }
+    
 }

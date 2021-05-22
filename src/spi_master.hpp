@@ -2,6 +2,7 @@
 #define HTCW_ESPIDF_SPI_MASTER_HPP
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include "driver/gpio.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"

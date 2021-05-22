@@ -26,7 +26,7 @@ using namespace gfx;
 #define PIN_NUM_CLK  GPIO_NUM_18
 #define PIN_NUM_CS   GPIO_NUM_15
 
-#define LCD_WIDTH 8
+#define LCD_WIDTH 32
 #define LCD_HEIGHT 8
 
 spi_master spi_host(nullptr,
@@ -39,7 +39,7 @@ spi_master spi_host(nullptr,
                 1024+8, // we don't need much DMA for this display
                 DMA_CHAN);
 
-using matrix_type = max7219<LCD_WIDTH,LCD_HEIGHT,LCD_HOST,PIN_NUM_CS> ;
+using matrix_type = max7219<LCD_WIDTH/8,LCD_HEIGHT/8,LCD_HOST,PIN_NUM_CS> ;
 using matrix_color = color<typename matrix_type::pixel_type>;
 matrix_type matrix;
 // prints a source as 4-bit grayscale ASCII
@@ -54,6 +54,19 @@ void print_source(const Source& src) {
             const auto px2 = px.template convert<gsc4>();
             size_t i =px2.template channel<0>();
             printf("%c",col_table[i]);
+        }
+        printf("\r\n");
+    }
+}
+void print_frame_buffer() {
+    const uint8_t* p = matrix.frame_buffer();
+    for(int y = 0;y<matrix.dimensions().height;++y) {
+        for(int x = 0;x<matrix.dimensions().width;x+=8) {
+            uint8_t v = *p;
+            for(int xi = 0;xi<8;++xi) {
+                printf("%c",((1<<(7-xi))&v)?'#':' ');
+            }
+            ++p;
         }
         printf("\r\n");
     }

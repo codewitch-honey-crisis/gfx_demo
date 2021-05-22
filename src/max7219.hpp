@@ -1,76 +1,47 @@
 #pragma once
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
-#include "spi_master.hpp"
 #include "bits.hpp"
-// GFX bindings
-#include "gfx_core.hpp"
-#include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
-
-#define ALL_CHIPS 0xff
-#define ALL_DIGITS 8
-
-#define REG_DIGIT_0      (1 << 8)
-#define REG_DECODE_MODE  (9 << 8)
-#define REG_INTENSITY    (10 << 8)
-#define REG_SCAN_LIMIT   (11 << 8)
-#define REG_SHUTDOWN     (12 << 8)
-#define REG_DISPLAY_TEST (15 << 8)
-
-#define VAL_CLEAR_BCD    0x0f
-#define VAL_CLEAR_NORMAL 0x00
-
+#include "gfx_positioning.hpp"
+#include "spi_master.hpp"
 namespace espidf {
-    template<uint16_t Width,
-            uint16_t Height,
-            spi_host_device_t HostId,
-            gpio_num_t PinCS,
-            size_t MaxTransactions=1,
-            bool UsePolling = true,
-            size_t DmaSize = -1,
-            TickType_t Timeout=5000/portTICK_PERIOD_MS>
+    template<uint8_t WidthSegments,uint8_t HeightSegments, spi_host_device_t HostId,gpio_num_t PinCS>
     struct max7219 final {
-        static_assert(Width==(Width/8)*8,"Width must be a multiple of 8");
-        static_assert(Height==(Height/8)*8,"Height must be a multiple of 8");
         enum struct result {
             success = 0,
             invalid_argument = 1,
-            io_error = 2,
-            out_of_memory = 3,
-            timeout = 4,
-            not_supported=5,
-            invalid_state=6,
-            io_busy=7,
+            io_error=2,
+            out_of_memory=3
         };
-        constexpr static const size_t segments = Width*Height/64;
-        constexpr static const uint16_t width = Width;
-        constexpr static const uint16_t height = Height;
+        struct rect {
+            uint16_t x1;
+            uint16_t y1;
+            uint16_t x2;
+            uint16_t y2;
+        };     
+        static_assert(WidthSegments>0 && HeightSegments>0,"Not enough segments");
+        static_assert(WidthSegments*HeightSegments<=256,"Too many segments");
+        
+        constexpr static const uint16_t width_segments = WidthSegments;
+        constexpr static const uint16_t height_segments = HeightSegments;
+        constexpr static const uint8_t segments = WidthSegments*HeightSegments;
+        constexpr static const uint16_t width = WidthSegments*8;
+        constexpr static const uint16_t height = HeightSegments*8;
         constexpr static const spi_host_device_t host_id = HostId;
         constexpr static const gpio_num_t pin_cs = PinCS;
-        constexpr static const size_t max_transactions = MaxTransactions;
-        constexpr static const bool use_polling = UsePolling;
-        constexpr static const size_t dma_size = DmaSize;
-        constexpr static const TickType_t timeout = Timeout;
-private:
-        unsigned int m_initialized;
+    private:
+        bool m_initialized;
         spi_device m_spi;
-        uint8_t m_frame_buffer[8*segments];
-        unsigned int m_suspend_x1;
-        unsigned int m_suspend_y1;
-        unsigned int m_suspend_x2;
-        unsigned int m_suspend_y2;
-        unsigned int m_suspend_count;
-        unsigned int m_suspend_first;
-    
-        struct rect {
-            unsigned int x1;
-            unsigned int y1;
-            unsigned int x2;
-            unsigned int y2;
-        };
-        
+        uint8_t m_frame_buffer[segments*8];
+        uint16_t m_suspend_x1;
+        uint16_t m_suspend_y1;
+        uint16_t m_suspend_x2;
+        uint16_t m_suspend_y2;
+        int m_suspend_first;
+        int m_suspend_count;
+        static inline uint16_t shuffle(uint16_t val)
+        {
+            return (val >> 8) | (val << 8);
+        }
         static bool normalize_values(rect& bounds,bool check_bounds=true) {
             // normalize values
             uint16_t tmp;
@@ -94,98 +65,28 @@ private:
             }
             return true;
         }
-        static result xlt_err(spi_result sr) {
-            switch(sr) {
-                case spi_result::timeout:
-                    return result::timeout;
-                case spi_result::invalid_argument:
-                    return result::invalid_argument;
-                case spi_result::previous_transactions_pending:
-                case spi_result::host_in_use:
-                case spi_result::dma_in_use:
-                    return result::io_busy;
-                case spi_result::out_of_memory:
-                    return result::out_of_memory;
-                case spi_result::success:
-                    return result::success;
-                default:
-                    return result::io_error;
-            }
-        }
-        result send(uint8_t chip, uint16_t value)
-        {
-            uint16_t buf[segments] = { 0 };
-            if (chip == ALL_CHIPS)
-            {
-                for (uint8_t i = 0; i < segments; i++)
-                    buf[i] = bits::swap(value);
-            }
-            else buf[chip] = bits::swap(value);
-
-            spi_result r = m_spi.write((uint8_t*)buf,segments*2);
-            if(spi_result::success!=r) 
-                return xlt_err(r);
-            return result::success;
-        }
-        result display_line(uint8_t line,uint8_t value) {
-            uint8_t chip = line / 8;
-            uint8_t data = (line & 7);
-            return send(chip, (REG_DIGIT_0 + ((uint16_t)data << 8)) | value);
-        }
         void line_rect(uint8_t line,rect* out_rect) {
             out_rect->x1 = line % (width/8);
             out_rect->x2 = out_rect->x1 + 7;
             out_rect->y1=out_rect->y2= line / (width/8);
         }
         result display_update(const rect& bounds) {
-            // TODO: There's a more efficient way to do 
-            // this than brute force but my head is not
-            // in it right now. revisit
-            /*for(int i = 0;i<segments*8;++i) {
-                rect lr;
-                line_rect(i,&lr);
-                if(bounds.x1>=lr.x1 && 
-                    bounds.x2<=lr.x2 && 
-                    bounds.y1>=lr.y1 && 
-                    bounds.y2<=lr.y2) {
-                    const uint8_t val = m_frame_buffer[(lr.y1*width+lr.x1)/8];
-                    const result r = display_line(i,val);
-                    if(result::success!=r) {
-                        return r;
+            result r;
+            int line = 0;
+            for(int x = 0;x<width;x+=8) {        
+                for(int y=0;y<height;++y) {
+                    if(x<=bounds.x2&&x+7>=bounds.x1&&y<=bounds.y2&&y>=bounds.y1) {
+                        const uint8_t* p = m_frame_buffer+(y*width+x)/8;
+                        r=set_line(line,*p);
+                        if(result::success!=r) {
+                            return r;
+                        }
                     }
-                }
-            }*/
-            // TODO: above isn't even working, fallback
-            for(int i=0;i<segments*8;++i) {
-                rect lr;
-                line_rect(i,&lr);
-                const uint8_t val = m_frame_buffer[(lr.y1*width+lr.x1)/8];
-                const result r = display_line(i,val);
-                if(result::success!=r) {
-                    return r;
+                    ++line;
                 }
             }
             return result::success;
         }
-        inline static spi_device_interface_config_t get_device_config() {
-            spi_device_interface_config_t devcfg={
-                .command_bits=0,
-                .address_bits=0,
-                .dummy_bits=0,
-                .mode=0,
-                .duty_cycle_pos=0,
-                .cs_ena_pretrans=0,
-                .cs_ena_posttrans=0,
-                .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
-                .input_delay_ns = 0,
-                .spics_io_num=pin_cs,               //CS pin
-                .flags =SPI_DEVICE_NO_DUMMY,
-                .queue_size=max_transactions,
-                .pre_cb=nullptr,  
-                .post_cb=nullptr
-            };
-            return devcfg;
-        } 
         void buffer_fill(const rect& bounds,bool color) {
             rect b = bounds;
             if(!normalize_values(b))
@@ -218,70 +119,131 @@ private:
             }
         
         }
-        result clear_internal()
+        result disable_decode_mode()
+        {
+            result r = send( 0xFF, (9 << 8) );
+            if(result::success!=r) {
+                return r;
+            }
+            return clear();
+        }
+
+        result set_brightness(uint8_t value)
+        {
+            if(value > 15) {
+                return result::invalid_argument;
+            }
+
+            return send( 0xFF, (10 << 8) | value);
+
+        }
+
+        result set_enabled(bool enabled)
+        {
+            return send(0xFF, (12 << 8) | enabled);
+        }
+
+
+        result clear()
         {
             for (uint8_t i = 0; i < 8; i++) {
-                result r=send(ALL_CHIPS, (REG_DIGIT_0 + ((uint16_t)i << 8)));
-                if(result::success!=r) {
+                result r = send( 0xFF, ((1 << 8) + ((uint16_t)i << 8)));
+                if(result::success!=r)
                     return r;
-                }
-            }
-
-            return result::success;
-        }
-
-        result initialize_impl() {
-            result r;
-            r=send(ALL_CHIPS,REG_SHUTDOWN);
-            if(r!=result::success) {
-                return r;
-            }
-            r=send(ALL_CHIPS, REG_DISPLAY_TEST);
-            if(r!=result::success) {
-                return r;
-            }
-            r=send(ALL_CHIPS, REG_SCAN_LIMIT | 7);
-            if(r!=result::success) {
-                return r;
-            }
-            r=send(ALL_CHIPS, REG_DECODE_MODE);
-            if(r!=result::success) {
-                return r;
-            }
-            r=clear_internal();
-            if(r!=result::success) {
-                return r;
-            }
-            r=send(ALL_CHIPS, REG_INTENSITY);
-            if(r!=result::success) {
-                return r;
-            }
-            r=send(ALL_CHIPS,REG_SHUTDOWN|1);
-            if(r!=result::success) {
-                return r;
             }
             return result::success;
         }
-public:
-        max7219() : m_initialized(false),m_spi(host_id,get_device_config()),m_suspend_count(0),m_suspend_first(0)  {
+
+        result send(uint8_t seg, uint16_t value)
+        {
+            uint16_t buf[8] = { 0 };
+            value = shuffle(value);
+            if (seg == 0xFF)
+            {
+                for (uint8_t i = 0; i < segments; i++)
+                    buf[i] = value;
+            }
+            else {
+                buf[seg] = value;
+            }
+            if(spi_result::success!=m_spi.write((uint8_t*)buf,segments*2)) {
+                return result::io_error;
+            }
+            return result::success;
+            
         }
-        bool initialized() const {
+        
+        inline static spi_device_interface_config_t get_spi_config() {
+            spi_device_interface_config_t spi_cfg;
+            memset(&spi_cfg, 0, sizeof(spi_cfg));
+            spi_cfg.spics_io_num = pin_cs;
+            spi_cfg.clock_speed_hz = 10*1000*1000;
+            spi_cfg.mode = 0;
+            spi_cfg.queue_size = 1;
+            spi_cfg.flags = SPI_DEVICE_NO_DUMMY;    
+            return spi_cfg;        
+        }
+        max7219(const max7219& rhs)=delete;
+        max7219& operator=(const max7219& rhs)=delete;
+    public:
+        max7219() : 
+            m_initialized(false),
+            m_spi(host_id,get_spi_config()),
+            m_suspend_first(0),
+            m_suspend_count(0) {
+        }
+        inline bool initialized() const {
             return m_initialized;
         }
         result initialize() {
             if(!m_initialized) {
-                result r = initialize_impl();
-                if(result::success!=r)
+                result r;
+                r=set_enabled(false);
+                if(result::success!=r) {
                     return r;
+                }
+                r=send(0xFF, (15 << 8));
+                if(result::success!=r) {
+                    return r;
+                }
+                r=send(0xFF, (11 << 8) | 7);
+                if(result::success!=r) {
+                    return r;
+                }
+                r=disable_decode_mode();
+                if(result::success!=r) {
+                    return r;
+                }
+                r=set_brightness(0);
+                if(result::success!=r) {
+                    return r;
+                }
+                r=set_enabled(true);
+                if(result::success!=r) {
+                    return r;
+                }
                 m_initialized=true;
             }
             return result::success;
         }
+        
+        ~max7219() {}
         const uint8_t* frame_buffer() const {
             return m_frame_buffer;
         }
-       
-        result pixel_read(uint16_t x,uint16_t y,bool* out_color) {
+        result set_line(uint8_t line, uint8_t val)
+        {
+            if (line >= segments*8)
+            {
+                return result::invalid_argument;
+            }
+
+            uint8_t c = line / 8;
+            uint8_t d = line % 8;
+
+            return send(c, ((1 << 8) + ((uint16_t)d << 8)) | val);
+        }
+        result pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
             result r=initialize();
             if(result::success!=r)
                 return r;
@@ -320,7 +282,7 @@ public:
             return result::success;
         }
         // GFX Bindings
-        using type = max7219<Width,Height,HostId,PinCS,MaxTransactions,UsePolling,DmaSize,Timeout>;
+        using type = max7219<WidthSegments,HeightSegments,HostId,PinCS>;
         using pixel_type = gfx::gsc_pixel<1>;
         using caps = gfx::gfx_caps< false,false,false,false,true,false>;
     private:
@@ -332,8 +294,6 @@ public:
                     return gfx::gfx_result::out_of_memory;
                 case result::success:
                     return gfx::gfx_result::success;
-                case result::not_supported:
-                    return gfx::gfx_result::not_supported;
                 case result::invalid_argument:
                     return gfx::gfx_result::invalid_argument;
                 default:
@@ -385,5 +345,5 @@ public:
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
-    };
+    };   
 }

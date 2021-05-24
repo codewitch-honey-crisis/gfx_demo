@@ -10,4 +10,6 @@
 #include "st7735_demo.hpp"
 #elif defined(MAX7219)
 #include "max7219_demo.hpp"
+#elif defined(RA8875)
+#include "ra8875_demo.hpp"
 #endif

@@ -152,34 +152,56 @@ namespace espidf {
         inline size_t max_transactions() const {
             return m_max_transactions;
         }
+        // make a read transaction
         static void make_read(spi_transaction_t* trans, uint8_t* data, size_t size,void* user = nullptr) {
             trans->addr = 0;
             trans->cmd = 0;
-            trans->flags = 0;
-            trans->rx_buffer = data;
-            trans->length = size * 8;
-            //memset(trans->rx_data,0,sizeof(trans->rx_data));
-            trans->rxlength = size;
+            trans->length = 0;
             trans->tx_buffer = nullptr;
-            //memset(trans->tx_data,0,sizeof(trans->tx_data));
+            if(size>4) {
+                trans->flags = 0;
+                trans->rx_buffer = data;
+            } else {
+                trans->flags = SPI_TRANS_USE_RXDATA;
+            }
             trans->user = user;
         }
+        // make a write transaction
         static void make_write(spi_transaction_t* trans, const uint8_t* data, size_t size,void* user=nullptr) {
             trans->addr = 0;
             trans->cmd = 0;
             trans->length = size * 8;
             trans->rx_buffer = nullptr;
-            //memset(trans->rx_data,0,sizeof(trans->rx_data));
             trans->rxlength = 0;
             if(size>4) {
                 trans->flags = 0;
                 trans->tx_buffer = data;
             } else {
                 trans->flags = SPI_TRANS_USE_TXDATA;
-                trans->tx_buffer = nullptr;
                 memcpy(trans->tx_data,data,size);
             }
-            //memset(trans->tx_data,0,sizeof(trans->tx_data));
+            trans->user = user;
+        }
+        // makes a full duplex transaction - size_in must be less than or equal to size_out! (it's a restriction of SPI)
+        static void make_read_write(spi_transaction_t* trans, const uint8_t *data_out,size_t size_out,uint8_t* data_in,size_t size_in,void* user=nullptr) {
+            trans->addr = 0;
+            trans->cmd = 0;
+            trans->length = size_out*8;
+            if(size_out>4) {
+                trans->flags = 0;
+                trans->tx_buffer = data_out;
+                trans->rx_buffer = data_in;
+            } else {
+                trans->flags = SPI_TRANS_USE_TXDATA;
+                memcpy(trans->tx_data,data_out,size_out);
+            }
+            trans->rxlength = size_in*8;;
+            if(size_in>4) {
+                trans->rx_buffer = data_in;
+            } else {
+                trans->flags |= SPI_TRANS_USE_RXDATA;
+                trans->rx_buffer = nullptr;
+            }
             trans->user = user;
         }
         spi_result acquire_bus(TickType_t timeout=portMAX_DELAY) {
@@ -236,24 +258,27 @@ namespace espidf {
             }
         }
         
-        spi_result read(uint8_t* data, size_t size,void* user=nullptr) {
+        spi_result read(uint8_t* data, size_t size,void* user=nullptr,bool use_polling=true) {
             spi_transaction_t trans;
             spi_result r;
             if(0<size) {
                 make_read(&trans,data,size,user);
-                r=transaction(&trans,true);
+                r=transaction(&trans,use_polling);
                 if(spi_result::success!=r) {
                     return r;
+                }
+                if(SPI_TRANS_USE_RXDATA==(trans.flags & SPI_TRANS_USE_RXDATA)) {
+                    memcpy(data,trans.rx_data,size);
                 }
             }
             return spi_result::success;
         }
-        spi_result write(const uint8_t* data, size_t size,void* user=nullptr) {
+        spi_result write(const uint8_t* data, size_t size,void* user=nullptr,bool use_polling=true) {
             spi_transaction_t trans;
             spi_result r;
             if(0<size) {
                 make_write(&trans,data,size,user);
-                r=transaction(&trans,true);
+                r=transaction(&trans,use_polling);
                 if(spi_result::success!=r) {
                     return r;
                 }
@@ -305,7 +330,7 @@ namespace espidf {
         inline bool has_queued_transactions() const {
             return m_queue_head!=m_queue_tail;
         }
-        spi_result wait_one() {
+        spi_result wait_one(spi_transaction_t **out_ptrans=nullptr) {
             spi_result r;
             spi_transaction_t* ptrans;
             if(m_queue_head!=m_queue_tail){
@@ -313,7 +338,12 @@ namespace espidf {
                 if(spi_result::success!=r)
                     return r;
                 m_queue_head=(m_queue_head+1)%max_transactions;    
+                if(out_ptrans!=nullptr)
+                    *out_ptrans = ptrans;
+                return spi_result::success;
             }
+            if(out_ptrans!=nullptr)
+                *out_ptrans = nullptr;
             return spi_result::success;
         }
         spi_result wait_all() {
@@ -333,8 +363,12 @@ namespace espidf {
             }
             return spi_result::success;
         }
-        spi_result write(const uint8_t* data, size_t size,void* user,spi_transaction_type type=spi_transaction_type::polling) {
+        spi_result write(const uint8_t* data, size_t size,void* user,spi_transaction_type type=spi_transaction_type::any) {
             spi_result r;
+            if(type==spi_transaction_type::any) {
+                // if there are pending transactions queued, use interrupt instead of polling
+                type = (m_queue_head==m_queue_tail)?spi_transaction_type::polling:spi_transaction_type::interrupt;
+            }
             if(type==spi_transaction_type::polling) {
                 spi_transaction_t t;
                 spi_device::make_write(&t,data,size,user);

@@ -27,7 +27,7 @@ using namespace gfx;
 #define PIN_NUM_CS   GPIO_NUM_15
 
 #define LCD_WIDTH 32
-#define LCD_HEIGHT 8
+#define LCD_HEIGHT 16
 
 spi_master spi_host(nullptr,
                 LCD_HOST,

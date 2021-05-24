@@ -279,7 +279,7 @@ static void display_pretty_colors()
         ++frame;
         for (int y=0; y<240; y+=PARALLEL_LINES) {
             //Calculate a line.
-            pretty_effect_calc_lines(lines[calc_line], y, frame, PARALLEL_LINES);
+            pretty_effect_calc_lines(320,240, lines[calc_line], y, frame, PARALLEL_LINES);
             // wait for the last frame to finish. Don't need this unless transactions are > 7
             if(-1!=sending_line) {
                 draw::wait_all_async(lcd);
@@ -400,7 +400,7 @@ void app_main(void)
     ret=esp_vfs_spiffs_register(&conf);
     ESP_ERROR_CHECK(ret);   
     gfx_result rr;
-    rr=pretty_effect_init();
+    rr=pretty_effect_init("/spiffs/image.jpg",336,256,320,240);
     if(gfx_result::success!=rr) {
         printf("Error loading demo: %d\r\n",(int)rr);
     }

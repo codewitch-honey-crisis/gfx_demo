@@ -144,9 +144,10 @@ void print_source(const Source& src) {
     }
 }
 constexpr static const size16 bmp_size(64,64);
-using bmp_type = bitmap<rgba_pixel<lcd_type::pixel_type::bit_depth+lcd_type::pixel_type::bit_depth/3>>;
+using bmp_type = bitmap<lcd_type::pixel_type>;
 using bmp_color = color<typename bmp_type::pixel_type>;
-
+using bmpa_pixel_type = rgba_pixel<HTCW_MAX_WORD>;
+using bmpa_color = color<bmpa_pixel_type>;
 // declare the bitmap
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 bmp_type bmp(bmp_size,bmp_buf);
@@ -157,7 +158,7 @@ void scroll_text_demo() {
     lcd.clear(lcd.bounds());
     // draw stuff
     bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
-    typename bmp_type::pixel_type col = bmp_color::yellow;
+    bmpa_pixel_type col = bmpa_color::yellow;
     col.channelf<channel_name::A>(.5);
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1));
@@ -185,16 +186,16 @@ void scroll_text_demo() {
     draw::ellipse(bmp,mouth_bounds,bmp_color::black,&mouth_clip);
 
     // do some alpha blended rectangles
-    col = bmp_color::red;
+    col = bmpa_color::red;
     col.channelf<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(0,0),ssize16(bmp.dimensions().width,bmp.dimensions().height/4)),col);
-    col = bmp_color::blue;
+    col = bmpa_color::blue;
     col.channelf<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(0,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
-    col = bmp_color::green;
+    col = bmpa_color::green;
     col.channelf<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(0,bmp.dimensions().height-bmp.dimensions().height/4),ssize16(bmp.dimensions().width,bmp.dimensions().height/4)),col);
-    col = bmp_color::purple;
+    col = bmpa_color::purple;
     col.channelf<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(bmp.dimensions().width-bmp.dimensions().width/4,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
 

@@ -244,16 +244,13 @@ namespace espidf {
             return send(c, ((1 << 8) + ((uint16_t)d << 8)) | val);
         }
         result pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
-            result r=initialize();
-            if(result::success!=r)
-                return r;
             if(nullptr==out_color)
                 return result::invalid_argument;
             if(x>=width || y>=height) {
                 *out_color = false;
                 return result::success;
             }
-            uint8_t* p = m_frame_buffer+(y*width/8)+x;
+            const uint8_t* p = m_frame_buffer+(y*width/8)+x;
             *out_color = 0!=(*p & (1<<(7-(x&7))));
             return result::success;
         }
@@ -286,7 +283,7 @@ namespace espidf {
         using pixel_type = gfx::gsc_pixel<1>;
         using caps = gfx::gfx_caps< false,false,false,false,true,true,false>;
     private:
-        gfx::gfx_result xlt_err(result r) {
+        static gfx::gfx_result xlt_err(result r) {
             switch(r) {
                 case result::io_error:
                     return gfx::gfx_result::device_error;
@@ -304,7 +301,7 @@ namespace espidf {
         constexpr inline gfx::size16 dimensions() const {return gfx::size16(width,height);}
         constexpr inline gfx::rect16 bounds() const { return dimensions().bounds(); }
         // gets a point 
-        gfx::gfx_result point(gfx::point16 location,pixel_type* out_color) {
+        gfx::gfx_result point(gfx::point16 location,pixel_type* out_color) const {
             bool col=false;
             result r = pixel_read(location.x,location.y,&col);
             if(result::success!=r)

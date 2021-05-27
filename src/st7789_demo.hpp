@@ -51,6 +51,20 @@ using namespace gfx;
 #define PIN_NUM_DC   GPIO_NUM_16
 #define PIN_NUM_RST  GPIO_NUM_23
 #define PIN_NUM_BCKL GPIO_NUM_4
+#elif defined(ESP32_TWATCH)
+#define LCD_WIDTH 240
+#define LCD_HEIGHT 240
+#define PARALLEL_LINES 16
+#define LCD_HOST    VSPI_HOST
+#define DMA_CHAN    2
+#define PIN_NUM_MISO GPIO_NUM_NC
+#define PIN_NUM_MOSI GPIO_NUM_19
+#define PIN_NUM_CLK  GPIO_NUM_18
+#define PIN_NUM_CS   GPIO_NUM_5
+
+#define PIN_NUM_DC   GPIO_NUM_27
+#define PIN_NUM_RST  GPIO_NUM_NC
+#define PIN_NUM_BCKL GPIO_NUM_12
 #else
 #define LCD_WIDTH 320
 #define LCD_HEIGHT 240
@@ -348,8 +362,10 @@ static void display_pretty_colors()
             }
             
             file_stream fs(
-#ifdef ESP32_TTGO
+#if defined(ESP32_TTGO)
                 "/spiffs/image_240.jpg"
+#elif defined(ESP32_TWATCH)
+                "/spiffs/image_240_240.jpg"
 #else
                 ((0==pid)?"/spiffs/image.jpg":
                 (1==pid)?"/spiffs/image2.jpg":
@@ -410,10 +426,14 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);   
     gfx_result rr;
     rr=pretty_effect_init(
-#ifdef ESP32_TTGO
+#if defined(ESP32_TTGO)
     "/spiffs/image_240.jpg",
     256,
     151,
+#elif defined(ESP32_TWATCH)
+    "/spiffs/image_240_240.jpg",
+    256,
+    256,
 #else
     "/spiffs/image.jpg",
     336,

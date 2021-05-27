@@ -100,6 +100,7 @@ namespace espidf {
             // Memory write
             return this->send_next_command(0x2C,queued,true);
         }
+        
     public:
         // constructs a new instance of the driver
         ili9341() {
@@ -152,7 +153,44 @@ protected:
         virtual spi_driver_result queued_write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags) {
             return write_window_impl(bounds,true,set_flags);
         }
-
+        virtual spi_driver_result read_window(const spi_driver_rect& win) {
+            //printf("(%d, %d)-(%d, %d)\r\n",win.x1,win.y1,win.x2,win.y2);
+            
+            spi_driver_result r;
+            uint8_t tx_data[4];
+            //Column Address Set
+            r=this->send_next_command(0x2A,false);
+            if(spi_driver_result::success!=r)
+                return r;
+            
+            tx_data[0]=win.x1>>8;             //Start Col High
+            tx_data[1]=win.x1&0xFF;           //Start Col Low
+            tx_data[2]=win.x2>>8;             //End Col High
+            tx_data[3]=win.x2&0xff;           //End Col Low
+            r=this->send_next_data(tx_data,4,false,true);
+            if(spi_driver_result::success!=r)
+                return r;
+        
+            //Page address set
+            r=this->send_next_command(0x2B,false,true);
+            if(spi_driver_result::success!=r)
+                return r;
+            tx_data[0]=win.y1>>8;        //Start page high
+            tx_data[1]=win.y1&0xff;      //start page low
+            tx_data[2]=win.y2>>8;        //end page high
+            tx_data[3]=win.y2&0xff;      //end page low
+            r=this->send_next_data(tx_data,4,false,true);
+            if(spi_driver_result::success!=r)
+                return r;
+    
+            // Memory read
+            r= this->send_next_command(0x2E,false,true);
+            if(spi_driver_result::success!=r)
+                return r;
+            // dummy read (1st parameter)
+            uint8_t val;
+            return this->read_next_data(&val,1);
+        }
         // GFX bindings
  public:
         // indicates the type, itself
@@ -270,6 +308,17 @@ protected:
             spi_driver_result r = this->pixel_write(location.x,location.y,pixel.value());
             if(spi_driver_result::success!=r)
                 return xlt_err(r);
+            return gfx::gfx_result::success;
+        }
+        // gets a pixel from the specified point
+        gfx::gfx_result point(gfx::point16 location,pixel_type* pixel) {
+            if(nullptr==pixel)
+                return gfx::gfx_result::invalid_argument;
+            uint16_t pv;
+            spi_driver_result r = this->pixel_read(location.x,location.y,&pv);
+            if(spi_driver_result::success!=r)
+                return xlt_err(r);
+            pixel->value(pv);
             return gfx::gfx_result::success;
         }
         // asynchronously sets a point to the specified pixel

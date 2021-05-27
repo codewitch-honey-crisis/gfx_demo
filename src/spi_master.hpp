@@ -153,12 +153,12 @@ namespace espidf {
             return m_max_transactions;
         }
         // make a read transaction
-        static void make_read(spi_transaction_t* trans, uint8_t* data, size_t size,void* user = nullptr) {
+        static void make_read(spi_transaction_t* trans, uint8_t* data, size_t size,void* user = nullptr,bool use_rxdata=true) {
             trans->addr = 0;
             trans->cmd = 0;
-            trans->length = 0;
+            trans->length = trans->rxlength=size*8;
             trans->tx_buffer = nullptr;
-            if(size>4) {
+            if(size>4 || !use_rxdata) {
                 trans->flags = 0;
                 trans->rx_buffer = data;
             } else {
@@ -183,7 +183,7 @@ namespace espidf {
             trans->user = user;
         }
         // makes a full duplex transaction - size_in must be less than or equal to size_out! (it's a restriction of SPI)
-        static void make_read_write(spi_transaction_t* trans, const uint8_t *data_out,size_t size_out,uint8_t* data_in,size_t size_in,void* user=nullptr) {
+        static void make_read_write(spi_transaction_t* trans, const uint8_t *data_out,size_t size_out,uint8_t* data_in,size_t size_in,void* user=nullptr,bool use_rxdata=true) {
             trans->addr = 0;
             trans->cmd = 0;
             trans->length = size_out*8;
@@ -196,7 +196,7 @@ namespace espidf {
                 memcpy(trans->tx_data,data_out,size_out);
             }
             trans->rxlength = size_in*8;;
-            if(size_in>4) {
+            if(size_in>4 || !use_rxdata) {
                 trans->rx_buffer = data_in;
             } else {
                 trans->flags |= SPI_TRANS_USE_RXDATA;
@@ -369,13 +369,12 @@ namespace espidf {
                 // if there are pending transactions queued, use interrupt instead of polling
                 type = (m_queue_head==m_queue_tail)?spi_transaction_type::polling:spi_transaction_type::interrupt;
             }
+            spi_transaction_t t;
+            spi_device::make_write(&t,data,size,user);
+        
             if(type==spi_transaction_type::polling) {
-                spi_transaction_t t;
-                spi_device::make_write(&t,data,size,user);
                 return m_device.transaction(&t,true);
             } else if(type==spi_transaction_type::interrupt) {
-                spi_transaction_t t;
-                spi_device::make_write(&t,data,size,user);
                 return m_device.transaction(&t,false);
             }
             spi_transaction_t* ptrans;
@@ -385,6 +384,50 @@ namespace espidf {
             ptrans = &m_queued_transactions[m_queue_tail];
             m_queue_tail=(m_queue_tail+1)%max_transactions;
             spi_device::make_write(ptrans,data,size,user);
+            return m_device.queue_transaction(ptrans,timeout);
+        }
+        spi_result read(uint8_t* data, size_t size,void* user,spi_transaction_type type=spi_transaction_type::any,bool use_rxdata=true) {
+            spi_result r;
+            if(type==spi_transaction_type::any) {
+                // if there are pending transactions queued, use interrupt instead of polling
+                type = (m_queue_head==m_queue_tail)?spi_transaction_type::polling:spi_transaction_type::interrupt;
+            }
+            spi_transaction_t t;
+            spi_device::make_read(&t,data,size,user,use_rxdata);
+            if(type==spi_transaction_type::polling) {
+                return m_device.transaction(&t,true);
+            } else if(type==spi_transaction_type::interrupt) {
+                return m_device.transaction(&t,false);
+            }
+            spi_transaction_t* ptrans;
+            r=ensure_free_queue();
+            if(spi_result::success!=r)
+                return r;
+            ptrans = &m_queued_transactions[m_queue_tail];
+            m_queue_tail=(m_queue_tail+1)%max_transactions;
+            spi_device::make_read(ptrans,data,size,user,use_rxdata);
+            return m_device.queue_transaction(ptrans,timeout);
+        }
+        spi_result read_write(const uint8_t* write_data,size_t write_size, uint8_t* read_data, size_t read_size,void* user,spi_transaction_type type=spi_transaction_type::any,bool use_rxdata=true) {
+            spi_result r;
+            if(type==spi_transaction_type::any) {
+                // if there are pending transactions queued, use interrupt instead of polling
+                type = (m_queue_head==m_queue_tail)?spi_transaction_type::polling:spi_transaction_type::interrupt;
+            }
+            spi_transaction_t t;
+            spi_device::make_read_write(&t,write_data,write_size, read_data,read_size,user,use_rxdata);
+            if(type==spi_transaction_type::polling) {
+                return m_device.transaction(&t,true);
+            } else if(type==spi_transaction_type::interrupt) {
+                return m_device.transaction(&t,false);
+            }
+            spi_transaction_t* ptrans;
+            r=ensure_free_queue();
+            if(spi_result::success!=r)
+                return r;
+            ptrans = &m_queued_transactions[m_queue_tail];
+            m_queue_tail=(m_queue_tail+1)%max_transactions;
+            spi_device::make_read_write(ptrans,write_data,write_size, read_data,read_size,user,use_rxdata);
             return m_device.queue_transaction(ptrans,timeout);
         }
     };

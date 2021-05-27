@@ -57,14 +57,14 @@ using namespace gfx;
 #define PARALLEL_LINES 16
 #define LCD_HOST    HSPI_HOST
 #define DMA_CHAN    2
-#define PIN_NUM_MISO GPIO_NUM_12
-#define PIN_NUM_MOSI GPIO_NUM_13
-#define PIN_NUM_CLK  GPIO_NUM_14
-#define PIN_NUM_CS   GPIO_NUM_22
+#define PIN_NUM_MISO GPIO_NUM_19
+#define PIN_NUM_MOSI GPIO_NUM_23
+#define PIN_NUM_CLK  GPIO_NUM_18
+#define PIN_NUM_CS   GPIO_NUM_5
 
-#define PIN_NUM_DC   GPIO_NUM_21
-#define PIN_NUM_RST  GPIO_NUM_15
-#define PIN_NUM_BCKL GPIO_NUM_5
+#define PIN_NUM_DC   GPIO_NUM_2
+#define PIN_NUM_RST  GPIO_NUM_4
+#define PIN_NUM_BCKL GPIO_NUM_15
 #endif
 
 #elif defined CONFIG_IDF_TARGET_ESP32S2
@@ -220,6 +220,9 @@ void lines_demo() {
     }
     font f(&fs);
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
+    //typename lcd_type::pixel_type px;
+    //lcd.point({0,0},&px);
+    //printf("point (0,0) = %04X\r\n",(int)px.value());
     const char* text = "ESP32 GFX Demo";
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                             text).bounds();

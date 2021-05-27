@@ -6,7 +6,8 @@ namespace espidf {
         io_error,
         io_busy,
         out_of_memory,
-        timeout
+        timeout,
+        not_supported
     };
     // for faster function calls:
     struct spi_driver_rect {
@@ -88,6 +89,25 @@ namespace espidf {
                     return r;
             }
             rr = m_spi_mgr.write(data,size,(void*)user,(queued)?spi_transaction_type::queued:(use_polling)?spi_transaction_type::polling:spi_transaction_type::interrupt);
+            if(spi_result::success!=rr)
+                return xlt_err(rr);
+            return spi_driver_result::success;
+        }
+        
+        spi_driver_result retr_next_internal(uint8_t* data,size_t size,bool user) {
+            if(!initialized()) {
+                spi_driver_result r = initialize();
+                if(spi_driver_result::success!=r)
+                    return r;
+                m_initialized=true;
+            }
+            spi_result rr;
+            if(m_batch_left!=0) {
+                spi_driver_result r=commit_batch_internal(false);
+                if(spi_driver_result::success!=r)
+                    return r;
+            }
+            rr = m_spi_mgr.read(data,size,(void*)user,use_polling?spi_transaction_type::polling:spi_transaction_type::interrupt,false);
             if(spi_result::success!=rr)
                 return xlt_err(rr);
             return spi_driver_result::success;
@@ -268,7 +288,9 @@ namespace espidf {
             return devcfg;
         } 
     protected:
-    
+        virtual spi_driver_result read_window(const spi_driver_rect& bounds) {
+            return spi_driver_result::not_supported;
+        }
         virtual spi_driver_result write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags)=0;
         virtual spi_driver_result queued_write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags)=0;
 
@@ -277,6 +299,9 @@ namespace espidf {
         }
         inline spi_driver_result send_next_data(const uint8_t* data,size_t size,bool queued,bool skip_batch_commit=false) {
             return send_next_internal(data,size,queued,1,skip_batch_commit);
+        }
+        inline spi_driver_result read_next_data(uint8_t* data,size_t size) {
+            return retr_next_internal(data,size,1);
         }
         inline spi_driver_result send_init_command(uint8_t cmd) {
             spi_result r = m_spi.write(&cmd,1,(void*)0);
@@ -290,7 +315,7 @@ namespace espidf {
                 return xlt_err(r);
             return spi_driver_result::success;
         }
-
+       
     public:
             spi_driver(spi_driver_result* out_result = nullptr) : 
             m_initialized(false),
@@ -337,6 +362,37 @@ namespace espidf {
             if(spi_driver_result::success!=r)
                 return r;
             return send_next_data(bmp_data,(b.x2-b.x1+1)*(b.y2-b.y1+1)*2,false,true);
+        }
+        spi_driver_result frame_read(const spi_driver_rect& bounds,uint8_t* bmp_data) {
+            // normalize values
+            spi_driver_rect b;
+            if(bounds.x1>bounds.x2) {
+                b.x2=bounds.x1;
+                b.x1=bounds.x2;
+            } else {
+                b.x1=bounds.x1;
+                b.x2=bounds.x2;
+            }
+            if(bounds.y1>bounds.y2) {
+                b.y2=bounds.y1;
+                b.y1=bounds.y2;
+            } else {
+                b.y1=bounds.y1;
+                b.y2=bounds.y2;
+            }
+            if(b.x1>=width || b.y1>=height)
+                return spi_driver_result::success;
+            m_batch_window.x1=m_batch_window.y1=m_batch_window.x2=m_batch_window.y2=(uint16_t)-1;
+            spi_driver_result r=read_window(b);
+            
+            if(spi_driver_result::success!=r) {
+                return r;
+            
+            }
+            return read_next_data(bmp_data,(b.x2-b.x1+1)*(b.y2-b.y1+1)*2);
+        }
+        inline spi_driver_result pixel_read(uint16_t x,uint16_t y,uint16_t* out_color) {
+            return frame_read({x,y,x,y},(uint8_t*)out_color);
         }
         // queues a frame write operation. The bitmap data must be valid 
         // for the duration of the operation (until queued_wait_all())

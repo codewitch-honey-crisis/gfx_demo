@@ -143,12 +143,12 @@ void print_source(const Source& src) {
         printf("\r\n");
     }
 }
-static const size16 bmp_size(32,32);
-using bmp_type = bitmap<typename lcd_type::pixel_type>;
-using bmp_color = color<typename lcd_type::pixel_type>;
+constexpr static const size16 bmp_size(64,64);
+using bmp_type = bitmap<rgba_pixel<lcd_type::pixel_type::bit_depth+lcd_type::pixel_type::bit_depth/3>>;
+using bmp_color = color<typename bmp_type::pixel_type>;
 
 // declare the bitmap
-uint8_t bmp_buf[2048];
+uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 bmp_type bmp(bmp_size,bmp_buf);
 
 // produced by request
@@ -157,13 +157,14 @@ void scroll_text_demo() {
     lcd.clear(lcd.bounds());
     // draw stuff
     bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
-    
+    typename bmp_type::pixel_type col = bmp_color::yellow;
+    col.channelf<channel_name::A>(.5);
     // bounding info for the face
-    srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1)/(4/3.0));
+    srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1));
     rect16 ubounds(0,0,bounds.x2,bounds.y2);
 
     // draw the face
-    draw::filled_ellipse(bmp,bounds,bmp_color::yellow);
+    draw::filled_ellipse(bmp,bounds,col);
     
     // draw the left eye
     srect16 eye_bounds_left(spoint16(bounds.width()/5,bounds.height()/5),ssize16(bounds.width()/5,bounds.height()/3));
@@ -182,6 +183,21 @@ void scroll_text_demo() {
     // we need to clip part of the circle we'll be drawing
     srect16 mouth_clip(mouth_bounds.x1,mouth_bounds.y1+mouth_bounds.height()/(float)1.6,mouth_bounds.x2,mouth_bounds.y2);
     draw::ellipse(bmp,mouth_bounds,bmp_color::black,&mouth_clip);
+
+    // do some alpha blended rectangles
+    col = bmp_color::red;
+    col.channelf<channel_name::A>(.5);
+    draw::filled_rectangle(bmp,srect16(spoint16(0,0),ssize16(bmp.dimensions().width,bmp.dimensions().height/4)),col);
+    col = bmp_color::blue;
+    col.channelf<channel_name::A>(.5);
+    draw::filled_rectangle(bmp,srect16(spoint16(0,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
+    col = bmp_color::green;
+    col.channelf<channel_name::A>(.5);
+    draw::filled_rectangle(bmp,srect16(spoint16(0,bmp.dimensions().height-bmp.dimensions().height/4),ssize16(bmp.dimensions().width,bmp.dimensions().height/4)),col);
+    col = bmp_color::purple;
+    col.channelf<channel_name::A>(.5);
+    draw::filled_rectangle(bmp,srect16(spoint16(bmp.dimensions().width-bmp.dimensions().width/4,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
+
     draw::bitmap(lcd,(srect16)bmp.bounds().center_horizontal(lcd.bounds()),bmp,bmp.bounds());
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "copyright (C) 2021\r\nby honey the codewitch";
@@ -387,7 +403,7 @@ static void display_pretty_colors()
 
 void app_main(void)
 {
-
+    
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");

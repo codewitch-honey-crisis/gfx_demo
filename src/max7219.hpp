@@ -284,7 +284,7 @@ namespace espidf {
         // GFX Bindings
         using type = max7219<WidthSegments,HeightSegments,HostId,PinCS>;
         using pixel_type = gfx::gsc_pixel<1>;
-        using caps = gfx::gfx_caps< false,false,false,false,true,false>;
+        using caps = gfx::gfx_caps< false,false,false,false,true,true,false>;
     private:
         gfx::gfx_result xlt_err(result r) {
             switch(r) {

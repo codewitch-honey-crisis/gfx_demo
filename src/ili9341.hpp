@@ -198,7 +198,7 @@ protected:
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver
-        using caps = gfx::gfx_caps<false,true,true,true,false,false>;
+        using caps = gfx::gfx_caps<false,true,true,true,false,false,false>;
  
  private:
         gfx::gfx_result xlt_err(spi_driver_result r) {
@@ -310,6 +310,7 @@ protected:
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
+        /*
         // gets a pixel from the specified point
         gfx::gfx_result point(gfx::point16 location,pixel_type* pixel) {
             if(nullptr==pixel)
@@ -321,6 +322,7 @@ protected:
             pixel->value(pv);
             return gfx::gfx_result::success;
         }
+        */
         // asynchronously sets a point to the specified pixel
         gfx::gfx_result point_async(gfx::point16 location,pixel_type pixel) {
             spi_driver_result r = this->queued_pixel_write(location.x,location.y,pixel.value());

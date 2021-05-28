@@ -231,6 +231,27 @@ namespace gfx {
             }
         };
 
+        template<typename PixelType,size_t Count,typename... ChannelTraits>
+        struct pixel_diff_impl;        
+        template<typename PixelType,size_t Count, typename ChannelTrait,typename... ChannelTraits>
+        struct pixel_diff_impl<PixelType,Count,ChannelTrait,ChannelTraits...> {
+            using ch = typename PixelType::template channel_by_index<Count>;
+            using next = pixel_diff_impl<PixelType,Count+1, ChannelTraits...>;
+            constexpr static inline double diff_sum(PixelType lhs,PixelType rhs) {
+                constexpr const size_t index = Count;
+                if(ChannelTrait::bit_depth==0) return NAN;
+                const double d = (lhs.template channelr<index>()-rhs.template channelr<index>());
+                return d*d+next::diff_sum(lhs,rhs);
+            }
+        };
+        template<typename PixelType,size_t Count>
+        struct pixel_diff_impl<PixelType,Count> {
+            constexpr static inline double diff_sum(PixelType lhs,PixelType rhs) {
+                return 0.0;
+            }
+            
+        };
+
         template<size_t Count,typename Name, typename ...ChannelTraits>
         struct channel_index_by_name_impl;
         template<size_t Count,typename Name>
@@ -507,9 +528,12 @@ namespace gfx {
             const size_t index = channel_index_by_name<Name>::value;
             channelr<index>(value);
         }
-        
+        // returns the difference between two pixels
+        constexpr double difference(type rhs) const {
+            return sqrt(helpers::pixel_diff_impl<type,0,ChannelTraits...>::diff_sum(*this,rhs));
+        }
         // blends two pixels. ratio is between zero and one. larger ratio numbers favor this pixel
-        bool blend(type rhs,double ratio,type* out_pixel) {
+        constexpr bool blend(type rhs,double ratio,type* out_pixel) {
             if(has_channel_names<channel_name::R,channel_name::G,channel_name::B>::value && channels<5) {
                 if(nullptr==out_pixel)
                     return false;

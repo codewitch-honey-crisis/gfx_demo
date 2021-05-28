@@ -404,7 +404,6 @@ static void display_pretty_colors()
 
 void app_main(void)
 {
-    
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");

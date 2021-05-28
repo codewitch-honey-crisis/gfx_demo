@@ -3,6 +3,13 @@
 ## This is a Demo of GFX With Several Display Drivers
 ### This is not GFX itself, but it includes it. GFX Documentation is below
 
+
+### The documentation is currently slightly behind the API and there are a few breaking changes
+Renaming channelf<>() to channelr<>() for consistency is one. 
+
+Moving convert<>() off of pixel<> and into the global scope is another. Tread carefully. I'm currently in the middle of a major feature add which these changes are a part of. Bear with me. =)
+
+
 GFX is a cross platform graphics library in standard C++14 or C++17
 
 Please use the link to guarantee the latest documentation. I have to manually synchronize the README to the content below:

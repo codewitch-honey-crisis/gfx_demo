@@ -159,7 +159,7 @@ void scroll_text_demo() {
     // draw stuff
     bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
     bmpa_pixel_type col = bmpa_color::yellow;
-    col.channelf<channel_name::A>(.5);
+    col.channelr<channel_name::A>(.5);
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1));
     rect16 ubounds(0,0,bounds.x2,bounds.y2);
@@ -187,16 +187,16 @@ void scroll_text_demo() {
 
     // do some alpha blended rectangles
     col = bmpa_color::red;
-    col.channelf<channel_name::A>(.5);
+    col.channelr<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(0,0),ssize16(bmp.dimensions().width,bmp.dimensions().height/4)),col);
     col = bmpa_color::blue;
-    col.channelf<channel_name::A>(.5);
+    col.channelr<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(0,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
     col = bmpa_color::green;
-    col.channelf<channel_name::A>(.5);
+    col.channelr<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(0,bmp.dimensions().height-bmp.dimensions().height/4),ssize16(bmp.dimensions().width,bmp.dimensions().height/4)),col);
     col = bmpa_color::purple;
-    col.channelf<channel_name::A>(.5);
+    col.channelr<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(bmp.dimensions().width-bmp.dimensions().width/4,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
 
     draw::bitmap(lcd,(srect16)bmp.bounds().center_horizontal(lcd.bounds()),bmp,bmp.bounds());

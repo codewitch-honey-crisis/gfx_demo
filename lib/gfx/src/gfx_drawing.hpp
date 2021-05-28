@@ -908,7 +908,9 @@ namespace gfx {
             float dx, dy, d1, d2, x, y;
             x = 0;
             y = ry;
-        
+            // suspend if we can
+            suspend_token<Destination> stok(destination,async);
+            
             // Initial decision parameter of region 1
             d1 = (ry * ry)
                 - (rx * rx * ry)
@@ -916,8 +918,6 @@ namespace gfx {
             dx = 2 * ry * ry * x;
             dy = 2 * rx * rx * y;
             int_type oy=-1;
-            // suspend if we can
-            suspend_token<Destination> stok(destination,async);
             // For region 1
             while (dx < dy+y_adj) {
                 if(filled) {
@@ -1339,7 +1339,7 @@ namespace gfx {
                     using tindexA = typename PixelType::template channel_index_by_name<channel_name::A>;
                     const size_t chiA = tindexA::value;
                     using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
-                    auto alp = color.template channel_unchecked<chiA>();
+                    const auto alp = color.template channel_unchecked<chiA>();
                     if(alp!=tchA::max) {
                         if(alp==tchA::min) {
                             return gfx_result::success;

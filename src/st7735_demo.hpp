@@ -76,7 +76,7 @@ void print_source(const Source& src) {
         for(int x = 0;x<src.dimensions().width;++x) {
             typename Source::pixel_type px;
             src.point(point16(x,y),&px);
-            const auto px2 = px.template convert<gsc4>();
+            const auto px2 = convert<typename Source::pixel_type,gsc4>(px);
             size_t i =px2.template channel<0>();
             printf("%c",col_table[i]);
         }
@@ -295,7 +295,7 @@ static void display_pretty_colors()
                 for (pt.y = r.y1; pt.y <= r.y2; ++pt.y) {
                     for (pt.x = r.x1; pt.x <= r.x2; ++pt.x) {
                         //We need to convert the 3 bytes in `in` to a rgb565 value.
-                        // we could use pixel<>.convert<> and it's almost as efficient
+                        // we could use convert<> and it's almost as efficient
                         // but it's actually more lines of code because we have to
                         // convert to and from raw values
                         // so we may as well just keep it raw

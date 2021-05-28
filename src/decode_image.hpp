@@ -101,7 +101,7 @@ gfx::gfx_result decode_image(const char* image, uint16_t image_width, uint16_t i
         for (pt.y = r.y1; pt.y <= r.y2; ++pt.y) {
             for (pt.x = r.x1; pt.x <= r.x2; ++pt.x) {
                 //We need to convert the 3 bytes in `in` to a rgb565 value.
-                // we could use pixel<>.convert<> and it's almost as efficient
+                // we could use convert<> and it's almost as efficient
                 // but it's actually more lines of code because we have to
                 // convert to and from raw values
                 // so we may as well just keep it raw

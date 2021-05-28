@@ -51,7 +51,7 @@ void print_source(const Source& src) {
         for(int x = 0;x<src.dimensions().width;++x) {
             typename Source::pixel_type px;
             src.point(point16(x,y),&px);
-            const auto px2 = px.template convert<gsc4>();
+            const auto px2 = convert<Source::pixel_type,gsc4>(px);
             size_t i =px2.template channel<0>();
             printf("%c",col_table[i]);
         }

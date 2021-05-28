@@ -405,7 +405,7 @@ protected:
                     if(rr!=gfx::gfx_result::success)
                         return rr;
                     pixel_type p;
-                    if(!pp.convert(&p)) {
+                    if(!convert(pp,&p)) {
                         return gfx::gfx_result::invalid_format;
                     }
                     uint16_t pv = p.value();

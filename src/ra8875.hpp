@@ -505,7 +505,7 @@ namespace espidf {
             t.rx_buffer = tmp_read;
             t.rxlength = 8*read_len;							//0 forces it to be the same as 'length'
             t.user = (void*)0;						//context or random pointer. Perhaps use for callback function if used for async?
-            esp_err_t ret = spi_device_transmit(m_spi.handle(), &t);	//blocking
+            spi_device_transmit(m_spi.handle(), &t);	//blocking
             memcpy(read_buf, tmp_read, read_len);
             free(tmp_read);
             return;

@@ -488,7 +488,7 @@ public:
                 *out_color = false;
                 return result::success;
             }
-            uint8_t* p = m_frame_buffer+(y/8*width)+x;
+            const uint8_t* p = m_frame_buffer+(y/8*width)+x;
             *out_color = 0!=(*p & (1<<(y&7)));
             return result::success;
         }

@@ -80,11 +80,11 @@ namespace gfx {
                             if(gfx_result::success!=r) {
                                 return r;
                             }
-                            if(!spx.template convert(&dpx,&bgpx)) {
+                            if(!convert(spx,&dpx,&bgpx)) {
                                 return gfx_result::not_supported;
                             }
                         } else {    
-                            if(!spx.template convert(&dpx)) {
+                            if(!convert(spx,&dpx)) {
                                 return gfx_result::invalid_format;
                             }
                         }
@@ -238,7 +238,7 @@ namespace gfx {
                 if(gfx_result::success!=r) {
                     return r;
                 }
-                if(!rhs.template convert(&rhs,&bgpx)) {
+                if(!convert(rhs,&rhs,&bgpx)) {
                     return gfx_result::not_supported;
                 }
             }
@@ -273,36 +273,6 @@ namespace gfx {
         // indicates just past the end of the bitmap buffer
         inline uint8_t* end() const {
             return begin()+size_bytes();
-        }
-        template<typename Destination>
-        gfx_result convert(Destination& out) const {
-            size16 dim = bounds().crop(out.bounds()).dimensions();
-            point16 pt;
-            for(pt.y = 0;pt.y<dim.width;++pt.y) {
-                for(pt.x=0;pt.x<dim.height;++pt.x) {
-                    pixel_type px;
-                    point(pt,&px); // don't bother err checking
-                    typename Destination::pixel_type dpx;
-                    if(pixel_type::template has_channel_names<channel_name::A>::value) {
-                        pixel_type bgpx;
-                        gfx_result r=out.point(pt,&bgpx);
-                        if(gfx_result::success!=r) {
-                            return r;
-                        }
-                        if(!px.template convert(&dpx,&bgpx)) {
-                            return gfx_result::not_supported;
-                        }
-                    } else {
-                        if(!px.convert(&dpx))
-                            return gfx_result::not_supported;
-                    }
-                    gfx_result r = out.point(pt,dpx);
-                    if(r!=gfx_result::success) {
-                        return r;
-                    }
-                }
-            }
-            return gfx_result::success;
         }
         // clears a region of the bitmap
         gfx_result clear(const rect16& dst) {
@@ -348,7 +318,7 @@ namespace gfx {
                             return r;
                         }
                         pixel_type dpx;
-                        if(!pixel.template convert(&dpx,&bgpx)) {
+                        if(!convert(pixel,&dpx,&bgpx)) {
                             return gfx_result::not_supported;
                         }        
                         r=point_impl(pt,dpx);
@@ -426,7 +396,41 @@ namespace gfx {
         // this is more so it won't compile unless PixelType is actually a pixel
         static_assert(PixelType::channels>0,"The type is not a pixel or the pixel is invalid");
     };
-   
+    template<typename Destination,typename Source> gfx_result convert(Destination& destination,const Source& source) {
+        size16 dim = source.bounds().crop(destination.bounds()).dimensions();
+        point16 pt;
+        gfx_result r;
+        for(pt.y = 0;pt.y<dim.width;++pt.y) {
+            for(pt.x=0;pt.x<dim.height;++pt.x) {
+                typename Source::pixel_type px;
+                r=source.point(pt,&px);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+                typename Destination::pixel_type dpx;
+                using thas_alpha=typename Source::pixel_type::template has_channel_names<channel_name::A>;
+                if(thas_alpha::value) {
+                    typename Destination::pixel_type bgpx;
+                    gfx_result r=destination.point(pt,&bgpx);
+                    if(gfx_result::success!=r) {
+                        return r;
+                    }
+                    if(!convert(px,&dpx,&bgpx)) {
+                        return gfx_result::not_supported;
+                    }
+                } else {
+                    if(!convert(px,&dpx))
+                        return gfx_result::not_supported;
+                }
+                r = destination.point(pt,dpx);
+                if(r!=gfx_result::success) {
+                    return r;
+                }
+            }
+        }
+        return gfx_result::success;
+    }
+
     
 }
 

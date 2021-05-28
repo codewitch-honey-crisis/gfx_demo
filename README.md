@@ -211,7 +211,6 @@ Let's dive into some code. The following draws a classic effect around the four 
 
 C++
 
-Copy Code
 
 ``` {#pre392444 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
@@ -253,7 +252,6 @@ Let's try it again - or at least something similar - this time using double buff
 
 C++
 
-Copy Code
 
 ``` {#pre930261 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
@@ -292,7 +290,6 @@ You can define pixels by using the `pixel<>` template, which takes one or more `
 
 C++
 
-Copy Code
 
 ``` {#pre773457 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 16-bit RGB pixel
@@ -305,7 +302,6 @@ That declares a pixel with 3 channels, each of `uint8_t`: `R:5`, `G:6`, and `B:5
 
 C++
 
-Copy Code
 
 ``` {#pre345456 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using rgb565 = rgb_pixel<16>; // declare a 16-bit RGB pixel
@@ -329,7 +325,6 @@ Here's an example of using it in the wild:
 
 C++
 
-Copy Code
 
 ``` {#pre330283 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmpa_type = rgba_pixel<32>;
@@ -404,7 +399,6 @@ Anyway, first we have to declare our buffer. I was very careful to make my objec
 
 C++
 
-Copy Code
 
 ``` {#pre56547 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmp_type = bitmap<rgb_pixel<16>>;
@@ -416,7 +410,6 @@ followed by:
 
 C++
 
-Copy Code
 
 ``` {#pre267934 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 constexpr static const size16 bmp_size(16,16);
@@ -429,7 +422,6 @@ Now that we have all that, wrapping it with a bitmap is trivial:
 
 C++
 
-Copy Code
 
 ``` {#pre531634 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 bmp_type bmp(bmp_size,bmp_buf);
@@ -442,7 +434,6 @@ Now you can call `draw` methods passing `bmp` as the destination:
 
 C++
 
-Copy Code
 
 ``` {#pre569832 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
  // draw a happy face
@@ -498,7 +489,6 @@ The code looks approximately like this under the ESP-IDF at least:
 
 C++
 
-Copy Code
 
 ``` {#pre872559 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 uint16_t *lines[2];
@@ -559,8 +549,6 @@ These methods aren't as effective. The lack of blocking doesn't make up for the 
 Loading images is a matter of creating a stream over the input, like a file, and then passing that to an image loader function along with a callback (I prefer to use an anonymous method/lambda for this) that handles the progressive loading. You'll be called back multiple times, each time with a portion of the image as a bitmap, along with a location where it belongs within the image, and any state you passed along to the load function. Note that to reduce overhead, a state variable is used to pass state instead of using a functor like `std::function`. You can use a "flat" lambda that decays to a simple function pointer, and then pass your class pointer in as the `state` argument, to be reconstituted inside your callback. Often times, you won't even need a state argument because everything you're after, such as the display itself, is available globally:
 
 C++
-
-Copy Code
 
 ``` {#pre948859 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");

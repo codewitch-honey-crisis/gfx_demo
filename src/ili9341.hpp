@@ -201,7 +201,7 @@ protected:
         using caps = gfx::gfx_caps<false,true,true,true,false,false,false>;
  
  private:
-        gfx::gfx_result xlt_err(spi_driver_result r) {
+        static gfx::gfx_result xlt_err(spi_driver_result r) {
             switch(r) {
                 case spi_driver_result::io_error:
                     return gfx::gfx_result::device_error;
@@ -213,26 +213,62 @@ protected:
                     return gfx::gfx_result::invalid_argument;
             }
         }
-        template<typename Source>
-        gfx::gfx_result copy_from_impl(const gfx::rect16& src_rect,const Source& src,gfx::point16 location,bool async) {
-            spi_driver_result r;
-            gfx::rect16 srcr = src_rect.normalize().crop(src.bounds());
-            gfx::rect16 dstr(location,src_rect.dimensions());
-            dstr=dstr.crop(bounds());
-            if(srcr.width()>dstr.width()) {
-                srcr.x2=srcr.x1+dstr.width()-1;
+        template<typename Source,bool Blt> 
+        struct copy_from_helper {
+            static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr,bool async)  {
+                uint16_t w = dstr.dimensions().width;
+                uint16_t h = dstr.dimensions().height;
+                spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
+                spi_driver_result r;
+                if(!async)
+                    r=this_->batch_write_begin(drr);
+                else
+                    r=this_->queued_batch_write_begin(drr);
+                if(spi_driver_result::success!=r) {
+                    return xlt_err(r);
+                }
+                for(uint16_t y=0;y<h;++y) {
+                    for(uint16_t x=0;x<w;++x) {
+                        typename Source::pixel_type pp;
+                        gfx::gfx_result rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
+                        if(rr!=gfx::gfx_result::success)
+                            return rr;
+                        pixel_type p;
+                        if(!gfx::convert(pp,&p)) {
+                            return gfx::gfx_result::invalid_format;
+                        }
+                        uint16_t pv = p.value();
+                        if(!async)
+                            r = this_->batch_write(&pv,1);
+                        else
+                            r = this_->queued_batch_write(&pv,1);
+                        if(spi_driver_result::success!=r) {
+                            return xlt_err(r);
+                        }
+                    }
+                }
+                if(!async)
+                    r=this_->batch_write_commit();
+                else
+                    r=this_->queued_batch_write_commit();
+                if(spi_driver_result::success!=r) {
+                    return xlt_err(r);
+                }
+                return gfx::gfx_result::success;
             }
-            if(srcr.height()>dstr.height()) {
-                srcr.y2=srcr.y1+dstr.height()-1;
-            }
-            if(gfx::helpers::is_same<pixel_type,typename Source::pixel_type>::value && Source::caps::blt) {
+        };
+        
+        template<typename Source> 
+        struct copy_from_helper<Source,true> {
+            static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr,bool async) {
                 // direct blt
                 if(src.bounds().width()==srcr.width() && srcr.x1==0) {
                     spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
+                    spi_driver_result r;
                     if(!async)
-                        r=this->frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
+                        r=this_->frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
                     else
-                        r=this->queued_frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
+                        r=this_->queued_frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
                     if(spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
@@ -244,10 +280,11 @@ protected:
                 uint16_t ww = src.dimensions().width;
                 while(yy<hh) {
                     spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
+                    spi_driver_result r;
                     if(!async)
-                        r = this->frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
+                        r = this_->frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
                     else
-                        r = this->queued_frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
+                        r = this_->queued_frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
                     if(spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
@@ -255,44 +292,20 @@ protected:
                 }
                 return gfx::gfx_result::success;
             }
-            uint16_t w = dstr.dimensions().width;
-            uint16_t h = dstr.dimensions().height;
-            spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
-            if(!async)
-                r=this->batch_write_begin(drr);
-            else
-                r=this->queued_batch_write_begin(drr);
-            if(spi_driver_result::success!=r) {
-                return xlt_err(r);
+        };
+        template<typename Source>
+        gfx::gfx_result copy_from_impl(const gfx::rect16& src_rect,const Source& src,gfx::point16 location,bool async) {
+            gfx::rect16 srcr = src_rect.normalize().crop(src.bounds());
+            gfx::rect16 dstr(location,src_rect.dimensions());
+            dstr=dstr.crop(bounds());
+            if(srcr.width()>dstr.width()) {
+                srcr.x2=srcr.x1+dstr.width()-1;
             }
-            for(uint16_t y=0;y<h;++y) {
-                for(uint16_t x=0;x<w;++x) {
-                    typename Source::pixel_type pp;
-                    gfx::gfx_result rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
-                    if(rr!=gfx::gfx_result::success)
-                        return rr;
-                    pixel_type p;
-                    if(!convert(pp,&p)) {
-                        return gfx::gfx_result::invalid_format;
-                    }
-                    uint16_t pv = p.value();
-                    if(!async)
-                        r = this->batch_write(&pv,1);
-                    else
-                        r = this->queued_batch_write(&pv,1);
-                    if(spi_driver_result::success!=r) {
-                        return xlt_err(r);
-                    }
-                }
+            if(srcr.height()>dstr.height()) {
+                srcr.y2=srcr.y1+dstr.height()-1;
             }
-            if(!async)
-                r=this->batch_write_commit();
-            else
-                r=this->queued_batch_write_commit();
-            if(spi_driver_result::success!=r) {
-                return xlt_err(r);
-            }
-            return gfx::gfx_result::success;
+            return copy_from_helper<Source,gfx::helpers::is_same<pixel_type,typename Source::pixel_type>::value && Source::caps::blt>
+            ::do_draw(this,dstr,src,srcr,async);
         }
  public:
         // retrieves the dimensions of the screen

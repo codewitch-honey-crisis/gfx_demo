@@ -271,16 +271,10 @@ void lines_demo() {
 //while the previous one is being sent.
 static void display_pretty_colors()
 {
-    uint16_t *lines[2];
-    //Allocate memory for the pixel buffers
-    for (int i=0; i<2; i++) {
-        lines[i]=(uint16_t*)heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA);
-        assert(lines[i]!=NULL);
-    }
     using lines_bmp_type = bitmap<typename lcd_type::pixel_type>;
     lines_bmp_type line_bmps[2] {
-        lines_bmp_type(size16(320,PARALLEL_LINES),lines[0]),
-        lines_bmp_type(size16(320,PARALLEL_LINES),lines[1])
+        lines_bmp_type(size16(320,PARALLEL_LINES),heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA)),
+        lines_bmp_type(size16(320,PARALLEL_LINES),heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA))
     };
     
     int frame=0;
@@ -297,9 +291,12 @@ static void display_pretty_colors()
             scroll_text_demo();
         }
         ++frame;
+        if(0!=(frame%10))
+            vTaskDelay(1);
         for (int y=0; y<240; y+=PARALLEL_LINES) {
             //Calculate a line.
-            pretty_effect_calc_lines(320,240, lines[calc_line], y, frame, PARALLEL_LINES);
+            pretty_effect_calc_lines(320,240, line_bmps[calc_line], y, frame, PARALLEL_LINES);
+            //draw::bitmap(line_bmps[calc_line],(srect16)line_bmps[calc_line].bounds(),pixels,line_bmps[calc_line].bounds().offset(0,y));
             // wait for the last frame to finish. Don't need this unless transactions are > 7
             if(-1!=sending_line) {
                 draw::wait_all_async(lcd);
@@ -324,7 +321,6 @@ static void display_pretty_colors()
             //touch lines[sending_line] or the bitmap for it; 
             // the SPI sending process is still reading from that.
         }
-        
         if(0==frame%50) {
             using lcd_color = color<rgb_pixel<16>>;
             int pid = (frame/50)%3;
@@ -368,33 +364,11 @@ static void display_pretty_colors()
             
             file_stream fs((0==pid)?"/spiffs/image.jpg":(1==pid)?"/spiffs/image2.jpg":"/spiffs/image3.jpg");
             gfx::jpeg_image::load(&fs,[](const typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
-                uint16_t** out = (uint16_t**)state;
-                // to go as fast as possible, we access the bmp
-                // as raw memory
-                uint8_t *in = region.begin();
+                pixels_type* out = (pixels_type*)state;
                 gfx::rect16 r = region.bounds().offset(location.x,location.y);
-                gfx::point16 pt;
-                for (pt.y = r.y1; pt.y <= r.y2; ++pt.y) {
-                    for (pt.x = r.x1; pt.x <= r.x2; ++pt.x) {
-                        //We need to convert the 3 bytes in `in` to a rgb565 value.
-                        // we could use convert<> and it's almost as efficient
-                        // but it's actually more lines of code because we have to
-                        // convert to and from raw values
-                        // so we may as well just keep it raw
-                        
-                        uint16_t v = 0;
-                        v |= ((in[0] >> 3) <<  11);
-                        v |= ((in[1] >> 2) << 5);
-                        v |= ((in[2] >> 3) );
-                        //The LCD wants the 16-bit value in big-endian, so swap bytes
-                        v=gfx::helpers::order_guard(v);
-                        out[pt.y][pt.x] = v;
-                        in+=3;
-                    }
-                }
-                return gfx_result::success;
-
-            },pixels);
+                gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
+                return gfx::gfx_result::success;
+            },&pixels);
 #ifdef ASCII_JPEGS
             print=true;
 #endif
@@ -423,5 +397,6 @@ void app_main(void)
     if(gfx_result::success!=rr) {
         printf("Error loading demo: %d\r\n",(int)rr);
     }
+    //draw::bitmap(lcd,(srect16)lcd.bounds(),pixels,pixels.bounds());
     display_pretty_colors();
 }

@@ -11,24 +11,29 @@
 #include "sdkconfig.h"
 #include "esp_err.h"
 #include "gfx_pixel.hpp"
+#include "gfx_bitmap.hpp"
 #ifdef CONFIG_IDF_TARGET_ESP32
 #include "decode_image.hpp"
 
-uint16_t **pixels;
+using pixels_type = gfx::large_bitmap<gfx::rgb_pixel<16>>;
+pixels_type pixels;
 
 //Grab a rgb16 pixel from the esp32_tiles image
-static inline uint16_t get_bgnd_pixel(int x, int y)
+static inline typename pixels_type::pixel_type get_bgnd_pixel(int x, int y)
 {
     //Image has an 8x8 pixel margin, so we can also resolve e.g. [-3, 243]
-    const uint16_t wpx = pixels[y+8][x+8];
-    return wpx;
+    typename pixels_type::pixel_type result;
+    pixels.point(gfx::point16(x+8,y+8),&result);
+    return result;
     
 }
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3
 //esp32s2/c3 doesn't have enough memory to hold the decoded image, calculate instead
-static inline uint16_t get_bgnd_pixel(int x, int y)
+static inline pixels_type::pixel_type get_bgnd_pixel(int x, int y)
 {
-    return ((x<<3)^(y<<3)^(x*y));
+    typename pixels_type::pixel_type result;
+    result.value((x<<3)^(y<<3)^(x*y));
+    return result;
 }
 #endif
 
@@ -51,7 +56,8 @@ static int8_t *xcomp, *ycomp;
  * @param frame Current frame, used for animation
  * @param linect Amount of lines to calculate
  */
-void pretty_effect_calc_lines(uint16_t width,uint16_t height,uint16_t *dest, int line, int frame, int linect)
+template<typename Destination>
+void pretty_effect_calc_lines(uint16_t width,uint16_t height,Destination& dest, int line, int frame, int linect)
 {
     if (frame!=prev_frame) {
         //We need to calculate a new set of offset coefficients. Take some random sines as offsets to make everything
@@ -64,7 +70,7 @@ void pretty_effect_calc_lines(uint16_t width,uint16_t height,uint16_t *dest, int
     }
     for (int y=line; y<line+linect; y++) {
         for (int x=0; x<width; x++) {
-            *dest++=get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]);
+            dest.point(gfx::point16(x,y-line),get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]));
         }
     }
 }

@@ -174,7 +174,7 @@ void scroll_text_demo() {
     bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
 
     // bounding info for the face
-    srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1)/(4/3.0));
+    srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1));
     rect16 ubounds(0,0,bounds.x2,bounds.y2);
 
     // draw the face
@@ -293,9 +293,11 @@ static void display_pretty_colors()
             scroll_text_demo();
         }
         ++frame;
+        if(0!=(frame%10))
+            vTaskDelay(1);
         for (int y=0; y<lcd.dimensions().height; y+=PARALLEL_LINES) {
             //Calculate a line.
-            pretty_effect_calc_lines(lcd.dimensions().width,lcd.dimensions().height, lines[calc_line], y, frame, PARALLEL_LINES);
+            pretty_effect_calc_lines(lcd.dimensions().width,lcd.dimensions().height, line_bmps[calc_line], y, frame, PARALLEL_LINES);
             // wait for the last frame to finish. Don't need this unless transactions are > 7
             if(-1!=sending_line)
                 draw::wait_all_async(lcd);
@@ -373,33 +375,11 @@ static void display_pretty_colors()
 #endif
                 );
                 gfx::jpeg_image::load(&fs,[](const typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
-                uint16_t** out = (uint16_t**)state;
-                // to go as fast as possible, we access the bmp
-                // as raw memory
-                uint8_t *in = region.begin();
-                gfx::rect16 r = region.bounds().offset(location.x,location.y);
-                gfx::point16 pt;
-                for (pt.y = r.y1; pt.y <= r.y2; ++pt.y) {
-                    for (pt.x = r.x1; pt.x <= r.x2; ++pt.x) {
-                        //We need to convert the 3 bytes in `in` to a rgb565 value.
-                        // we could use convert<> and it's almost as efficient
-                        // but it's actually more lines of code because we have to
-                        // convert to and from raw values
-                        // so we may as well just keep it raw
-                        
-                        uint16_t v = 0;
-                        v |= ((in[0] >> 3) <<  11);
-                        v |= ((in[1] >> 2) << 5);
-                        v |= ((in[2] >> 3) );
-                        //The LCD wants the 16-bit value in big-endian, so swap bytes
-                        v=gfx::helpers::order_guard(v);
-                        out[pt.y][pt.x] = v;
-                        in+=3;
-                    }
-                }
-                return gfx_result::success;
-
-            },pixels);
+                    pixels_type* out = (pixels_type*)state;
+                    gfx::rect16 r = region.bounds().offset(location.x,location.y);
+                    gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
+                    return gfx::gfx_result::success;
+                },&pixels);
 #ifdef ASCII_JPEGS
             print=true;
 #endif

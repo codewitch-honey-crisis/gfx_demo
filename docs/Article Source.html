@@ -12,6 +12,13 @@ URL: https://www.codeproject.com/KB/Articles/5302085.aspx
 Copyright 2021 by honey the codewitch
 All formatting, additions and alterations Copyright © CodeProject, 1999-2021
 -->
+
+
+
+<p><b>Please choose 'View Source' in your browser to view the HTML, or File | Save to save this 
+file to your hard drive for editing.</b></p>
+
+<hr class="Divider subdue">
 <div>
 
 
@@ -22,7 +29,9 @@ All formatting, additions and alterations Copyright © CodeProject, 1999-2021
 
 
 <ul class="download">
-	<li><a href="https://www.codeproject.com/KB/Articles/5302085/gfx_demo.zip">Download library and demo project - 2.1&nbsp;MB</a></li>	<li><a href="https://github.com/codewitch-honey-crisis/gfx_demo">Download from GitHub</a></li>	<li><a href="https://github.com/codewitch-honey-crisis/gfx">Download GFX library only from GitHub</a></li></ul>
+	<li><a href="https://www.codeproject.com/KB/Articles/5302085/gfx_demo.zip">Download library and demo project - 2.3&nbsp;MB</a></li>	<li><a href="https://github.com/codewitch-honey-crisis/gfx_demo">Download from GitHub</a></li>	<li><a href="https://github.com/codewitch-honey-crisis/gfx">Download GFX library only from GitHub</a></li></ul>
+
+<p><img alt="GFX Forever" src="./Article Source_files/gfx_forever.jpg" style="height: 519px; width: 640px"></p>
 
 <h2>Introduction</h2>
 
@@ -43,6 +52,8 @@ All formatting, additions and alterations Copyright © CodeProject, 1999-2021
 <p><strong>Update 6:</strong>&nbsp;Fixed some of the demos that were failing the build</p>
 
 <p><strong>Update 7:</strong> Added alpha blending support!</p>
+
+<p><strong>Update 8:</strong> Some API changes, added <code>large_bitmap&lt;&gt;</code> support and edged a little closer to adaptive indexed color support. I also used the large bitmap for the frame buffer in the demos, and changed that code to be easier to understand at the cost of raw pixel throughput.</p>
 
 <h3>Building this Mess</h3>
 
@@ -210,8 +221,8 @@ All formatting, additions and alterations Copyright © CodeProject, 1999-2021
 
 <p>Let's dive into some code. The following draws a classic effect around the four edges of the screen in four different colors, with "ESP32 GFX Demo" in the center of the screen:</p>
 
-<div class="pre-lang" id="premain392444"><div>C++</div><div class="pre-action-link"><span id="copycode392444" class="copy-code" data-index="392444" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre392444" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
+<div class="pre-lang" id="premain588163"><div>C++</div><div class="pre-action-link"><span id="copycode588163" class="copy-code" data-index="588163" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre588163" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font&amp; f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -247,8 +258,8 @@ for(int i = 1;i&lt;100;++i) {
 
 <p>Let's try it again - or at least something similar - this time using double buffering on a supporting target, like an SSD1306 display. Note that <code>suspend&lt;&gt;()</code> and <code>resume&lt;&gt;()</code> can be called regardless of the draw destination, but they will report <code>gfx::gfx_result::not_supported</code> on targets that are not double buffered:</p>
 
-<div class="pre-lang" id="premain930261"><div>C++</div><div class="pre-action-link"><span id="copycode930261" class="copy-code" data-index="930261" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre930261" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
+<div class="pre-lang" id="premain53281"><div>C++</div><div class="pre-action-link"><span id="copycode53281" class="copy-code" data-index="53281" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre53281" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font&amp; f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
 srect16 text_rect = srect16(spoint16(0,0),
@@ -281,16 +292,16 @@ for(int i = 1;i&lt;100;i+=10) {
 
 <p>You can define pixels by using the <code>pixel&lt;&gt;</code> template, which takes one or more <code>channel_traits&lt;&gt;</code> as arguments, themselves taking a name, a bit depth, and optional minimum, maximum, and scale. The channel names are predefined, and combinations of channel names make up <em>known color models</em>. Known color models are models that can be converted to and from an RGB color model, essentially. Currently they include RGB, Y'UV, YbCbCr, and grayscale. Declare pixels in order to create bitmaps in different formats or to declare color pixels for use with your particular display driver's native format. In the rare case you need to define one manually, you can do something like this:</p>
 
-<div class="pre-lang" id="premain773457"><div>C++</div><div class="pre-action-link"><span id="copycode773457" class="copy-code" data-index="773457" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre773457" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 16-bit RGB pixel
+<div class="pre-lang" id="premain651792"><div>C++</div><div class="pre-action-link"><span id="copycode651792" class="copy-code" data-index="651792" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre651792" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 16-bit RGB pixel
 using rgb565 = pixel&lt;channel_traits&lt;channel_name::R,5&gt;,
                     channel_traits&lt;channel_name::G,6&gt;,
                     channel_traits&lt;channel_name::B,5&gt;&gt;;</pre>
 
 <p>That declares a pixel with 3 channels, each of <code>uint8_t</code>: <code>R:5</code>, <code>G:6</code>, and <code>B:5</code>. Note that after the colon is how many effective bits it has. The <code>uint8_t</code> type is only for representing each pixel channel in value space in your code. In binary space, like laid out in an in memory bitmap, the pixel takes 16 bits, not 24. This defines a standard 16-bit pixel you typically find on color display adapters for IoT platforms. RGB is one of the known color models so there is a shorthand for declaring an RGB pixel type of any bit depth:</p>
 
-<div class="pre-lang" id="premain345456"><div>C++</div><div class="pre-action-link"><span id="copycode345456" class="copy-code" data-index="345456" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre345456" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using rgb565 = rgb_pixel&lt;16&gt;; // declare a 16-bit RGB pixel</pre>
+<div class="pre-lang" id="premain445033"><div>C++</div><div class="pre-action-link"><span id="copycode445033" class="copy-code" data-index="445033" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre445033" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using rgb565 = rgb_pixel&lt;16&gt;; // declare a 16-bit RGB pixel</pre>
 
 <p>This will divide the bits evenly among the channels, with remaining bits going on the green channel. It is shorthand for the longhand declaration given initially and it resolves to that.</p>
 
@@ -308,15 +319,15 @@ using rgb565 = pixel&lt;channel_traits&lt;channel_name::R,5&gt;,
 
 <p>Here's an example of using it in the wild:</p>
 
-<div class="pre-lang" id="premain330283"><div>C++</div><div class="pre-action-link"><span id="copycode330283" class="copy-code" data-index="330283" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre330283" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmpa_type = rgba_pixel&lt;32&gt;;
+<div class="pre-lang" id="premain347446"><div>C++</div><div class="pre-action-link"><span id="copycode347446" class="copy-code" data-index="347446" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre347446" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmpa_type = rgba_pixel&lt;32&gt;;
 using bmpa_color = color&lt;bmpa_type&gt;;
 
 // do some alpha blended rectangles
 bmpa_type col = bmpa_color::yellow;
-col.channelf&lt;channel_name::A&gt;(.5);
+col.channelr&lt;channel_name::A&gt;(.5);
 col = bmpa_color::red;
-col.channelf&lt;channel_name::A&gt;(.5);
+col.channelr&lt;channel_name::A&gt;(.5);
 draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; srect16(
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; spoint16(0,0),
@@ -325,7 +336,7 @@ draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; bmp.dimensions().height/4)),
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; col);
 col = bmpa_color::blue;
-col.channelf&lt;channel_name::A&gt;(.5);
+col.channelr&lt;channel_name::A&gt;(.5);
 draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; srect16(
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; spoint16(0,0),
@@ -334,7 +345,7 @@ draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; bmp.dimensions().height)),
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; col);
 col = bmpa_color::green;
-col.channelf&lt;channel_name::A&gt;(.5);
+col.channelr&lt;channel_name::A&gt;(.5);
 draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; srect16(
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; spoint16(0,
@@ -344,7 +355,7 @@ draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; bmp.dimensions().height/4)),
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; col);
 col = bmpa_color::purple;
-col.channelf&lt;channel_name::A&gt;(.5);
+col.channelr&lt;channel_name::A&gt;(.5);
 draw::filled_rectangle(bmp,
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; srect16(
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; spoint16(bmp.dimensions().width
@@ -378,31 +389,31 @@ draw::filled_rectangle(bmp,
 
 <p>Anyway, first we have to declare our buffer. I was very careful to make my objects <code>constexpr</code> enabled so you could do things like the following:</p>
 
-<div class="pre-lang" id="premain56547"><div>C++</div><div class="pre-action-link"><span id="copycode56547" class="copy-code" data-index="56547" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre56547" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmp_type = bitmap&lt;rgb_pixel&lt;16&gt;&gt;;
+<div class="pre-lang" id="premain348427"><div>C++</div><div class="pre-action-link"><span id="copycode348427" class="copy-code" data-index="348427" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre348427" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmp_type = bitmap&lt;rgb_pixel&lt;16&gt;&gt;;
 // the following is for convenience:
 using bmp_color = color&lt;typename bmp_type::pixel_type&gt;; // needs GFX color header</pre>
 
 <p>followed by:</p>
 
-<div class="pre-lang" id="premain267934"><div>C++</div><div class="pre-action-link"><span id="copycode267934" class="copy-code" data-index="267934" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre267934" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">constexpr static const size16 bmp_size(16,16);
+<div class="pre-lang" id="premain254885"><div>C++</div><div class="pre-action-link"><span id="copycode254885" class="copy-code" data-index="254885" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre254885" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];</pre>
 
 <p>To be honest, the first time I wrote code like that, I was surprised it compiled. The modern C++ compiler is a truly wonderful thing. Back in the bad old days, I used to get so frustrated that C and C++ refused to allow you to put array size declarations behind a function call, regardless of how trivial the function was. I knew why, but it didn't make me less frustrated knowing that. The expression <code>sizeof_buffer()</code> computes is <code>(width*height*bit_depth+7)/8</code>. That returns the minimum number of whole bytes required to store your bitmap data at that size and color resolution.</p>
 
 <p>Now that we have all that, wrapping it with a bitmap is trivial:</p>
 
-<div class="pre-lang" id="premain531634"><div>C++</div><div class="pre-action-link"><span id="copycode531634" class="copy-code" data-index="531634" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre531634" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">bmp_type bmp(bmp_size,bmp_buf);
+<div class="pre-lang" id="premain684719"><div>C++</div><div class="pre-action-link"><span id="copycode684719" class="copy-code" data-index="684719" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre684719" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
 bmp.clear(bmp.bounds()); // zero the bmp memory</pre>
 
 <p>Now you can call <code>draw</code> methods passing <code>bmp</code> as the destination:</p>
 
-<div class="pre-lang" id="premain569832"><div>C++</div><div class="pre-action-link"><span id="copycode569832" class="copy-code" data-index="569832" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre569832" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"> // draw a happy face
+<div class="pre-lang" id="premain516987"><div>C++</div><div class="pre-action-link"><span id="copycode516987" class="copy-code" data-index="516987" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre516987" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"> // draw a happy face
 
 // bounding info for the face
 // change the line below if you want a subregion
@@ -444,6 +455,14 @@ draw::ellipse(bmp,mouth_bounds,bmp_color::black,&amp;mouth_clip);</pre>
 
 <p>The individual members of the <code>bitmap&lt;&gt;</code> template class are not that important. The important thing is that a bitmap is both a draw source, and a draw destination, so it can be used with <code>draw</code> functions.</p>
 
+<h5>Large Bitmaps</h5>
+
+<p>On little devices there's not a lot of heap, and while it may <em>seem</em> like you should be able to load a 160kB frame buffer on a 512kB system, there's the inconvenient little issue of heap fragmentation. Heap fragmentation causes there to not be 160kB of <em>contiguous</em> free space anywhere on the heap in many situations because of past deallocations, even if it's the first allocation you make after the RTOS passes you control because the heap is already "dirty" and fragmented by then. What do we do?</p>
+
+<p>In GFX large bitmaps can created using the <code>large_bitmap&lt;&gt;</code>&nbsp;template class. It is a composition of a lot of smaller bitmaps such that it presents a facade of one unified draw source/destination. Using this is pretty much the same as the regular bitmap as far as GFX is concerned, even though it doesn't have all the fancy members that bitmaps do. I'll be adding to and optimizing the large bitmap API as I go, but I wanted to get it out there.</p>
+
+<p>Create it like a normal bitmap except you need to pass in the segment height, in lines as the second parameter. A large bitmap is composed of a bunch of smaller bitmaps (referred to as segments) of the same width stacked vertically. Therefore, each segment is a number of lines high. Every segment but the last one (which may be smaller) has the same number of lines. Unlike normal bitmaps, you do not allocate your own memory for this but you can use custom allocator and deallocator functions if you need special platform specific heap options. It's not worth getting into code, because using it is no different than using a regular bitmap, sans some features which GFX will work around the lack of.</p>
+
 <h4>Properly Using Asynchronous Draws</h4>
 
 <p>Every drawing method has an asynchronous counterpart. While they do, it's usually not a good idea to use them. There are however, cases where using them can significantly increase your frame rate. The situation in which this is possible is somewhat narrow, but replicable. The key to performance is <code>draw::bitmap_async&lt;&gt;()</code>. This method is DMA-aware for drivers that support it, and will initiate a background DMA transfer by way of a frame write on the driver where available. This is facilitated by a driver's implementation of <code>copy_from_async&lt;&gt;()</code>, but in order to work at maximum efficiency there can be no cropping, resizing, flipping or color conversion of the bitmap in question - otherwise a (mostly) synchronous operation will take place. Additionally, you probably cannot use PSRAM for these transfers - you are limited to RAM that is available to use for DMA. Finally the bitmap actually has to be large enough to make it worthwhile.</p>
@@ -452,8 +471,8 @@ draw::ellipse(bmp,mouth_bounds,bmp_color::black,&amp;mouth_clip);</pre>
 
 <p>The code looks approximately like this under the ESP-IDF at least:</p>
 
-<div class="pre-lang" id="premain872559"><div>C++</div><div class="pre-action-link"><span id="copycode872559" class="copy-code" data-index="872559" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre872559" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">uint16_t *lines[2];
+<div class="pre-lang" id="premain829136"><div>C++</div><div class="pre-action-link"><span id="copycode829136" class="copy-code" data-index="829136" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre829136" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i&lt;2; i++) {
     lines[i]=(uint16_t*)heap_caps_malloc(lcd.dimensions().width
@@ -476,7 +495,7 @@ int calc_line=0;
 ++frame;
 for (int y=0; y&lt;lcd.dimensions().height; y+=PARALLEL_LINES) {
     //Calculate some lines
-    do_line_effects(lines[calc_line], y, frame, PARALLEL_LINES);
+    do_line_effects(line_bmps[calc_line], y, frame, PARALLEL_LINES);
     // wait for the last frame to finish. Don't need this unless transactions are &gt; 7
     if(-1!=sending_line)
         draw::wait_all_async(lcd);
@@ -509,8 +528,8 @@ for (int y=0; y&lt;lcd.dimensions().height; y+=PARALLEL_LINES) {
 
 <p>Loading images is a matter of creating a stream over the input, like a file, and then passing that to an image loader function along with a callback (I prefer to use an anonymous method/lambda for this) that handles the progressive loading. You'll be called back multiple times, each time with a portion of the image as a bitmap, along with a location where it belongs within the image, and any state you passed along to the load function. Note that to reduce overhead, a state variable is used to pass state instead of using a functor like <code>std::function</code>. You can use a "flat" lambda that decays to a simple function pointer, and then pass your class pointer in as the <code>state</code> argument, to be reconstituted inside your callback. Often times, you won't even need a state argument because everything you're after, such as the display itself, is available globally:</p>
 
-<div class="pre-lang" id="premain948859"><div>C++</div><div class="pre-action-link"><span id="copycode948859" class="copy-code" data-index="948859" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre948859" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
+<div class="pre-lang" id="premain554653"><div>C++</div><div class="pre-action-link"><span id="copycode554653" class="copy-code" data-index="554653" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre554653" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
 jpeg_image::load(&amp;fs,[](const typename jpeg_image::region_type&amp; region,
                         point16 location,
                         void* state){
@@ -534,18 +553,18 @@ jpeg_image::load(&amp;fs,[](const typename jpeg_image::region_type&amp; region,
 
 <p>First, generate a header file from a font file using fontgen under the <em>tools</em> folder of the GFX library:</p>
 
-<div class="pre-lang" id="premain693211"><div>C++</div><div class="pre-action-link"><span id="copycode693211" class="copy-code" data-index="693211" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre693211" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">~$ fontgen myfont.fon &gt; myfont.hpp</pre>
+<div class="pre-lang" id="premain986639"><div>C++</div><div class="pre-action-link"><span id="copycode986639" class="copy-code" data-index="986639" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre986639" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">~$ fontgen myfont.fon &gt; myfont.hpp</pre>
 
 <p>Now you can include that in your code:</p>
 
-<div class="pre-lang" id="premain653253"><div>C++</div><div class="pre-action-link"><span id="copycode653253" class="copy-code" data-index="653253" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre653253" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">#include <span class="code-string">"myfont.hpp"</span></pre>
+<div class="pre-lang" id="premain284808"><div>C++</div><div class="pre-action-link"><span id="copycode284808" class="copy-code" data-index="284808" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre284808" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">#include <span class="code-string">"myfont.hpp"</span></pre>
 
 <p>This allows you to reference the font like this:</p>
 
-<div class="pre-lang" id="premain968371"><div>C++</div><div class="pre-action-link"><span id="copycode968371" class="copy-code" data-index="968371" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre968371" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">const font&amp; f = myfont_fon;
+<div class="pre-lang" id="premain342699"><div>C++</div><div class="pre-action-link"><span id="copycode342699" class="copy-code" data-index="342699" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre342699" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">const font&amp; f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                         text).bounds();
@@ -557,8 +576,8 @@ draw::text(lcd,
 
 <p>The second way to access a font is by loading a <em>.FON</em> file from a stream, which stores the font around on the heap rather than embedded as a <code>static</code> <code>const</code> array in your code, just replace the first line of code above with this:</p>
 
-<div class="pre-lang" id="premain373961"><div>C++</div><div class="pre-action-link"><span id="copycode373961" class="copy-code" data-index="373961" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre373961" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">io::file_stream fs("/spiffs/myfon.fon");
+<div class="pre-lang" id="premain48749"><div>C++</div><div class="pre-action-link"><span id="copycode48749" class="copy-code" data-index="48749" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre48749" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">io::file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");
     vTaskDelay(portMAX_DELAY);
@@ -648,7 +667,7 @@ font f(&amp;fs);</pre>
 <h2>History</h2>
 
 <ul>
-	<li>10<sup>th</sup> May, 2021 - Initial submission</li>	<li>16<sup>th</sup> May, 2021 - Added drivers, configurations, wiring guide</li>	<li>17<sup>th</sup> May, 2021 - Added more drivers</li>	<li>18<sup>th</sup> May, 2021 - Added sprite/transparent color support to <code>draw::bitmap&lt;&gt;()</code></li>	<li>21<sup>st</sup> May, 2021 - Bugfix and added another driver</li>	<li>21<sup>st</sup> May, 2021 - <code>draw::bitmap&lt;&gt;()</code>&nbsp;bugfix</li>	<li><span style="font-size: 14px">24</span><sup>th</sup> May, 2021 - Fixed build errors on some demos</li>	<li><span style="font-size: 14px">27</span><sup>th</sup> May, 2021 - Added alpha blending support</li></ul>
+	<li>10<sup>th</sup> May, 2021 - Initial submission</li>	<li>16<sup>th</sup> May, 2021 - Added drivers, configurations, wiring guide</li>	<li>17<sup>th</sup> May, 2021 - Added more drivers</li>	<li>18<sup>th</sup> May, 2021 - Added sprite/transparent color support to <code>draw::bitmap&lt;&gt;()</code></li>	<li>21<sup>st</sup> May, 2021 - Bugfix and added another driver</li>	<li>21<sup>st</sup> May, 2021 - <code>draw::bitmap&lt;&gt;()</code>&nbsp;bugfix</li>	<li><span style="font-size: 14px">24</span><sup>th</sup> May, 2021 - Fixed build errors on some demos</li>	<li><span style="font-size: 14px">27</span><sup>th</sup> May, 2021 - Added alpha blending support</li>	<li><span style="font-size: 14px">29</span><sup>th</sup> May, 2021 - Added <code>large_bitmap&lt;&gt;</code>&nbsp;support, API changes, demo changes</li></ul>
 
 
 </span>

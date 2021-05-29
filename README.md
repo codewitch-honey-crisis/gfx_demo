@@ -3,13 +3,6 @@
 ## This is a Demo of GFX With Several Display Drivers
 ### This is not GFX itself, but it includes it. GFX Documentation is below
 
-
-### The documentation is currently slightly behind the API and there are a few breaking changes
-Renaming channelf<>() to channelr<>() for consistency is one. 
-
-Moving convert<>() off of pixel<> and into the global scope is another. Tread carefully. I'm currently in the middle of a major feature add which these changes are a part of. Bear with me. =)
-
-
 GFX is a cross platform graphics library in standard C++14 or C++17
 
 Please use the link to guarantee the latest documentation. I have to manually synchronize the README to the content below:
@@ -36,6 +29,8 @@ GFX on the other hand, isn't tied to anything. It can draw anywhere, on any plat
 **Update 6:** Fixed some of the demos that were failing the build
 
 **Update 7:** Added alpha blending support!
+
+**Update 8:** Some API changes, added `large_bitmap<>` support and edged a little closer to adaptive indexed color support. I also used the large bitmap for the frame buffer in the demos, and changed that code to be easier to understand at the cost of raw pixel throughput.
 
 ### Building this Mess
 
@@ -219,7 +214,7 @@ Let's dive into some code. The following draws a classic effect around the four 
 C++
 
 
-``` {#pre392444 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre588163 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font& f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
@@ -260,7 +255,7 @@ Let's try it again - or at least something similar - this time using double buff
 C++
 
 
-``` {#pre930261 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre53281 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font& f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
@@ -298,7 +293,7 @@ You can define pixels by using the `pixel<>` template, which takes one or more `
 C++
 
 
-``` {#pre773457 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre651792 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 16-bit RGB pixel
 using rgb565 = pixel<channel_traits<channel_name::R,5>,
                     channel_traits<channel_name::G,6>,
@@ -309,8 +304,7 @@ That declares a pixel with 3 channels, each of `uint8_t`: `R:5`, `G:6`, and `B:5
 
 C++
 
-
-``` {#pre345456 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre445033 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using rgb565 = rgb_pixel<16>; // declare a 16-bit RGB pixel
 ```
 
@@ -332,16 +326,15 @@ Here's an example of using it in the wild:
 
 C++
 
-
-``` {#pre330283 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre347446 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmpa_type = rgba_pixel<32>;
 using bmpa_color = color<bmpa_type>;
 
 // do some alpha blended rectangles
 bmpa_type col = bmpa_color::yellow;
-col.channelf<channel_name::A>(.5);
+col.channelr<channel_name::A>(.5);
 col = bmpa_color::red;
-col.channelf<channel_name::A>(.5);
+col.channelr<channel_name::A>(.5);
 draw::filled_rectangle(bmp,
                     srect16(
                         spoint16(0,0),
@@ -350,7 +343,7 @@ draw::filled_rectangle(bmp,
                             bmp.dimensions().height/4)),
                     col);
 col = bmpa_color::blue;
-col.channelf<channel_name::A>(.5);
+col.channelr<channel_name::A>(.5);
 draw::filled_rectangle(bmp,
                     srect16(
                         spoint16(0,0),
@@ -359,7 +352,7 @@ draw::filled_rectangle(bmp,
                             bmp.dimensions().height)),
                     col);
 col = bmpa_color::green;
-col.channelf<channel_name::A>(.5);
+col.channelr<channel_name::A>(.5);
 draw::filled_rectangle(bmp,
                     srect16(
                         spoint16(0,
@@ -369,7 +362,7 @@ draw::filled_rectangle(bmp,
                             bmp.dimensions().height/4)),
                     col);
 col = bmpa_color::purple;
-col.channelf<channel_name::A>(.5);
+col.channelr<channel_name::A>(.5);
 draw::filled_rectangle(bmp,
                     srect16(
                         spoint16(bmp.dimensions().width
@@ -406,8 +399,7 @@ Anyway, first we have to declare our buffer. I was very careful to make my objec
 
 C++
 
-
-``` {#pre56547 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre348427 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmp_type = bitmap<rgb_pixel<16>>;
 // the following is for convenience:
 using bmp_color = color<typename bmp_type::pixel_type>; // needs GFX color header
@@ -417,8 +409,7 @@ followed by:
 
 C++
 
-
-``` {#pre267934 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre254885 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 ```
@@ -429,8 +420,7 @@ Now that we have all that, wrapping it with a bitmap is trivial:
 
 C++
 
-
-``` {#pre531634 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre684719 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
@@ -441,8 +431,7 @@ Now you can call `draw` methods passing `bmp` as the destination:
 
 C++
 
-
-``` {#pre569832 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre516987 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
  // draw a happy face
 
 // bounding info for the face
@@ -486,6 +475,14 @@ So now this `bmp` is essentially a variable that refers to a draw target which c
 
 The individual members of the `bitmap<>` template class are not that important. The important thing is that a bitmap is both a draw source, and a draw destination, so it can be used with `draw` functions.
 
+##### Large Bitmaps
+
+On little devices there's not a lot of heap, and while it may *seem* like you should be able to load a 160kB frame buffer on a 512kB system, there's the inconvenient little issue of heap fragmentation. Heap fragmentation causes there to not be 160kB of *contiguous* free space anywhere on the heap in many situations because of past deallocations, even if it's the first allocation you make after the RTOS passes you control because the heap is already "dirty" and fragmented by then. What do we do?
+
+In GFX large bitmaps can created using the `large_bitmap<>` template class. It is a composition of a lot of smaller bitmaps such that it presents a facade of one unified draw source/destination. Using this is pretty much the same as the regular bitmap as far as GFX is concerned, even though it doesn't have all the fancy members that bitmaps do. I'll be adding to and optimizing the large bitmap API as I go, but I wanted to get it out there.
+
+Create it like a normal bitmap except you need to pass in the segment height, in lines as the second parameter. A large bitmap is composed of a bunch of smaller bitmaps (referred to as segments) of the same width stacked vertically. Therefore, each segment is a number of lines high. Every segment but the last one (which may be smaller) has the same number of lines. Unlike normal bitmaps, you do not allocate your own memory for this but you can use custom allocator and deallocator functions if you need special platform specific heap options. It's not worth getting into code, because using it is no different than using a regular bitmap, sans some features which GFX will work around the lack of.
+
 #### Properly Using Asynchronous Draws
 
 Every drawing method has an asynchronous counterpart. While they do, it's usually not a good idea to use them. There are however, cases where using them can significantly increase your frame rate. The situation in which this is possible is somewhat narrow, but replicable. The key to performance is `draw::bitmap_async<>()`. This method is DMA-aware for drivers that support it, and will initiate a background DMA transfer by way of a frame write on the driver where available. This is facilitated by a driver's implementation of `copy_from_async<>()`, but in order to work at maximum efficiency there can be no cropping, resizing, flipping or color conversion of the bitmap in question - otherwise a (mostly) synchronous operation will take place. Additionally, you probably cannot use PSRAM for these transfers - you are limited to RAM that is available to use for DMA. Finally the bitmap actually has to be large enough to make it worthwhile.
@@ -496,8 +493,7 @@ The code looks approximately like this under the ESP-IDF at least:
 
 C++
 
-
-``` {#pre872559 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre829136 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i<2; i++) {
@@ -521,7 +517,7 @@ int calc_line=0;
 ++frame;
 for (int y=0; y<lcd.dimensions().height; y+=PARALLEL_LINES) {
     //Calculate some lines
-    do_line_effects(lines[calc_line], y, frame, PARALLEL_LINES);
+    do_line_effects(line_bmps[calc_line], y, frame, PARALLEL_LINES);
     // wait for the last frame to finish. Don't need this unless transactions are > 7
     if(-1!=sending_line)
         draw::wait_all_async(lcd);
@@ -557,7 +553,7 @@ Loading images is a matter of creating a stream over the input, like a file, and
 
 C++
 
-``` {#pre948859 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre554653 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 jpeg_image::load(&fs,[](const typename jpeg_image::region_type& region,
                         point16 location,
@@ -583,9 +579,9 @@ Let's talk about the first method - embedding:
 
 First, generate a header file from a font file using fontgen under the *tools* folder of the GFX library:
 
-Bash
+C++
 
-``` {#pre693211 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre986639 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 ~$ fontgen myfont.fon > myfont.hpp
 ```
 
@@ -593,14 +589,15 @@ Now you can include that in your code:
 
 C++
 
-``` {#pre653253 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre284808 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 #include "myfont.hpp"
 ```
 
 This allows you to reference the font like this:
 
 C++
-``` {#pre968371 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+
+``` {#pre342699 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 const font& f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -616,7 +613,7 @@ The second way to access a font is by loading a *.FON* file from a stream, which
 
 C++
 
-``` {#pre373961 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre48749 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 io::file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");
@@ -717,4 +714,5 @@ History
 -   21<sup>st</sup> May, 2021 - `draw::bitmap<>()` bugfix
 -   24<sup>th</sup> May, 2021 - Fixed build errors on some demos
 -   27<sup>th</sup> May, 2021 - Added alpha blending support
+-   29<sup>th</sup> May, 2021 - Added `large_bitmap<>` support, API changes, demo changes
 

@@ -206,7 +206,7 @@ void scroll_text_demo() {
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "copyright (C) 2021\r\nby honey the codewitch";
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
-    srect16 text_rect = srect16(spoint16((lcd_type::width-text_size.width)/2,(lcd_type::height-text_size.height)/2),text_size);
+    srect16 text_rect = text_size.bounds().center((srect16)lcd.bounds());
     int16_t text_start = text_rect.x1;
     bool first=true;
     print_source(bmp);
@@ -240,9 +240,6 @@ void lines_demo() {
     }
     font f(&fs);
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
-    //typename lcd_type::pixel_type px;
-    //lcd.point({0,0},&px);
-    //printf("point (0,0) = %04X\r\n",(int)px.value());
     const char* text = "ESP32 GFX Demo";
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                             text).bounds();

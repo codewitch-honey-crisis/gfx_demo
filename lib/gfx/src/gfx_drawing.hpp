@@ -2136,6 +2136,39 @@ namespace gfx {
         }
         
     };
-    
+    template<typename Destination,typename Source> gfx_result convert(Destination& destination,const Source& source) {
+        size16 dim = source.bounds().crop(destination.bounds()).dimensions();
+        point16 pt;
+        gfx_result r;
+        for(pt.y = 0;pt.y<dim.width;++pt.y) {
+            for(pt.x=0;pt.x<dim.height;++pt.x) {
+                typename Source::pixel_type px;
+                r=source.point(pt,&px);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+                typename Destination::pixel_type dpx;
+                using thas_alpha=typename Source::pixel_type::template has_channel_names<channel_name::A>;
+                if(thas_alpha::value) {
+                    typename Destination::pixel_type bgpx;
+                    gfx_result r=destination.point(pt,&bgpx);
+                    if(gfx_result::success!=r) {
+                        return r;
+                    }
+                    if(!convert(px,&dpx,&bgpx)) {
+                        return gfx_result::not_supported;
+                    }
+                } else {
+                    if(!convert(px,&dpx))
+                        return gfx_result::not_supported;
+                }
+                r = destination.point(pt,dpx);
+                if(r!=gfx_result::success) {
+                    return r;
+                }
+            }
+        }
+        return gfx_result::success;
+    }
 }
 #endif

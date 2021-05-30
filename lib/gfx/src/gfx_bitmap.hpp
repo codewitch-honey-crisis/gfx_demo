@@ -394,14 +394,13 @@ namespace gfx {
         template<typename Destination>
         inline gfx_result copy_to(const rect16& src_rect,Destination& dst,point16 location) const {
             if(nullptr==begin() || nullptr==dst.begin())
-                    return gfx_result::out_of_memory;
+                return gfx_result::out_of_memory;
             if(!src_rect.intersects(bounds())) return gfx_result::success;
             rect16 srcr = src_rect.crop(bounds());
             rect16 dstr= rect16(location,srcr.dimensions()).crop(dst.bounds());
             srcr=rect16(srcr.location(),dstr.dimensions());
             return helpers::bmp_copy_to_helper<type,Destination,!(pixel_type::template has_channel_names<channel_name::A>::value)>::copy_to(*this,srcr,dst,dstr);
         }
-        
         // computes the minimum required size for a bitmap buffer, in bytes
         constexpr inline static size_t sizeof_buffer(size16 size) {
             return (size.width*size.height*pixel_type::bit_depth+7)/8;
@@ -573,7 +572,6 @@ namespace gfx {
             p.native_value = 0;
             return fill(bounds,p);
         }
-       
     };
     
 

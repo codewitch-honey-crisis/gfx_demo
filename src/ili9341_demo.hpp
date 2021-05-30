@@ -198,7 +198,10 @@ void scroll_text_demo() {
     col = bmpa_color::purple;
     col.channelr<channel_name::A>(.5);
     draw::filled_rectangle(bmp,srect16(spoint16(bmp.dimensions().width-bmp.dimensions().width/4,0),ssize16(bmp.dimensions().width/4,bmp.dimensions().height)),col);
-
+    // uncomment to convert it to grayscale
+    // resample<bmp_type,gsc_pixel<8>>(bmp);
+    // uncomment to downsample
+    // resample<bmp_type,rgb_pixel<8>>(bmp);
     draw::bitmap(lcd,(srect16)bmp.bounds().center_horizontal(lcd.bounds()),bmp,bmp.bounds());
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "copyright (C) 2021\r\nby honey the codewitch";
@@ -296,7 +299,6 @@ static void display_pretty_colors()
         for (int y=0; y<240; y+=PARALLEL_LINES) {
             //Calculate a line.
             pretty_effect_calc_lines(320,240, line_bmps[calc_line], y, frame, PARALLEL_LINES);
-            //draw::bitmap(line_bmps[calc_line],(srect16)line_bmps[calc_line].bounds(),pixels,line_bmps[calc_line].bounds().offset(0,y));
             // wait for the last frame to finish. Don't need this unless transactions are > 7
             if(-1!=sending_line) {
                 draw::wait_all_async(lcd);
@@ -363,9 +365,11 @@ static void display_pretty_colors()
             }
             
             file_stream fs((0==pid)?"/spiffs/image.jpg":(1==pid)?"/spiffs/image2.jpg":"/spiffs/image3.jpg");
-            gfx::jpeg_image::load(&fs,[](const typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
+            gfx::jpeg_image::load(&fs,[](typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
                 pixels_type* out = (pixels_type*)state;
                 gfx::rect16 r = region.bounds().offset(location.x,location.y);
+                // testing for monochrone
+                // gfx::resample<typename gfx::jpeg_image::region_type,gfx::gsc_pixel<1>>(region);
                 gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
                 return gfx::gfx_result::success;
             },&pixels);
@@ -397,6 +401,6 @@ void app_main(void)
     if(gfx_result::success!=rr) {
         printf("Error loading demo: %d\r\n",(int)rr);
     }
-    //draw::bitmap(lcd,(srect16)lcd.bounds(),pixels,pixels.bounds());
     display_pretty_colors();
+
 }

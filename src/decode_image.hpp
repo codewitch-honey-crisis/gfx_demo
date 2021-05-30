@@ -78,9 +78,11 @@ gfx::gfx_result decode_image(const char* image, uint16_t image_width, uint16_t i
     {
         return gfx::gfx_result::io_error;
     }
-    ret = gfx::jpeg_image::load(&fs,[](const typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
+    ret = gfx::jpeg_image::load(&fs,[](typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
         pixels_type* out = (pixels_type*)state;
         gfx::rect16 r = region.bounds().offset(location.x,location.y);
+        // testing for monochrome
+        // gfx::resample<typename gfx::jpeg_image::region_type,gfx::gsc_pixel<1>>(region);
         gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
         return gfx::gfx_result::success;
     },pixels);

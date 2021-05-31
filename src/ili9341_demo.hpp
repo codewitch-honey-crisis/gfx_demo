@@ -210,15 +210,19 @@ void scroll_text_demo() {
     
     // draw a polygon (a triangle in this case)
     // find the origin:
-    const spoint16 porg = srect16(0,0,31,31).center_horizontal((srect16)lcd.bounds()).offset(0,lcd.dimensions().height-32).top_left();
-    // draw a 32x32 triangle
+    const spoint16 porg = srect16(0,0,31,31)
+                            .center_horizontal((srect16)lcd.bounds())
+                                .offset(0,
+                                    lcd.dimensions().height-32)
+                                        .top_left();
+    // draw a 32x32 triangle by creating a path
     spoint16 path_points[] = {spoint16(0,31),spoint16(15,0),spoint16(31,31)};
     spath16 path(3,path_points);
     // offset it so it starts at the origin
     path.offset_inplace(porg.x,porg.y);
     // draw it
     draw::filled_polygon(lcd,path,lcd_color::coral);
-    
+
     bool first=true;
     print_source(bmp);
     while(true) {

@@ -1750,6 +1750,110 @@ namespace gfx {
             // bottom or top
             return line_impl(destination,srect16(rect.x1,rect.y2,rect.x2,rect.y2),color,clip,async);
         }
+        static bool get_poly_rect(const spoint16* path,size_t path_size,srect16* result) {
+            if(0==path_size) return false;
+            *result = srect16(*path,*path);
+            ++path;
+            while(--path_size) {
+                if(path->x<result->x1) {
+                    result->x1=path->x;
+                } else if(path->x>result->x2) {
+                    result->x2=path->x;
+                }
+                if(path->y<result->y1) {
+                    result->y1=path->y;
+                } else if(path->y>result->y2) {
+                    result->y2=path->y;
+                }
+                ++path;
+            }
+            return true;
+        }
+        static bool intersects_poly(spoint16 pt,const spoint16* path,size_t path_size) {
+            size_t j = path_size - 1;
+            bool c = false;
+            for(size_t i =0; i<path_size;++i) {
+                if((pt.x == path[i].x) && (pt.y == path[i].y)) {
+                    // point is a corner
+                    return true;
+                }
+                if ((path[i].y > pt.y) != (path[j].y > pt.y)) {
+                    const int slope = (pt.x-path[i].x)*(path[j].y-path[i].y)-(path[j].x-path[i].x)*(pt.y-path[i].y);
+                    if(0==slope) {
+                        // point is on boundary
+                        return true;
+                    }
+                    if ((slope < 0) != (path[j].y < path[i].y)) {
+                        c = !c;
+                    }
+                }
+                j = i;
+            }
+            return c;
+        }
+            
+        template<typename Destination,typename PixelType>
+        static gfx_result polygon_impl(Destination& destination, const spoint16* path, size_t path_size, PixelType color,srect16* clip,bool async) {
+            gfx_result r;
+            if(nullptr==path) {
+                return gfx_result::invalid_argument;
+            }
+            const spoint16* p = path;
+            // suspend if we can
+            suspend_token_internal<Destination> stok(destination,async);
+            while(path_size--) {
+                const spoint16 p1 = *p;
+                ++p;
+                const spoint16 p2  = *p;
+                const srect16 sr(p1,p2);
+                r=line_impl(destination,sr,color,clip,async);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+            }
+            return line_impl(destination,srect16((*p),(*path)),color,clip,async);
+        }
+        template<typename Destination,typename PixelType>
+        static gfx_result filled_polygon_impl(Destination& destination, const spoint16* path, size_t path_size, PixelType color,srect16* clip,bool async) {
+            gfx_result r;
+            if(nullptr==path) {
+                return gfx_result::invalid_argument;
+            }
+            srect16 pr;
+            if(!get_poly_rect(path,path_size,&pr))
+                return gfx_result::success;
+            if(nullptr!=clip) {
+                pr=pr.crop(*clip);
+            }
+            // suspend if we can
+            suspend_token_internal<Destination> stok(destination,async);
+            for(int y = pr.y1;y<=pr.y2;++y) {
+                int run_start = -1;
+                for(int x = pr.x1;x<=pr.x2;++x) {
+                    const spoint16 pt(x,y);
+                    if(intersects_poly(pt,path,path_size)) {
+                        if(-1==run_start) {
+                            run_start = x;
+                        }
+                    } else {
+                        if(-1!=run_start) {
+                            r=line_impl(destination,srect16(run_start,y,x-1,y),color,clip,async);
+                            if(gfx_result::success!=r) {
+                                return r;
+                            }
+                            run_start = -1;
+                        }
+                    }
+                }
+                if(-1!=run_start) {
+                    r=line_impl(destination,srect16(run_start,y,pr.x2,y),color,clip,async);
+                    if(gfx_result::success!=r) {
+                        return r;
+                    }
+                }
+            }
+            return gfx_result::success;
+        }
         template<typename Destination,typename PixelType>
         static gfx_result rounded_rectangle_impl(Destination& destination,const srect16& rect,float ratio, PixelType color,srect16* clip,bool async) {
             // TODO: This can be sped up by copying the ellipse algorithm and modifying it slightly.
@@ -2068,6 +2172,26 @@ namespace gfx {
         template<typename Destination,typename PixelType>
         inline static gfx_result filled_rounded_rectangle_async(Destination& destination,const srect16& rect,const float ratio, PixelType color,srect16* clip=nullptr)  {
             return filled_rounded_rectangle_impl(destination,rect,ratio,color,clip,true);
+        }
+        // draws a polygon with the specified path and color, with an optional clipping rectangle
+        template<typename Destination,typename PixelType>
+        inline static gfx_result polygon(Destination& destination,const spoint16* path,size_t path_size, PixelType color,srect16* clip=nullptr)  {
+            return polygon_impl(destination,path,path_size,color,clip,false);
+        }
+        // draws a polygon with the specified path and color, with an optional clipping rectangle
+        template<typename Destination,typename PixelType>
+        inline static gfx_result polygon_async(Destination& destination,const spoint16* path,size_t path_size, PixelType color,srect16* clip=nullptr)  {
+            return polygon_impl(destination,path,path_size,color,clip,true);
+        }
+        // draws a filled polygon with the specified path and color, with an optional clipping rectangle
+        template<typename Destination,typename PixelType>
+        inline static gfx_result filled_polygon(Destination& destination,const spoint16* path,size_t path_size, PixelType color,srect16* clip=nullptr)  {
+            return filled_polygon_impl(destination,path,path_size,color,clip,false);
+        }
+        // draws a filled polygon with the specified path and color, with an optional clipping rectangle
+        template<typename Destination,typename PixelType>
+        inline static gfx_result filled_polygon_async(Destination& destination,const spoint16* path,size_t path_size, PixelType color,srect16* clip=nullptr)  {
+            return filled_polygon_impl(destination,path,path_size,color,clip,true);
         }
         // draws a portion of a bitmap or display buffer to the specified rectangle with an optional clipping rentangle
         template<typename Destination,typename Source>

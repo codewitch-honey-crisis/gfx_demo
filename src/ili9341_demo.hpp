@@ -154,7 +154,6 @@ bmp_type bmp(bmp_size,bmp_buf);
 
 // produced by request
 void scroll_text_demo() {
-    
     lcd.clear(lcd.bounds());
     // draw stuff
     bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
@@ -208,6 +207,13 @@ void scroll_text_demo() {
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
     srect16 text_rect = text_size.bounds().center((srect16)lcd.bounds());
     int16_t text_start = text_rect.x1;
+
+    spoint16 path[] = {spoint16(0,31),spoint16(15,0),spoint16(31,31)};
+    const spoint16 porg = srect16(0,0,31,31).center_horizontal((srect16)lcd.bounds()).offset(0,lcd.dimensions().height-32).top_left();
+    for(size_t i = 0;i<3;++i) {
+        path[i]=path[i].offset(porg.x,porg.y);
+    }
+    draw::filled_polygon(lcd,path,3,lcd_color::lavender_blush);
     bool first=true;
     print_source(bmp);
     while(true) {
@@ -384,6 +390,7 @@ void app_main(void)
         printf("SPI host initialization error.\r\n");
         abort();
     }
+    
     // mount SPIFFS
     esp_err_t ret;
     esp_vfs_spiffs_conf_t conf = {};

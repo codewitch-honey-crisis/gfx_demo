@@ -88,11 +88,18 @@ namespace gfx {
         T y2;
         // constructs a new instance
         inline rectx() {}
+        inline rectx(const rectx& rhs)=default;
+        inline rectx& operator=(const rectx& rhs)=default;
+        inline rectx(rectx&& rhs)=default;
+        inline rectx& operator=(rectx&& rhs)=default;
         // constructs a new instance with the specified coordinates
         constexpr inline rectx(T x1, T y1, T x2, T y2) : x1(x1), y1(y1), x2(x2), y2(y2) {
         }
         // constructs a new instance with the specified location and size
         constexpr inline rectx(pointx<T> location, sizex<T> size) : x1(location.x), y1(location.y), x2(location.x + size.width - 1), y2(location.y + size.height - 1) {
+        }
+        // constructs a new instance with the specified points
+        constexpr inline rectx(pointx<T> point1, pointx<T> point2) : x1(point1.x), y1(point1.y), x2(point2.x), y2(point2.y) {
         }
         // constructs a new instance with the specified center and distance from the center to a side. This is useful for constructing circles out of bounding rectangles.
         constexpr inline rectx(pointx<T> center, typename sizex<T>::value_type distance) : 

@@ -207,13 +207,18 @@ void scroll_text_demo() {
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
     srect16 text_rect = text_size.bounds().center((srect16)lcd.bounds());
     int16_t text_start = text_rect.x1;
-
-    spoint16 path[] = {spoint16(0,31),spoint16(15,0),spoint16(31,31)};
+    
+    // draw a polygon (a triangle in this case)
+    // find the origin:
     const spoint16 porg = srect16(0,0,31,31).center_horizontal((srect16)lcd.bounds()).offset(0,lcd.dimensions().height-32).top_left();
-    for(size_t i = 0;i<3;++i) {
-        path[i]=path[i].offset(porg.x,porg.y);
-    }
-    draw::filled_polygon(lcd,path,3,lcd_color::lavender_blush);
+    // draw a 32x32 triangle
+    spoint16 path_points[] = {spoint16(0,31),spoint16(15,0),spoint16(31,31)};
+    spath16 path(3,path_points);
+    // offset it so it starts at the origin
+    path.offset_inplace(porg.x,porg.y);
+    // draw it
+    draw::filled_polygon(lcd,path,lcd_color::coral);
+    
     bool first=true;
     print_source(bmp);
     while(true) {

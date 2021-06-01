@@ -70,7 +70,7 @@ using lcd_color = color<typename lcd_type::pixel_type>;
 // prints a source as 4-bit grayscale ASCII
 template <typename Source>
 void print_source(const Source& src) {
-    static const char *col_table = " .,-~;*+!=1%O@$#";
+    static const char *col_table = " .,-~;+=x!1%$O@#";
     using gsc4 = pixel<channel_traits<channel_name::L,4>>;
     for(int y = 0;y<src.dimensions().height;++y) {
         for(int x = 0;x<src.dimensions().width;++x) {

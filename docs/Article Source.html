@@ -61,7 +61,7 @@ file to your hard drive for editing.</b></p>
 
 <p><strong>Update 10:</strong>&nbsp;Fixed several build errors with the last update. Mea culpa.</p>
 
-<p><strong>Update 11:</strong>&nbsp;Added bilinear and bicubic resampling for <code>draw::bitmap&lt;&gt;()</code> resizing options, and fixed the nearest neighbor drawing. Also improved the performance of the drawing during resize (though bicubic could stand to be optimized to use ints instead of floats). Added image&nbsp;<code>dimensions</code> to <code>jpeg_image::load()</code>'s callback. If you got this build and it's not drawing bitmaps properly (you'll notice garbage in parts of the demo) download this again. There was a build break briefly at around midnight GMT-8/PST.</p>
+<p><strong>Update 11:</strong>&nbsp;Added bilinear and bicubic resampling for <code>draw::bitmap&lt;&gt;()</code> resizing options, and fixed the nearest neighbor drawing. Also improved the performance of the drawing during resize (though bicubic could stand to be optimized to use ints instead of floats). Added image&nbsp;<code>dimensions</code> to <code>jpeg_image::load()</code>'s callback.</p>
 
 <h3>Building this Mess</h3>
 
@@ -128,7 +128,7 @@ file to your hard drive for editing.</b></p>
 
 <p>Pixels in GFX may take any form you can imagine, up to your machine's maximum word size. They can have as many as one channel per bit, and will take on any binary footprint you specify. If you want a 3 bit RGB pixel, you can easily make one, and then create bitmaps in that format - where there are 3 pixels every 9 bytes. You'll never have to worry whether or not this library can support your display driver or file format's pixel and color model. With GFX, you can define the binary footprint and channels of your pixels, and then extend GFX to support additional color models other than the 4 it supports simply by telling it how to convert to and from RGB*.</p>
 
-<p>*YCbCr is currently bugged. It doesn't quite convert to RGB properly, or from RGB at all. Indexed pixel formats are partially accounted for, but there is no CLUT/palette support yet.</p>
+<p>*Indexed pixel formats are partially accounted for, but there is no CLUT/palette support yet.</p>
 
 <p>When you declare a pixel format, it becomes part of the type signature for anything that uses it. For example, a bitmap that uses a 24-bit pixel format is a different type than one that uses a 16-bit pixel format.</p>
 
@@ -229,8 +229,8 @@ file to your hard drive for editing.</b></p>
 
 <p>Let's dive into some code. The following draws a classic effect around the four edges of the screen in four different colors, with "ESP32 GFX Demo" in the center of the screen:</p>
 
-<div class="pre-lang" id="premain648361"><div>C++</div><div class="pre-action-link"><span id="copycode648361" class="copy-code" data-index="648361" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre648361" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
+<div class="pre-lang" id="premain987072"><div>C++</div><div class="pre-action-link"><span id="copycode987072" class="copy-code" data-index="987072" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre987072" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font&amp; f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -266,8 +266,8 @@ for(int i = 1;i&lt;100;++i) {
 
 <p>Let's try it again - or at least something similar - this time using double buffering on a supporting target, like an SSD1306 display. Note that <code>suspend&lt;&gt;()</code> and <code>resume&lt;&gt;()</code> can be called regardless of the draw destination, but they will report <code>gfx::gfx_result::not_supported</code> on targets that are not double buffered:</p>
 
-<div class="pre-lang" id="premain810641"><div>C++</div><div class="pre-action-link"><span id="copycode810641" class="copy-code" data-index="810641" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre810641" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
+<div class="pre-lang" id="premain750802"><div>C++</div><div class="pre-action-link"><span id="copycode750802" class="copy-code" data-index="750802" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre750802" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font&amp; f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
 srect16 text_rect = srect16(spoint16(0,0),
@@ -298,8 +298,8 @@ for(int i = 1;i&lt;100;i+=10) {
 
 <p>Since adding polygon support, I suppose an example of that will be helpful. Here it is in practice:</p>
 
-<div class="pre-lang" id="premain956893"><div>C++</div><div class="pre-action-link"><span id="copycode956893" class="copy-code" data-index="956893" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre956893" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// draw a polygon (a triangle in this case)
+<div class="pre-lang" id="premain850639"><div>C++</div><div class="pre-action-link"><span id="copycode850639" class="copy-code" data-index="850639" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre850639" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// draw a polygon (a triangle in this case)
 // find the origin:
 const spoint16 porg = srect16(0,0,31,31)
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; .center_horizontal((srect16)lcd.bounds())
@@ -320,16 +320,16 @@ draw::filled_polygon(lcd,path,lcd_color::coral);</pre>
 
 <p>You can define pixels by using the <code>pixel&lt;&gt;</code> template, which takes one or more <code>channel_traits&lt;&gt;</code> as arguments, themselves taking a name, a bit depth, and optional minimum, maximum, and scale. The channel names are predefined, and combinations of channel names make up <em>known color models</em>. Known color models are models that can be converted to and from an RGB color model, essentially. Currently they include RGB, Y'UV, YbCbCr, and grayscale. Declare pixels in order to create bitmaps in different formats or to declare color pixels for use with your particular display driver's native format. In the rare case you need to define one manually, you can do something like this:</p>
 
-<div class="pre-lang" id="premain259849"><div>C++</div><div class="pre-action-link"><span id="copycode259849" class="copy-code" data-index="259849" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre259849" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 16-bit RGB pixel
+<div class="pre-lang" id="premain389034"><div>C++</div><div class="pre-action-link"><span id="copycode389034" class="copy-code" data-index="389034" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre389034" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 16-bit RGB pixel
 using rgb565 = pixel&lt;channel_traits&lt;channel_name::R,5&gt;,
                     channel_traits&lt;channel_name::G,6&gt;,
                     channel_traits&lt;channel_name::B,5&gt;&gt;;</pre>
 
 <p>That declares a pixel with 3 channels, each of <code>uint8_t</code>: <code>R:5</code>, <code>G:6</code>, and <code>B:5</code>. Note that after the colon is how many effective bits it has. The <code>uint8_t</code> type is only for representing each pixel channel in value space in your code. In binary space, like laid out in an in memory bitmap, the pixel takes 16 bits, not 24. This defines a standard 16-bit pixel you typically find on color display adapters for IoT platforms. RGB is one of the known color models so there is a shorthand for declaring an RGB pixel type of any bit depth:</p>
 
-<div class="pre-lang" id="premain384519"><div>C++</div><div class="pre-action-link"><span id="copycode384519" class="copy-code" data-index="384519" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre384519" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using rgb565 = rgb_pixel&lt;16&gt;; // declare a 16-bit RGB pixel</pre>
+<div class="pre-lang" id="premain639192"><div>C++</div><div class="pre-action-link"><span id="copycode639192" class="copy-code" data-index="639192" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre639192" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using rgb565 = rgb_pixel&lt;16&gt;; // declare a 16-bit RGB pixel</pre>
 
 <p>This will divide the bits evenly among the channels, with remaining bits going on the green channel. It is shorthand for the longhand declaration given initially and it resolves to that.</p>
 
@@ -341,8 +341,8 @@ using rgb565 = pixel&lt;channel_traits&lt;channel_name::R,5&gt;,
 
 <p>Each pixel is composed of the channels you declared, and the channels may be accessed by "name" (<code>channel_name</code> enumeration) or by index. The values can be retrieved or set using <code>channel&lt;&gt;()</code> accessors for the native integer value and <code>channelr&lt;&gt;()</code> for real/floating point values scaled to between zero&nbsp;and one. Often times you need to set or get the channel programmatically based on some other compile time constant and the compiler will complain because it can't verify that the channel actually exists. In order to avoid this you can use <code>channel_unchecked&lt;&gt;()</code> which accesses the channel without compile time verification. If the channel does not exist, setting and getting does nothing. If you need to translate between real and integer values for a channel you can use the channel's <code>::scale</code> and <code>::scaler</code> values.</p>
 
-<div class="pre-lang" id="premain858225"><div>C++</div><div class="pre-action-link"><span id="copycode858225" class="copy-code" data-index="858225" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre858225" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 24-bit rgb pixel
+<div class="pre-lang" id="premain439009"><div>C++</div><div class="pre-action-link"><span id="copycode439009" class="copy-code" data-index="439009" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre439009" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 24-bit rgb pixel
 rgb_pixel&lt;24&gt; rgb888;
 
 // set channel by index
@@ -372,8 +372,8 @@ uint32_t v = rgb888.value();</pre>
 
 <p>Here's an example of using it in the wild:</p>
 
-<div class="pre-lang" id="premain212182"><div>C++</div><div class="pre-action-link"><span id="copycode212182" class="copy-code" data-index="212182" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre212182" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmpa_type = rgba_pixel&lt;32&gt;;
+<div class="pre-lang" id="premain108020"><div>C++</div><div class="pre-action-link"><span id="copycode108020" class="copy-code" data-index="108020" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre108020" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmpa_type = rgba_pixel&lt;32&gt;;
 using bmpa_color = color&lt;bmpa_type&gt;;
 
 // do some alpha blended rectangles
@@ -448,31 +448,31 @@ draw::filled_rectangle(bmp,
 
 <p>Anyway, first we have to declare our buffer. I was very careful to make my objects <code>constexpr</code> enabled so you could do things like the following:</p>
 
-<div class="pre-lang" id="premain831000"><div>C++</div><div class="pre-action-link"><span id="copycode831000" class="copy-code" data-index="831000" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre831000" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmp_type = bitmap&lt;rgb_pixel&lt;16&gt;&gt;;
+<div class="pre-lang" id="premain895409"><div>C++</div><div class="pre-action-link"><span id="copycode895409" class="copy-code" data-index="895409" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre895409" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmp_type = bitmap&lt;rgb_pixel&lt;16&gt;&gt;;
 // the following is for convenience:
 using bmp_color = color&lt;typename bmp_type::pixel_type&gt;; // needs GFX color header</pre>
 
 <p>followed by:</p>
 
-<div class="pre-lang" id="premain112319"><div>C++</div><div class="pre-action-link"><span id="copycode112319" class="copy-code" data-index="112319" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre112319" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">constexpr static const size16 bmp_size(16,16);
+<div class="pre-lang" id="premain564113"><div>C++</div><div class="pre-action-link"><span id="copycode564113" class="copy-code" data-index="564113" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre564113" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];</pre>
 
 <p>To be honest, the first time I wrote code like that, I was surprised it compiled. The modern C++ compiler is a truly wonderful thing. Back in the bad old days, I used to get so frustrated that C and C++ refused to allow you to put array size declarations behind a function call, regardless of how trivial the function was. I knew why, but it didn't make me less frustrated knowing that. The expression <code>sizeof_buffer()</code> computes is <code>(width*height*bit_depth+7)/8</code>. That returns the minimum number of whole bytes required to store your bitmap data at that size and color resolution.</p>
 
 <p>Now that we have all that, wrapping it with a bitmap is trivial:</p>
 
-<div class="pre-lang" id="premain302925"><div>C++</div><div class="pre-action-link"><span id="copycode302925" class="copy-code" data-index="302925" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre302925" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">bmp_type bmp(bmp_size,bmp_buf);
+<div class="pre-lang" id="premain22746"><div>C++</div><div class="pre-action-link"><span id="copycode22746" class="copy-code" data-index="22746" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre22746" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
 bmp.clear(bmp.bounds()); // zero the bmp memory</pre>
 
 <p>Now you can call <code>draw</code> methods passing <code>bmp</code> as the destination:</p>
 
-<div class="pre-lang" id="premain971011"><div>C++</div><div class="pre-action-link"><span id="copycode971011" class="copy-code" data-index="971011" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre971011" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"> // draw a happy face
+<div class="pre-lang" id="premain711116"><div>C++</div><div class="pre-action-link"><span id="copycode711116" class="copy-code" data-index="711116" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre711116" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"> // draw a happy face
 
 // bounding info for the face
 // change the line below if you want a subregion
@@ -530,8 +530,8 @@ draw::ellipse(bmp,mouth_bounds,bmp_color::black,&amp;mouth_clip);</pre>
 
 <p>The code looks approximately like this under the ESP-IDF at least:</p>
 
-<div class="pre-lang" id="premain885979"><div>C++</div><div class="pre-action-link"><span id="copycode885979" class="copy-code" data-index="885979" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre885979" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">uint16_t *lines[2];
+<div class="pre-lang" id="premain890869"><div>C++</div><div class="pre-action-link"><span id="copycode890869" class="copy-code" data-index="890869" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre890869" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i&lt;2; i++) {
     lines[i]=(uint16_t*)heap_caps_malloc(lcd.dimensions().width
@@ -587,8 +587,8 @@ for (int y=0; y&lt;lcd.dimensions().height; y+=PARALLEL_LINES) {
 
 <p>Loading images is a matter of creating a stream over the input, like a file, and then passing that to an image loader function along with a callback (I prefer to use an anonymous method/lambda for this) that handles the progressive loading. You'll be called back multiple times, each time with a portion of the image as a bitmap, along with a location where it belongs within the image, and any state you passed along to the load function. Note that to reduce overhead, a state variable is used to pass state instead of using a functor like <code>std::function</code>. You can use a "flat" lambda that decays to a simple function pointer, and then pass your class pointer in as the <code>state</code> argument, to be reconstituted inside your callback. Often times, you won't even need a state argument because everything you're after, such as the display itself, is available globally:</p>
 
-<div class="pre-lang" id="premain924284"><div>C++</div><div class="pre-action-link"><span id="copycode924284" class="copy-code" data-index="924284" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre924284" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
+<div class="pre-lang" id="premain393695"><div>C++</div><div class="pre-action-link"><span id="copycode393695" class="copy-code" data-index="393695" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre393695" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
 jpeg_image::load(&amp;fs,[](size16 dimensions,
 &nbsp;                       typename jpeg_image::region_type&amp; region,
                         point16 location,
@@ -613,18 +613,18 @@ jpeg_image::load(&amp;fs,[](size16 dimensions,
 
 <p>First, generate a header file from a font file using fontgen under the <em>tools</em> folder of the GFX library:</p>
 
-<div class="pre-lang" id="premain942017"><div>C++</div><div class="pre-action-link"><span id="copycode942017" class="copy-code" data-index="942017" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre942017" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">~$ fontgen myfont.fon &gt; myfont.hpp</pre>
+<div class="pre-lang" id="premain538732"><div>C++</div><div class="pre-action-link"><span id="copycode538732" class="copy-code" data-index="538732" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre538732" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">~$ fontgen myfont.fon &gt; myfont.hpp</pre>
 
 <p>Now you can include that in your code:</p>
 
-<div class="pre-lang" id="premain34859"><div>C++</div><div class="pre-action-link"><span id="copycode34859" class="copy-code" data-index="34859" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre34859" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">#include <span class="code-string">"myfont.hpp"</span></pre>
+<div class="pre-lang" id="premain338885"><div>C++</div><div class="pre-action-link"><span id="copycode338885" class="copy-code" data-index="338885" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre338885" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">#include <span class="code-string">"myfont.hpp"</span></pre>
 
 <p>This allows you to reference the font like this:</p>
 
-<div class="pre-lang" id="premain326234"><div>C++</div><div class="pre-action-link"><span id="copycode326234" class="copy-code" data-index="326234" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre326234" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">const font&amp; f = myfont_fon;
+<div class="pre-lang" id="premain317921"><div>C++</div><div class="pre-action-link"><span id="copycode317921" class="copy-code" data-index="317921" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre317921" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">const font&amp; f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                         text).bounds();
@@ -636,8 +636,8 @@ draw::text(lcd,
 
 <p>The second way to access a font is by loading a <em>.FON</em> file from a stream, which stores the font around on the heap rather than embedded as a <code>static</code> <code>const</code> array in your code, just replace the first line of code above with this:</p>
 
-<div class="pre-lang" id="premain172435"><div>C++</div><div class="pre-action-link"><span id="copycode172435" class="copy-code" data-index="172435" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre172435" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">io::file_stream fs("/spiffs/myfon.fon");
+<div class="pre-lang" id="premain207031"><div>C++</div><div class="pre-action-link"><span id="copycode207031" class="copy-code" data-index="207031" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre207031" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">io::file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");
     vTaskDelay(portMAX_DELAY);

@@ -144,7 +144,9 @@ void print_source(const Source& src) {
     }
 }
 constexpr static const size16 bmp_size(16,16);
-using bmp_type = bitmap<lcd_type::pixel_type>;
+// you can use YbCbCr for example. It's lossy, so you'll want extra bits
+//using bmp_type = bitmap<ycbcr_pixel<HTCW_MAX_WORD>>;
+using bmp_type = bitmap<typename lcd_type::pixel_type>;
 using bmp_color = color<typename bmp_type::pixel_type>;
 using bmpa_pixel_type = rgba_pixel<HTCW_MAX_WORD>;
 using bmpa_color = color<bmpa_pixel_type>;
@@ -409,7 +411,6 @@ void app_main(void)
         printf("SPI host initialization error.\r\n");
         abort();
     }
-   
     // mount SPIFFS
     esp_err_t ret;
     esp_vfs_spiffs_conf_t conf = {};

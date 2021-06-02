@@ -19,6 +19,14 @@
         "algorithm": "cpp",
         "iterator": "cpp",
         "ratio": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "atomic": "cpp",
+        "string": "cpp",
+        "vector": "cpp",
+        "initializer_list": "cpp",
+        "iosfwd": "cpp",
+        "new": "cpp",
+        "sstream": "cpp",
+        "utility": "cpp"
     }
 }

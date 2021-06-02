@@ -281,7 +281,7 @@ static void display_pretty_colors()
                 "/spiffs/image_128.jpg"
                 );
                 
-            gfx::jpeg_image::load(&fs,[](typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
+            gfx::jpeg_image::load(&fs,[](gfx::size16 dimensions,typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
                 pixels_type* out = (pixels_type*)state;
                 gfx::rect16 r = region.bounds().offset(location.x,location.y);
                 gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());

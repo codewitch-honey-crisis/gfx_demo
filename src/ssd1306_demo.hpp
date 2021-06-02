@@ -139,13 +139,13 @@ void bmp_demo() {
     int dx = 1;
     int dy=2;
     int i =0;
-    draw::bitmap(lcd,(srect16)bmp.bounds(),bmp,bmp.bounds(),bitmap_flags::crop,&tpx);
+    draw::bitmap(lcd,(srect16)bmp.bounds(),bmp,bmp.bounds(),bitmap_resize::crop,&tpx);
     while(i<50) {
         srect16 sr = (srect16)lcd.bounds().offset(
                         (rand()%lcd.dimensions().width)-bmp.dimensions().width,
                         (rand()%lcd.dimensions().height)-bmp.dimensions().height);
         sr=sr.crop((srect16)lcd.bounds());
-        draw::bitmap(lcd,sr,bmp,bmp.bounds(),bitmap_flags::crop,&tpx);
+        draw::bitmap(lcd,sr,bmp,bmp.bounds(),bitmap_resize::crop,&tpx);
         ++i;
     }
     lcd.clear(lcd.bounds());
@@ -166,7 +166,7 @@ void bmp_demo() {
             r=r.offset(dx,dy);
         } else
             r=r2;
-        draw::bitmap(lcd,r,bmp,bmp.bounds(),bitmap_flags::crop,&tpx);
+        draw::bitmap(lcd,r,bmp,bmp.bounds(),bitmap_resize::crop,&tpx);
 #ifdef SUSPEND_RESUME
         draw::resume(lcd);
 #endif

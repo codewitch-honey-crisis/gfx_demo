@@ -143,7 +143,7 @@ void print_source(const Source& src) {
         printf("\r\n");
     }
 }
-constexpr static const size16 bmp_size(64,64);
+constexpr static const size16 bmp_size(16,16);
 using bmp_type = bitmap<lcd_type::pixel_type>;
 using bmp_color = color<typename bmp_type::pixel_type>;
 using bmpa_pixel_type = rgba_pixel<HTCW_MAX_WORD>;
@@ -201,7 +201,17 @@ void scroll_text_demo() {
     // resample<bmp_type,gsc_pixel<8>>(bmp);
     // uncomment to downsample
     // resample<bmp_type,rgb_pixel<8>>(bmp);
-    draw::bitmap(lcd,(srect16)bmp.bounds().center_horizontal(lcd.bounds()),bmp,bmp.bounds());
+    srect16 new_bounds(0,0,63,63);
+
+    // try using different values here. Bicubic yields the best visual result, but it's pretty slow. 
+    // Bilinear is faster but better for shrinking images or changing sizes small amounts
+    // Fast uses a nearest neighbor algorithm and is performant but looks choppy
+    const bitmap_resize resize_type = 
+        // bitmap_resize::resize_bicubic;
+        // bitmap_resize::resize_bilinear;
+        bitmap_resize::resize_fast;
+    draw::bitmap(lcd,new_bounds.center_horizontal((srect16)lcd.bounds()).flip_vertical(),bmp,bmp.bounds(),resize_type);
+
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "copyright (C) 2021\r\nby honey the codewitch";
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
@@ -219,7 +229,7 @@ void scroll_text_demo() {
     spoint16 path_points[] = {spoint16(0,31),spoint16(15,0),spoint16(31,31)};
     spath16 path(3,path_points);
     // offset it so it starts at the origin
-    path.offset_inplace(porg.x,porg.y);
+    path.offset_inplace(porg.x,porg.y); 
     // draw it
     draw::filled_polygon(lcd,path,lcd_color::coral);
 
@@ -377,7 +387,7 @@ static void display_pretty_colors()
             }
             
             file_stream fs((0==pid)?"/spiffs/image.jpg":(1==pid)?"/spiffs/image2.jpg":"/spiffs/image3.jpg");
-            gfx::jpeg_image::load(&fs,[](typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
+            gfx::jpeg_image::load(&fs,[](gfx::size16 dimensions,typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
                 pixels_type* out = (pixels_type*)state;
                 gfx::rect16 r = region.bounds().offset(location.x,location.y);
                 // testing for monochrone
@@ -399,7 +409,7 @@ void app_main(void)
         printf("SPI host initialization error.\r\n");
         abort();
     }
-    
+   
     // mount SPIFFS
     esp_err_t ret;
     esp_vfs_spiffs_conf_t conf = {};

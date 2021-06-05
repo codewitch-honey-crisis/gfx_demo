@@ -9,14 +9,9 @@ extern "C" { void app_main(); }
 #include "spi_master.hpp"
 #include "esp_spiffs.h"
 #include "ra8875.hpp"
-#include "gfx_drawing.hpp"
-#include "gfx_image.hpp"
-#include "gfx_drawing.hpp"
-#include "stream.hpp"
-#include "gfx_color_cpp14.hpp"
+#include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace espidf;
-using namespace io;
 using namespace gfx;
 
 #define LCD_HOST    VSPI_HOST

@@ -14,11 +14,7 @@ extern "C" { void app_main(); }
 #else
 #include "ssd1306_i2c.hpp"
 #endif
-#include "gfx_drawing.hpp"
-#include "gfx_image.hpp"
-#include "gfx_drawing.hpp"
-#include "stream.hpp"
-#include "gfx_color_cpp14.hpp"
+#include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ATI_9x16.h"
 using namespace espidf;

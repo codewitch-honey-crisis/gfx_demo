@@ -73,19 +73,20 @@ gfx::gfx_result decode_image(const char* image, uint16_t image_width, uint16_t i
         return gfx::gfx_result::out_of_memory;
     }
     gfx::gfx_result ret = gfx::gfx_result::success;
-    io::file_stream fs(image);
+    gfx::file_stream fs(image);
     if(!fs.caps().read)
     {
         return gfx::gfx_result::io_error;
     }
-    ret = gfx::jpeg_image::load(&fs,[](gfx::size16 dimensions,typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
+    /*ret = gfx::jpeg_image::load(&fs,[](gfx::size16 dimensions,typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
         pixels_type* out = (pixels_type*)state;
         gfx::rect16 r = region.bounds().offset(location.x,location.y);
         // testing for monochrome
         // gfx::resample<typename gfx::jpeg_image::region_type,gfx::gsc_pixel<1>>(region);
         gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
         return gfx::gfx_result::success;
-    },pixels);
+    },pixels);*/
+    ret=gfx::draw::image(*pixels,(gfx::srect16)pixels->bounds(),&fs,gfx::rect16(0,0,-1,-1));
     if(gfx::gfx_result::success!=ret) {
         printf("Bad result %d\r\n",(int)ret);
         vTaskDelay(portMAX_DELAY);

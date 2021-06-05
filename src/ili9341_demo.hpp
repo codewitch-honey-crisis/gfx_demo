@@ -9,17 +9,12 @@ extern "C" { void app_main(); }
 #include "spi_master.hpp"
 #include "esp_spiffs.h"
 #include "ili9341.hpp"
-#include "gfx_drawing.hpp"
-#include "gfx_image.hpp"
-#include "gfx_drawing.hpp"
-#include "stream.hpp"
-#include "gfx_color_cpp14.hpp"
+#include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ACM_VGA_9x16.h"
 #include "../fonts/Bm437_ATI_9x16.h"
 #include "pretty_effect.hpp"
 using namespace espidf;
-using namespace io;
 using namespace gfx;
 // the following is configured for the ESP-WROVER-KIT
 // make sure to set the pins to your set up.
@@ -389,14 +384,7 @@ static void display_pretty_colors()
             }
             
             file_stream fs((0==pid)?"/spiffs/image.jpg":(1==pid)?"/spiffs/image2.jpg":"/spiffs/image3.jpg");
-            gfx::jpeg_image::load(&fs,[](gfx::size16 dimensions,typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
-                pixels_type* out = (pixels_type*)state;
-                gfx::rect16 r = region.bounds().offset(location.x,location.y);
-                // testing for monochrone
-                // gfx::resample<typename gfx::jpeg_image::region_type,gfx::gsc_pixel<1>>(region);
-                gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
-                return gfx::gfx_result::success;
-            },&pixels);
+            draw::image(pixels,(srect16)pixels.bounds(),&fs,rect16(0,0,-1,-1));
 #ifdef ASCII_JPEGS
             print=true;
 #endif

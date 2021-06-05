@@ -147,7 +147,7 @@ Images include things like JPEGs, which is currently the only format this librar
 
 Images are not drawing elements because it's not practical to either load an image into memory all at once, nor get random access to the pixel data therein, due to compression or things like progressively stored data.
 
-In order to work with images, you handle a callback that reports a portion of an image at a time, along with a location that indicates where the portion is within the image. For example, for JPEGs a small bitmap (usually 8x8 or so) is returned for each 8x8 region from left to right, top to bottom. Each time you receive a portion, you can draw it to the display or some other target, or you can postprocess it or whatever.
+In order to work with images, you can use the `draw` class which will draw all or part of the image to a destination, or you can handle a callback that reports a portion of an image at a time, along with a location that indicates where the portion is within the image. For example, for JPEGs a small bitmap (usually 8x8 or so) is returned for each 8x8 region from left to right, top to bottom. Each time you receive a portion, you can draw it to the display or some other target, or you can postprocess it or whatever.
 
 Currently unlike with fonts, there is no tool to create headers that embed images directly into your binary. This will probably be added in a future version.
 
@@ -211,7 +211,7 @@ The advantage of this is that methods can be inlined, templatized, and otherwise
 
 In a typical use of GFX, you will begin by declaring your types. Since everything is a template basically, you need to instantiate concrete types out of them before you can start to use them. The `using` keyword is great for this and I recommend it over `typedef` since it's templatizable and at least in my opinion, it's more readable.
 
-You'll often need one for the driver, one for any type of bitmap you wish to declare (you'll need different types for bitmaps with different color models or bit depths, like RGB versus monochrome), and you'll probably want to include one of the GFX color headers, either *gfx\_color.hpp* for *C++17* or better, or *gfx\_color\_cpp14.hpp* for *C++14*. Once you do that, you'll want one for the color template, for each pixel type. At the very least, you'll want one that matches the pixel\_type of your display device, such as using `using lcd_color = gfx::color<typename lcd_type::pixel_type>;` which will let you refer to things like `lcd_color::antique_white`.
+You'll often need one for the driver, one for any type of bitmap you wish to declare (you'll need different types for bitmaps with different color models or bit depths, like RGB versus monochrome). Once you do that, you'll want one for the color template, for each pixel type. At the very least, you'll want one that matches the pixel\_type of your display device, such as using `using lcd_color = gfx::color<typename lcd_type::pixel_type>;` which will let you refer to things like `lcd_color::antique_white`.
 
 Once you've done that, almost everything else is handled using the `gfx:draw` class. Despite each function on the class declaring one or more template parameters, the corresponding arguments are inferred from the arguments passed to the function itself, so you should never need to use `<>` explicitly with `draw`. Using draw, you can draw text, bitmaps, lines and simple shapes.
 
@@ -223,7 +223,7 @@ Let's dive into some code. The following draws a classic effect around the four 
 
 C++
 
-``` {#pre373905 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre122096 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font& f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
@@ -263,7 +263,7 @@ Let's try it again - or at least something similar - this time using double buff
 
 C++
 
-``` {#pre732749 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre295662 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font& f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
@@ -298,7 +298,7 @@ Since adding polygon support, I suppose an example of that will be helpful. Here
 
 C++
 
-``` {#pre26605 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre665433 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // draw a polygon (a triangle in this case)
 // find the origin:
 const spoint16 porg = srect16(0,0,31,31)
@@ -323,7 +323,7 @@ You can define pixels by using the `pixel<>` template, which takes one or more `
 
 C++
 
-``` {#pre383947 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre681869 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 16-bit RGB pixel
 using rgb565 = pixel<channel_traits<channel_name::R,5>,
                     channel_traits<channel_name::G,6>,
@@ -334,7 +334,7 @@ That declares a pixel with 3 channels, each of `uint8_t`: `R:5`, `G:6`, and `B:5
 
 C++
 
-``` {#pre824195 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre292734 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using rgb565 = rgb_pixel<16>; // declare a 16-bit RGB pixel
 ```
 
@@ -350,7 +350,7 @@ Each pixel is composed of the channels you declared, and the channels may be acc
 
 C++
 
-``` {#pre106769 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre120585 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 24-bit rgb pixel
 rgb_pixel<24> rgb888;
 
@@ -384,7 +384,7 @@ Here's an example of using it in the wild:
 
 C++
 
-``` {#pre617323 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre100404 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmpa_type = rgba_pixel<32>;
 using bmpa_color = color<bmpa_type>;
 
@@ -463,7 +463,7 @@ Anyway, first we have to declare our buffer. I was very careful to make my objec
 
 C++
 
-``` {#pre929095 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre153946 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmp_type = bitmap<rgb_pixel<16>>;
 // the following is for convenience:
 using bmp_color = color<typename bmp_type::pixel_type>; // needs GFX color header
@@ -473,7 +473,7 @@ followed by:
 
 C++
 
-``` {#pre737437 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre986690 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 ```
@@ -484,7 +484,7 @@ Now that we have all that, wrapping it with a bitmap is trivial:
 
 C++
 
-``` {#pre47957 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre24959 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
@@ -495,7 +495,7 @@ Now you can call `draw` methods passing `bmp` as the destination:
 
 C++
 
-``` {#pre300369 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre908826 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
  // draw a happy face
 
 // bounding info for the face
@@ -557,7 +557,7 @@ The code looks approximately like this under the ESP-IDF at least:
 
 C++
 
-``` {#pre113090 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre198405 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i<2; i++) {
@@ -623,7 +623,7 @@ Below `lcd` represents our target on which to draw the image:
 
 C++
 
-``` {#pre110069 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre682445 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 draw::image(lcd,(srect16)lcd.bounds(),&fs,rect16(0,0,-1,-1));
 ```
@@ -634,7 +634,7 @@ The second way of loading an image is passing the stream to an image loader func
 
 C++
 
-``` {#pre29628 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre281212 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 jpeg_image::load(&fs,[](size16 dimensions,
                         typename jpeg_image::region_type& region,
@@ -663,7 +663,7 @@ First, generate a header file from a font file using fontgen under the *tools* f
 
 C++
 
-``` {#pre402410 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre877286 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 ~$ fontgen myfont.fon > myfont.hpp
 ```
 
@@ -671,7 +671,7 @@ Now you can include that in your code:
 
 C++
 
-``` {#pre266379 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre796357 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 #include "myfont.hpp"
 ```
 
@@ -679,7 +679,7 @@ This allows you to reference the font like this:
 
 C++
 
-``` {#pre63233 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre78511 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 const font& f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -695,7 +695,7 @@ The second way to access a font is by loading a *.FON* file from a stream, which
 
 C++
 
-``` {#pre162183 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre449469 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 io::file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");

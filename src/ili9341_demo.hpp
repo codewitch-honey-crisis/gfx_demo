@@ -204,9 +204,9 @@ void scroll_text_demo() {
     // Bilinear is faster but better for shrinking images or changing sizes small amounts
     // Fast uses a nearest neighbor algorithm and is performant but looks choppy
     const bitmap_resize resize_type = 
-        // bitmap_resize::resize_bicubic;
+         bitmap_resize::resize_bicubic;
         // bitmap_resize::resize_bilinear;
-        bitmap_resize::resize_fast;
+        //bitmap_resize::resize_fast;
     draw::bitmap(lcd,new_bounds.center_horizontal((srect16)lcd.bounds()).flip_vertical(),bmp,bmp.bounds(),resize_type);
 
     const font& f = Bm437_ATI_9x16_FON;

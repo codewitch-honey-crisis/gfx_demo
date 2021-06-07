@@ -11,6 +11,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "stream.hpp"
+#include "gfx_palette.hpp"
 #include "gfx_drawing.hpp"
 #include "gfx_image.hpp"
 //Define the height and width of the jpeg file. Make sure this matches the actual jpeg
@@ -54,6 +55,7 @@ static int outfunc(JDEC *decoder, void *bitmap, JRECT *rect)
     return 1;
 }
 */
+//using pixels_type = gfx::large_bitmap<gfx::indexed_pixel<4>,gfx::ega_palette<gfx::rgb_pixel<16>>>;
 using pixels_type = gfx::large_bitmap<gfx::rgb_pixel<16>>;
 //Decode the embedded image into pixel lines that can be used with the rest of the logic.
 /**

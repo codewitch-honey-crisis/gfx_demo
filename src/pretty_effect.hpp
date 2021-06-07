@@ -12,6 +12,7 @@
 #include "esp_err.h"
 #include "gfx_pixel.hpp"
 #include "gfx_bitmap.hpp"
+#include "gfx_palette.hpp"
 #ifdef CONFIG_IDF_TARGET_ESP32
 #include "decode_image.hpp"
 
@@ -70,7 +71,8 @@ void pretty_effect_calc_lines(uint16_t width,uint16_t height,Destination& dest, 
     }
     for (int y=line; y<line+linect; y++) {
         for (int x=0; x<width; x++) {
-            dest.point(gfx::point16(x,y-line),get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]));
+            gfx::draw::point(dest,gfx::spoint16(x,y-line),get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]));
+            //dest.point(gfx::point16(x,y-line),get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]));
         }
     }
 }

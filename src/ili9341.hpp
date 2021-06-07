@@ -8,6 +8,7 @@
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
+#include "gfx_palette.hpp"
 #include "spi_driver.hpp"
 namespace espidf {
     // the driver for an ILI9341 display
@@ -234,8 +235,9 @@ protected:
                         if(rr!=gfx::gfx_result::success)
                             return rr;
                         pixel_type p;
-                        if(!gfx::convert(pp,&p)) {
-                            return gfx::gfx_result::invalid_format;
+                        rr=gfx::convert_palette_to(src,pp,&p);
+                        if(gfx::gfx_result::success!=rr) {
+                            return rr;
                         }
                         uint16_t pv = p.value();
                         if(!async)

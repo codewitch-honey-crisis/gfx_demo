@@ -44,6 +44,9 @@ GFX on the other hand, isn't tied to anything. It can draw anywhere, on any plat
 
 **Update 12:** Easy of use update. I've compiled all of the includes into a single includable header, and I've added `draw::image<>()` which deals with the progressive loading so you don't need to do it yourself.
 
+**Update 13:** Service release. Certain draw operations between certain draw targets would fail to compile
+
+
 ### Building this Mess
 
 You'll need Visual Studio Code with the Platform IO extension installed. You'll need an ESP32 with a connected ILI9341 LCD display an SSD1306 display, or other display depending on the demo.
@@ -801,4 +804,4 @@ History
 -   31<sup>st</sup> May, 2021 - Fixed several build errors
 -   1<sup>st</sup> June, 2021 - Added/fixed bitmap resize options and added dimensions to image callback
 -   5<sup>th</sup> June, 2021 - Added single header file, and easier to use image loading. cleaned up positioning api a bit. bugfix in declarions of clipping rect parameters on `draw::`
-
+-   7<sup>th</sup> June, 2021 - Service release. Certain draw operations between certain draw targets would fail to compile

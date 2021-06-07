@@ -141,7 +141,7 @@ void print_source(const Source& src) {
 constexpr static const size16 bmp_size(16,16);
 // you can use YbCbCr for example. It's lossy, so you'll want extra bits
 //using bmp_type = bitmap<ycbcr_pixel<HTCW_MAX_WORD>>;
-using bmp_type = bitmap<typename lcd_type::pixel_type>;
+using bmp_type = bitmap<typename lcd_type::pixel_type,palette<typename lcd_type::pixel_type,typename lcd_type::pixel_type>>;
 using bmp_color = color<typename bmp_type::pixel_type>;
 using bmpa_pixel_type = rgba_pixel<HTCW_MAX_WORD>;
 using bmpa_color = color<bmpa_pixel_type>;
@@ -293,7 +293,7 @@ void lines_demo() {
 //while the previous one is being sent.
 static void display_pretty_colors()
 {
-    using lines_bmp_type = bitmap<typename lcd_type::pixel_type>;
+    using lines_bmp_type = bitmap<typename lcd_type::pixel_type,palette<lcd_type::pixel_type,lcd_type::pixel_type>>;
     lines_bmp_type line_bmps[2] {
         lines_bmp_type(size16(320,PARALLEL_LINES),heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA)),
         lines_bmp_type(size16(320,PARALLEL_LINES),heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA))

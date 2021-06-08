@@ -48,6 +48,8 @@ GFX on the other hand, isn't tied to anything. It can draw anywhere, on any plat
 
 **Update 14:** Added palette/CLUT support! (still a baby, not quite complete but I'll mature it as I go)
 
+**Update 15:** Service release. Fixed `large_bitmap<>()` out of bounds crashing issue
+
 ### Building this Mess
 
 You'll need Visual Studio Code with the Platform IO extension installed. You'll need an ESP32 with a connected ILI9341 LCD display an SSD1306 display, or other display depending on the demo.
@@ -820,4 +822,4 @@ History
 -   5<sup>th</sup> June, 2021 - Added single header file, and easier to use image loading. cleaned up positioning api a bit. bugfix in declarions of clipping rect parameters on `draw::`
 -   7<sup>th</sup> June, 2021 - Service release. Certain draw operations between certain draw targets would fail to compile
 -   8<sup>th</sup> June, 2021 - Added palette/CLUT support (initial/experimental)
-
+-   8<sup>th</sup> June, 2021 - Service release. Fixed `large_bitmap<>()` out of bounds crashing issue

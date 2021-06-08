@@ -293,7 +293,7 @@ void lines_demo() {
 //while the previous one is being sent.
 static void display_pretty_colors()
 {
-    using lines_bmp_type = bitmap<typename lcd_type::pixel_type,palette<lcd_type::pixel_type,lcd_type::pixel_type>>;
+    using lines_bmp_type = bitmap<typename lcd_type::pixel_type>;
     lines_bmp_type line_bmps[2] {
         lines_bmp_type(size16(320,PARALLEL_LINES),heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA)),
         lines_bmp_type(size16(320,PARALLEL_LINES),heap_caps_malloc(320*PARALLEL_LINES*sizeof(uint16_t), MALLOC_CAP_DMA))

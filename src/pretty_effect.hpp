@@ -17,14 +17,20 @@
 #include "decode_image.hpp"
 
 using pixels_type = gfx::large_bitmap<gfx::rgb_pixel<16>>;
+//using pixels_type = gfx::large_bitmap<gfx::indexed_pixel<4>,gfx::ega_palette<gfx::rgb_pixel<16>>>;
+//using pixels_palette_type = typename pixels_type::palette_type;
+//pixels_palette_type pixels_palette;
 pixels_type pixels;
-
 //Grab a rgb16 pixel from the esp32_tiles image
-static inline typename pixels_type::pixel_type get_bgnd_pixel(int x, int y)
+static inline typename gfx::rgb_pixel<16> get_bgnd_pixel(int x, int y)
 {
     //Image has an 8x8 pixel margin, so we can also resolve e.g. [-3, 243]
-    typename pixels_type::pixel_type result;
-    pixels.point(gfx::point16(x+8,y+8),&result);
+    typename pixels_type::pixel_type px;
+    pixels.point(gfx::point16(x+8,y+8),&px);
+    gfx::rgb_pixel<16> result;
+    // in case this is indexed, we need to convert it here
+    // while we still have access to the palette
+    convert_palette_to(pixels,px,&result);
     return result;
     
 }
@@ -94,7 +100,7 @@ gfx::gfx_result pretty_effect_init(const char* image,uint16_t image_width,uint16
     assert(ycomp!=nullptr);
 
 #ifdef CONFIG_IDF_TARGET_ESP32
-    return decode_image(image,image_width,image_height, &pixels);
+    return decode_image(image,image_width,image_height, &pixels/*,&pixels_palette*/);
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3
     //esp32s2/c3 doesn't have enough memory to hold the decoded image, calculate instead
     return gfx::gfx_result::success;

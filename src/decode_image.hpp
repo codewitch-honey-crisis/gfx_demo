@@ -55,8 +55,9 @@ static int outfunc(JDEC *decoder, void *bitmap, JRECT *rect)
     return 1;
 }
 */
-//using pixels_type = gfx::large_bitmap<gfx::indexed_pixel<4>,gfx::ega_palette<gfx::rgb_pixel<16>>>;
 using pixels_type = gfx::large_bitmap<gfx::rgb_pixel<16>>;
+//using pixels_type = gfx::large_bitmap<gfx::indexed_pixel<4>,gfx::ega_palette<gfx::rgb_pixel<16>>>;
+//using pixels_palette_type = typename pixels_type::palette_type;
 //Decode the embedded image into pixel lines that can be used with the rest of the logic.
 /**
  * @brief Decode the jpeg ``image.jpg`` embedded into the program file into pixel data.
@@ -67,31 +68,26 @@ using pixels_type = gfx::large_bitmap<gfx::rgb_pixel<16>>;
  *         - ESP_ERR_NO_MEM if out of memory
  *         - ESP_OK on succesful decode
  */
-gfx::gfx_result decode_image(const char* image, uint16_t image_width, uint16_t image_height,pixels_type *pixels)
+gfx::gfx_result decode_image(const char* image, uint16_t image_width, uint16_t image_height,pixels_type *pixels/*,pixels_palette_type* palette*/)
 {
-    *pixels = pixels_type(gfx::size16(image_width,image_height),1);
+    
+    *pixels = pixels_type(gfx::size16(image_width,image_height),1/*,palette*/);
     if(!pixels->initialized()) {
         ESP_LOGE(TAG, "Error allocating memory for lines");
         return gfx::gfx_result::out_of_memory;
     }
     gfx::gfx_result ret = gfx::gfx_result::success;
-    gfx::file_stream fs(image);
-    if(!fs.caps().read)
-    {
-        return gfx::gfx_result::io_error;
-    }
-    /*ret = gfx::jpeg_image::load(&fs,[](gfx::size16 dimensions,typename gfx::jpeg_image::region_type& region,gfx::point16 location,void* state) {
-        pixels_type* out = (pixels_type*)state;
-        gfx::rect16 r = region.bounds().offset(location.x,location.y);
-        // testing for monochrome
-        // gfx::resample<typename gfx::jpeg_image::region_type,gfx::gsc_pixel<1>>(region);
-        gfx::draw::bitmap(*out,(gfx::srect16)r,region,region.bounds());
-        return gfx::gfx_result::success;
-    },pixels);*/
-    ret=gfx::draw::image(*pixels,(gfx::srect16)pixels->bounds(),&fs,gfx::rect16(0,0,-1,-1));
-    if(gfx::gfx_result::success!=ret) {
-        printf("Bad result %d\r\n",(int)ret);
-        vTaskDelay(portMAX_DELAY);
+    if(nullptr!=image) {
+        gfx::file_stream fs(image);
+        if(!fs.caps().read)
+        {
+            return gfx::gfx_result::io_error;
+        }
+        ret=gfx::draw::image(*pixels,(gfx::srect16)pixels->bounds(),&fs,gfx::rect16(0,0,-1,-1));
+        if(gfx::gfx_result::success!=ret) {
+            printf("Bad result %d\r\n",(int)ret);
+            vTaskDelay(portMAX_DELAY);
+        }
     }
     return ret;
 

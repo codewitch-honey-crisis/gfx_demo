@@ -13,10 +13,11 @@
 #include "gfx_pixel.hpp"
 #include "gfx_bitmap.hpp"
 #include "gfx_palette.hpp"
-#ifdef CONFIG_IDF_TARGET_ESP32
+#if defined(ARDUINO) || defined(CONFIG_IDF_TARGET_ESP32)
 #include "decode_image.hpp"
 
 using pixels_type = gfx::large_bitmap<gfx::rgb_pixel<16>>;
+// play with palettes if you want:
 //using pixels_type = gfx::large_bitmap<gfx::indexed_pixel<4>,gfx::ega_palette<gfx::rgb_pixel<16>>>;
 //using pixels_palette_type = typename pixels_type::palette_type;
 //pixels_palette_type pixels_palette;
@@ -34,11 +35,11 @@ static inline typename gfx::rgb_pixel<16> get_bgnd_pixel(int x, int y)
     return result;
     
 }
-#elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3
+#else
 //esp32s2/c3 doesn't have enough memory to hold the decoded image, calculate instead
-static inline pixels_type::pixel_type get_bgnd_pixel(int x, int y)
+static inline gfx::rgb_pixel<16> get_bgnd_pixel(int x, int y)
 {
-    typename pixels_type::pixel_type result;
+    gfx::rgb_pixel<16> result;
     result.value((x<<3)^(y<<3)^(x*y));
     return result;
 }
@@ -55,14 +56,6 @@ static int8_t *xcomp, *ycomp;
 //Calculate the pixel data for a set of lines (with implied line size of 320). Pixels go in dest, line is the Y-coordinate of the
 //first line to be calculated, linect is the amount of lines to calculate. Frame increases by one every time the entire image
 //is displayed; this is used to go to the next frame of animation.
-/**
- * @brief Calculate the effect for a bunch of lines.
- *
- * @param dest Destination for the pixels. Assumed to be LINECT * 320 16-bit pixel values.
- * @param line Starting line of the chunk of lines.
- * @param frame Current frame, used for animation
- * @param linect Amount of lines to calculate
- */
 template<typename Destination>
 void pretty_effect_calc_lines(uint16_t width,uint16_t height,Destination& dest, int line, int frame, int linect)
 {
@@ -78,16 +71,10 @@ void pretty_effect_calc_lines(uint16_t width,uint16_t height,Destination& dest, 
     for (int y=line; y<line+linect; y++) {
         for (int x=0; x<width; x++) {
             gfx::draw::point(dest,gfx::spoint16(x,y-line),get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]));
-            //dest.point(gfx::point16(x,y-line),get_bgnd_pixel(x+yofs[y]+xcomp[x], y+xofs[x]+ycomp[y]));
         }
     }
 }
 
-/**
- * @brief Initialize the effect
- *
- * @return ESP_OK on success, an error from the jpeg decoder otherwise.
- */
 gfx::gfx_result pretty_effect_init(const char* image,uint16_t image_width,uint16_t image_height,uint16_t width,uint16_t height)
 {
     xofs = (int8_t*)malloc(width);

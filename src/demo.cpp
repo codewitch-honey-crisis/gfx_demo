@@ -1,6 +1,8 @@
 #if defined(ARDUINO)
     #if defined(ILI9341)
         #include "arduino/ili9341_demo.hpp"
+    #elif defined(ST7789)
+        #include "arduino/st7789_demo.hpp"
     #endif
 #elif defined(FRAMEWORK_ESP_IDF)
     #if defined(ILI9341)

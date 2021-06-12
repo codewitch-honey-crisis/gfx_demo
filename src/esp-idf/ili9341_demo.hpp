@@ -36,7 +36,7 @@ using namespace gfx;
 #define LCD_WIDTH 240
 #define LCD_HEIGHT 135
 #define PARALLEL_LINES 16
-#define LCD_HOST    HSPI_HOST
+#define LCD_HOST    VSPI_HOST
 #define DMA_CHAN    2
 #define PIN_NUM_MISO GPIO_NUM_NC
 #define PIN_NUM_MOSI GPIO_NUM_19
@@ -49,7 +49,7 @@ using namespace gfx;
 #else
 #define LCD_ILI9341
 #define PARALLEL_LINES 16
-#define LCD_HOST    HSPI_HOST
+#define LCD_HOST    VSPI_HOST
 #define DMA_CHAN    2
 #define PIN_NUM_MISO GPIO_NUM_19
 #define PIN_NUM_MOSI GPIO_NUM_23

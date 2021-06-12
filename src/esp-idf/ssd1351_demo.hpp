@@ -6,9 +6,8 @@ extern "C" { void app_main(); }
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "spi_master.hpp"
 #include "esp_spiffs.h"
-#include "st7735.hpp"
+#include "drivers/ssd1351.hpp"
 #include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ACM_VGA_9x16.h"
@@ -29,7 +28,6 @@ using namespace gfx;
 
 #define PIN_NUM_DC   GPIO_NUM_2
 #define PIN_NUM_RST  GPIO_NUM_4
-#define PIN_NUM_BCKL GPIO_NUM_15
 
 // enable this to dump the jpeg images as ascii upon load
 //#define ASCII_JPEGS
@@ -50,13 +48,10 @@ spi_master spi_host(nullptr,
 // memory. it usually works fine at default but you can change it for performance 
 // tuning. It's the final parameter: Note that it shouldn't be any bigger than 
 // the DMA size
-using lcd_type = st7735<LCD_WIDTH,
-                        LCD_HEIGHT,
-                        LCD_HOST,
+using lcd_type = ssd1351<LCD_HOST,
                         PIN_NUM_CS,
                         PIN_NUM_DC,
-                        PIN_NUM_RST,
-                        PIN_NUM_BCKL>;
+                        PIN_NUM_RST>;
 
 lcd_type lcd;
 
@@ -91,8 +86,8 @@ void scroll_text_demo() {
     lcd.clear(lcd.bounds());
     
     // draw stuff
-    bmp.clear(bmp.bounds()); // comment this out and check out the uninitialized RAM. It looks neat.
-
+    bmp.clear(bmp.bounds());
+    
     // bounding info for the face
     srect16 bounds(0,0,bmp_size.width-1,(bmp_size.height-1)/(4/3.0));
     rect16 ubounds(0,0,bounds.x2,bounds.y2);
@@ -294,7 +289,7 @@ void app_main(void)
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");
-        vTaskDelay(portMAX_DELAY);
+        abort();
     }
     // mount SPIFFS
     esp_err_t ret;

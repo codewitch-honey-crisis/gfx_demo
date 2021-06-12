@@ -41,7 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "i2c_master.hpp"
+#include "common/i2c_master.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"

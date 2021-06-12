@@ -42,7 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include "spi_master.hpp"
+#include "common/spi_master.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"

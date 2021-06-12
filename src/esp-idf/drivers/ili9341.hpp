@@ -4,12 +4,12 @@
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include "spi_master.hpp"
+#include "common/spi_driver.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_palette.hpp"
-#include "spi_driver.hpp"
+
 namespace espidf {
     // the driver for an ILI9341 display
     template<spi_host_device_t HostId,
@@ -23,14 +23,14 @@ namespace espidf {
             TickType_t Timeout=5000/portTICK_PERIOD_MS,
             size_t BatchBufferSize=64
             >
-    struct ili9341 : 
+    struct ili9341 final : 
             public spi_driver<320,
                             240,
                             HostId,
                             PinCS,
                             PinDC,
 #ifdef HTCW_ILI9341_OVERCLOCK
-                            26*1000*1000,
+                            40*1000*1000,
 #else
                             10*1000*1000,
 #endif

@@ -6,9 +6,8 @@ extern "C" { void app_main(); }
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "spi_master.hpp"
 #include "esp_spiffs.h"
-#include "ra8875.hpp"
+#include "drivers/ra8875.hpp"
 #include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace espidf;

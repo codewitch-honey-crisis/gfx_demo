@@ -2,9 +2,8 @@
 #define HTCW_ST7735_OVERCLOCK
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include "spi_driver.hpp"
+#include "common/spi_driver.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
@@ -259,9 +258,7 @@ namespace espidf {
         spi_driver_result initialize()
         {
             if(!this->initialized()) {
-                static const TickType_t ts = 100/portTICK_RATE_MS;
-
-                
+                static const TickType_t ts = 100/portTICK_RATE_MS;                
                 //Initialize non-SPI GPIOs
                 gpio_set_direction(base_type::pin_dc, GPIO_MODE_OUTPUT);
                 gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);

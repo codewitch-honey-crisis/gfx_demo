@@ -6,9 +6,8 @@ extern "C" { void app_main(); }
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "spi_master.hpp"
 #include "esp_spiffs.h"
-#include "max7219.hpp"
+#include "drivers/max7219.hpp"
 #include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace espidf;
@@ -21,8 +20,8 @@ using namespace gfx;
 #define PIN_NUM_CLK  GPIO_NUM_18
 #define PIN_NUM_CS   GPIO_NUM_15
 
-#define LCD_WIDTH 32
-#define LCD_HEIGHT 16
+#define LCD_WIDTH 8
+#define LCD_HEIGHT 8
 
 spi_master spi_host(nullptr,
                 LCD_HOST,

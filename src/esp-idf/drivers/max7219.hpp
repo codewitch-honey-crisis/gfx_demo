@@ -2,7 +2,7 @@
 #include "bits.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_positioning.hpp"
-#include "spi_master.hpp"
+#include "common/spi_master.hpp"
 namespace espidf {
     template<uint8_t WidthSegments,uint8_t HeightSegments, spi_host_device_t HostId,gpio_num_t PinCS>
     struct max7219 final {
@@ -117,7 +117,6 @@ namespace espidf {
                 uint8_t* const pbegin = m_frame_buffer+(offs/8);
                 bits::set_bits(pbegin,offs%8,w,color);
             }
-        
         }
         result disable_decode_mode()
         {

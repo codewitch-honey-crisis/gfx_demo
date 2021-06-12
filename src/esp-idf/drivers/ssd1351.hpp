@@ -1,102 +1,67 @@
 #pragma once
-#define HTCW_ST7789_OVERCLOCK
+//#define HTCW_SSD1351_OVERCLOCK
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include "spi_driver.hpp"
+#include "common/spi_driver.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_palette.hpp"
-#define ST_CMD_DELAY 0x80 // special signifier for command lists
 
-#define ST77XX_NOP 0x00
-#define ST77XX_SWRESET 0x01
-#define ST77XX_RDDID 0x04
-#define ST77XX_RDDST 0x09
 
-#define ST77XX_SLPIN 0x10
-#define ST77XX_SLPOUT 0x11
-#define ST77XX_PTLON 0x12
-#define ST77XX_NORON 0x13
+#define SSD1351_CMD_SETCOLUMN 0x15      ///< See datasheet
+#define SSD1351_CMD_SETROW 0x75         ///< See datasheet
+#define SSD1351_CMD_WRITERAM 0x5C       ///< See datasheet
+#define SSD1351_CMD_READRAM 0x5D        ///< Not currently used
+#define SSD1351_CMD_SETREMAP 0xA0       ///< See datasheet
+#define SSD1351_CMD_STARTLINE 0xA1      ///< See datasheet
+#define SSD1351_CMD_DISPLAYOFFSET 0xA2  ///< See datasheet
+#define SSD1351_CMD_DISPLAYALLOFF 0xA4  ///< Not currently used
+#define SSD1351_CMD_DISPLAYALLON 0xA5   ///< Not currently used
+#define SSD1351_CMD_NORMALDISPLAY 0xA6  ///< See datasheet
+#define SSD1351_CMD_INVERTDISPLAY 0xA7  ///< See datasheet
+#define SSD1351_CMD_FUNCTIONSELECT 0xAB ///< See datasheet
+#define SSD1351_CMD_DISPLAYOFF 0xAE     ///< See datasheet
+#define SSD1351_CMD_DISPLAYON 0xAF      ///< See datasheet
+#define SSD1351_CMD_PRECHARGE 0xB1      ///< See datasheet
+#define SSD1351_CMD_DISPLAYENHANCE 0xB2 ///< Not currently used
+#define SSD1351_CMD_CLOCKDIV 0xB3       ///< See datasheet
+#define SSD1351_CMD_SETVSL 0xB4         ///< See datasheet
+#define SSD1351_CMD_SETGPIO 0xB5        ///< See datasheet
+#define SSD1351_CMD_PRECHARGE2 0xB6     ///< See datasheet
+#define SSD1351_CMD_SETGRAY 0xB8        ///< Not currently used
+#define SSD1351_CMD_USELUT 0xB9         ///< Not currently used
+#define SSD1351_CMD_PRECHARGELEVEL 0xBB ///< Not currently used
+#define SSD1351_CMD_VCOMH 0xBE          ///< See datasheet
+#define SSD1351_CMD_CONTRASTABC 0xC1    ///< See datasheet
+#define SSD1351_CMD_CONTRASTMASTER 0xC7 ///< See datasheet
+#define SSD1351_CMD_MUXRATIO 0xCA       ///< See datasheet
+#define SSD1351_CMD_COMMANDLOCK 0xFD    ///< See datasheet
+#define SSD1351_CMD_HORIZSCROLL 0x96    ///< Not currently used
+#define SSD1351_CMD_STOPSCROLL 0x9E     ///< Not currently used
+#define SSD1351_CMD_STARTSCROLL 0x9F    ///< Not currently used
 
-#define ST77XX_INVOFF 0x20
-#define ST77XX_INVON 0x21
-#define ST77XX_DISPOFF 0x28
-#define ST77XX_DISPON 0x29
-#define ST77XX_CASET 0x2A
-#define ST77XX_RASET 0x2B
-#define ST77XX_RAMWR 0x2C
-#define ST77XX_RAMRD 0x2E
-
-#define ST77XX_PTLAR 0x30
-#define ST77XX_TEOFF 0x34
-#define ST77XX_TEON 0x35
-#define ST77XX_MADCTL 0x36
-#define ST77XX_COLMOD 0x3A
-
-#define ST77XX_MADCTL_MY 0x80
-#define ST77XX_MADCTL_MX 0x40
-#define ST77XX_MADCTL_MV 0x20
-#define ST77XX_MADCTL_ML 0x10
-#define ST77XX_MADCTL_RGB 0x00
-
-#define ST77XX_RDID1 0xDA
-#define ST77XX_RDID2 0xDB
-#define ST77XX_RDID3 0xDC
-#define ST77XX_RDID4 0xDD
 namespace espidf {
-     namespace st7789_helpers {
-        DRAM_ATTR static const uint8_t generic_st7789[] =  {                // Init commands for 7789 screens
-    9,                              //  9 commands in list:
-    ST77XX_SWRESET,   ST_CMD_DELAY, //  1: Software reset, no args, w/delay
-      150,                          //     ~150 ms delay
-    ST77XX_SLPOUT ,   ST_CMD_DELAY, //  2: Out of sleep mode, no args, w/delay
-      10,                          //      10 ms delay
-    ST77XX_COLMOD , 1+ST_CMD_DELAY, //  3: Set color mode, 1 arg + delay:
-      0x55,                         //     16-bit color
-      10,                           //     10 ms delay
-    ST77XX_MADCTL , 1,              //  4: Mem access ctrl (directions), 1 arg:
-      0x08,                         //     Row/col addr, bottom-top refresh
-    ST77XX_CASET  , 4,              //  5: Column addr set, 4 args, no delay:
-      0x00,
-      0,        //     XSTART = 0
-      0,
-      240,  //     XEND = 240
-    ST77XX_RASET  , 4,              //  6: Row addr set, 4 args, no delay:
-      0x00,
-      0,             //     YSTART = 0
-      320>>8,
-      320&0xFF,  //     YEND = 320
-    ST77XX_INVON  ,   ST_CMD_DELAY,  //  7: hack
-      10,
-    ST77XX_NORON  ,   ST_CMD_DELAY, //  8: Normal display on, no args, w/delay
-      10,                           //     10 ms delay
-    ST77XX_DISPON ,   ST_CMD_DELAY, //  9: Main screen turn on, no args, delay
-      10 };                          //    10 ms delay
-    }
-    // the driver for the ST7789 display
-    template<uint16_t Width,
-            uint16_t Height,
-            spi_host_device_t HostId,
+    // the driver for an SSD1351 display
+    template<spi_host_device_t HostId,
             gpio_num_t PinCS,
             gpio_num_t PinDC,
             gpio_num_t PinRst,
-            gpio_num_t PinBacklight,
             size_t MaxTransactions=7,
             bool UsePolling = true,
             size_t DmaSize = -1,
             TickType_t Timeout=5000/portTICK_PERIOD_MS,
             size_t BatchBufferSize=64
             >
-    struct st7789 : 
-            public spi_driver<Width,
-                            Height,
+    struct ssd1351 : 
+            public spi_driver<128,
+                            128,
                             HostId,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ST7789_OVERCLOCK
+#ifdef HTCW_SSD1351_OVERCLOCK
                             26*1000*1000,
 #else
                             10*1000*1000,
@@ -106,12 +71,12 @@ namespace espidf {
                             DmaSize,
                             Timeout,
                             BatchBufferSize> {
-        using base_type = spi_driver<Width,
-                            Height,
+        using base_type = spi_driver<128,
+                            128,
                             HostId,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ST7789_OVERCLOCK
+#ifdef HTCW_SSD1351_OVERCLOCK
                             26*1000*1000,
 #else
                             10*1000*1000,
@@ -121,65 +86,40 @@ namespace espidf {
                             DmaSize,
                             Timeout,
                             BatchBufferSize>;
-        constexpr static const uint16_t column_start = (Width<240)?((240-Width+1)/2):(Width==240&&Height==280)?0:(240-Width);
-        constexpr static const uint16_t column_start2 = (Width<240)?((240-Width)/2):(Width==240&&Height==280)?0:(240-Width);
-        constexpr static const uint16_t row_start = (Width<240)?((320-Height+1)/2):(Width==240&&Height==280)?20:(320-Height);
-        constexpr static const uint16_t row_start2 = (Width<240)?((320-Height+1)/2):0;
-         
         // the RST pin
         constexpr static const gpio_num_t pin_rst = PinRst;
-        // the BL pin
-        constexpr static const gpio_num_t pin_backlight = PinBacklight;
         // the maximum number of "in the air" transactions that can be queued
         constexpr static const size_t max_transactions = (0==MaxTransactions)?1:MaxTransactions;
     private:
-       
-        spi_driver_result write_window_impl(const spi_driver_rect& w,bool queued,spi_driver_set_window_flags set_flags) {
-            //printf("(%d, %d)-(%d, %d)\r\n",win.x1,win.y1,win.x2,win.y2);
-            spi_driver_rect win;
-            const uint16_t offsx = (320-Width)/2;
-            const uint16_t offsy = (240-Height)/2;
-            win.x1=w.x1+offsx;
-            win.x2=w.x2+offsx;
-            win.y1=w.y1+offsy;
-            win.y2=w.y2+offsy;
+        DRAM_ATTR static const uint8_t s_init_cmds[];
+        spi_driver_result write_window_impl(const spi_driver_rect& win,bool queued,spi_driver_set_window_flags set_flags) {
             spi_driver_result r;
-            uint8_t tx_data[4];
-            //Column Address Set
-            r=this->send_next_command(0x2A,queued);
+            uint8_t tx_data[2];
+
+            r=this->send_next_command(SSD1351_CMD_SETCOLUMN,queued); // X range
             if(spi_driver_result::success!=r)
                 return r;
-            if(set_flags.x1 || set_flags.x2) {
-                tx_data[0]=win.x1>>8;             //Start Col High
-                tx_data[1]=win.x1&0xFF;           //Start Col Low
-                tx_data[2]=win.x2>>8;             //End Col High
-                tx_data[3]=win.x2&0xff;           //End Col Low
-                r=this->send_next_data(tx_data,4,queued,true);
-                if(spi_driver_result::success!=r)
-                    return r;
-            }
-            if(set_flags.y1 || set_flags.y2 || !(set_flags.x1 || set_flags.x2)) {
-                //Page address set
-                r=this->send_next_command(0x2B,queued,true);
-                if(spi_driver_result::success!=r)
-                    return r;
-                tx_data[0]=win.y1>>8;        //Start page high
-                tx_data[1]=win.y1&0xff;      //start page low
-                tx_data[2]=win.y2>>8;        //end page high
-                tx_data[3]=win.y2&0xff;      //end page low
-                r=this->send_next_data(tx_data,4,queued,true);
-                if(spi_driver_result::success!=r)
-                    return r;
-            }
-            // Memory write
-            return this->send_next_command(0x2C,queued,true);
+            tx_data[0]=win.x1;
+            tx_data[1]=win.x2;
+            r=this->send_next_data(tx_data,2,queued);
+            if(spi_driver_result::success!=r)
+                return r;
+            r=this->send_next_command(SSD1351_CMD_SETROW,queued); // Y range
+            if(spi_driver_result::success!=r)
+                return r;
+            tx_data[0]=win.y1;
+            tx_data[1]=win.y2;
+            r=this->send_next_data(tx_data,2,queued);
+            if(spi_driver_result::success!=r)
+                return r;
+            return this->send_next_command(SSD1351_CMD_WRITERAM,queued);
         }
     public:
         // constructs a new instance of the driver
-        st7789() {
+        ssd1351() {
             
         }
-        virtual ~st7789() {}
+        virtual ~ssd1351() {}
         // forces initialization of the driver
         spi_driver_result initialize()
         {
@@ -190,57 +130,30 @@ namespace espidf {
                 //Initialize non-SPI GPIOs
                 gpio_set_direction(base_type::pin_dc, GPIO_MODE_OUTPUT);
                 gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);
-                gpio_set_direction(pin_backlight, GPIO_MODE_OUTPUT);
-
+                
                 //Reset the display
                 gpio_set_level(pin_rst, 0);
                 vTaskDelay(ts);
                 gpio_set_level(pin_rst, 1);
                 vTaskDelay(ts);
                 
-                uint8_t numCommands, cmd, numArgs;
-                uint16_t ms;
-                const uint8_t* addr = st7789_helpers::generic_st7789;
+                const uint8_t *addr = s_init_cmds;
+                uint8_t cmd, x, numArgs;
                 spi_driver_result r;
-                numCommands = *(addr++); // Number of commands to follow
-                while (numCommands--) {              // For each command...
-                    cmd = *(addr++);       // Read command
-                    numArgs = *(addr++);   // Number of args to follow
-                    ms = numArgs & ST_CMD_DELAY;       // If hibit set, delay follows args
-                    numArgs &= ~ST_CMD_DELAY;          // Mask out delay bit
-                    r= this->send_init_command(cmd);
-                    if(spi_driver_result::success!=r) {
-                        return r;
-                    }
-                    r= this->send_init_data(addr, numArgs);
-                    if(spi_driver_result::success!=r) {
-                        return r;
+                while ((cmd = *(addr++)) > 0) { // '0' command ends list
+                    x = *(addr++);
+                    numArgs = x & 0x7F;
+                    if (cmd != 0xFF) { // '255' is ignored
+                        r=this->send_init_command(cmd);
+                        if(spi_driver_result::success!=r)
+                            return r;
+                        r=this->send_init_data(addr, numArgs);
+                        if(spi_driver_result::success!=r)
+                            return r;
                     }
                     addr += numArgs;
-                    if (ms) {
-                        ms = *(addr++); // Read post-command delay time (ms)
-                        if (ms == 255)
-                            ms = 500; // If 255, delay for 500 ms
-                        vTaskDelay(ms/portTICK_PERIOD_MS);
-                    }
                 }
-                r= this->send_init_command(ST77XX_RASET);  //  6: Row addr set, 4 args, no delay:
-                if(spi_driver_result::success!= r) {
-                    return r;
-                }
-                uint8_t init_data[] ={0,0,Width>>8,Height&0xFF};
-                r=this->send_init_data(init_data,4);
-                if(spi_driver_result::success!= r) {
-                    return r;
-                }
-                r= this->send_init_command(ST77XX_MADCTL);  
-                cmd = ST77XX_MADCTL_MY | ST77XX_MADCTL_MV | ST77XX_MADCTL_RGB;//ST77XX_MADCTL_MX | ST77XX_MADCTL_MY | ST77XX_MADCTL_RGB;
-                r=this->send_init_data(&cmd,1);
-                if(spi_driver_result::success!=r) {
-                    return r;
-                }
-                ///Enable backlight
-                gpio_set_level(pin_backlight, 1);
+                
             }
             return spi_driver_result::success;
         }
@@ -255,7 +168,7 @@ protected:
         // GFX bindings
  public:
         // indicates the type, itself
-        using type = st7789<Width,Height,HostId,PinCS,PinDC,PinRst,PinBacklight,MaxTransactions,UsePolling,DmaSize,Timeout,BatchBufferSize>;
+        using type = ssd1351<HostId,PinCS,PinDC,PinRst,MaxTransactions,UsePolling,DmaSize,Timeout,BatchBufferSize>;
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver
@@ -469,5 +382,71 @@ protected:
         }
         
     };
-
+     template<spi_host_device_t HostId,
+            gpio_num_t PinCS,
+            gpio_num_t PinDC,
+            gpio_num_t PinRst,
+            size_t MaxTransactions,
+            bool UsePolling,
+            size_t DmaSize,
+            TickType_t Timeout,
+            size_t BatchBufferSize
+            >
+    const uint8_t ssd1351<HostId,PinCS,PinDC,PinRst,MaxTransactions,UsePolling,DmaSize,Timeout,BatchBufferSize>::s_init_cmds[]={
+     SSD1351_CMD_COMMANDLOCK,
+    1, // Set command lock, 1 arg
+    0x12,
+    SSD1351_CMD_COMMANDLOCK,
+    1, // Set command lock, 1 arg
+    0xB1,
+    SSD1351_CMD_DISPLAYOFF,
+    0, // Display off, no args
+    SSD1351_CMD_CLOCKDIV,
+    1,
+    0xF1, // 7:4 = Oscillator Freq, 3:0 = CLK Div Ratio (A[3:0]+1 = 1..16)
+    SSD1351_CMD_MUXRATIO,
+    1,
+    127,
+    SSD1351_CMD_DISPLAYOFFSET,
+    1,
+    0x0,
+    SSD1351_CMD_SETGPIO,
+    1,
+    0x00,
+    SSD1351_CMD_FUNCTIONSELECT,
+    1,
+    0x01, // internal (diode drop)
+    SSD1351_CMD_PRECHARGE,
+    1,
+    0x32,
+    SSD1351_CMD_VCOMH,
+    1,
+    0x05,
+    SSD1351_CMD_NORMALDISPLAY,
+    0,
+    SSD1351_CMD_SETREMAP,
+    1,
+    0b01110100,
+    SSD1351_CMD_STARTLINE,
+    1,
+    128,
+    SSD1351_CMD_CONTRASTABC,
+    3,
+    0xC8,
+    0x80,
+    0xC8,
+    SSD1351_CMD_CONTRASTMASTER,
+    1,
+    0x0F,
+    SSD1351_CMD_SETVSL,
+    3,
+    0xA0,
+    0xB5,
+    0x55,
+    SSD1351_CMD_PRECHARGE2,
+    1,
+    0x01,
+    SSD1351_CMD_DISPLAYON,
+    0,  // Main screen turn on
+    0}; // END OF COMMAND LIST
 }

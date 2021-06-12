@@ -6,9 +6,8 @@ extern "C" { void app_main(); }
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "spi_master.hpp"
 #include "esp_spiffs.h"
-#include "ili9341.hpp"
+#include "drivers/ili9341.hpp"
 #include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ACM_VGA_9x16.h"
@@ -394,6 +393,7 @@ static void display_pretty_colors()
 
 void app_main(void)
 {
+    
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");

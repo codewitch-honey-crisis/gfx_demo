@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "spi_master.hpp"
+#include "common/spi_master.hpp"
 
 // Command/Data pins for SPI
 #define RA8875_DATAWRITE 0x00 

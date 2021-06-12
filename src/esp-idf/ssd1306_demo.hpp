@@ -7,12 +7,11 @@ extern "C" { void app_main(); }
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "i2c_master.hpp"
 #include "esp_spiffs.h"
 #ifdef USE_SPI
-#include "ssd1306_spi.hpp"
+#include "drivers/ssd1306_spi.hpp"
 #else
-#include "ssd1306_i2c.hpp"
+#include "drivers/ssd1306_i2c.hpp"
 #endif
 #include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"

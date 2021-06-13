@@ -81,7 +81,6 @@ namespace arduino {
             int8_t PinDC,
             int8_t PinRst,
             int8_t PinBacklight,
-            TickType_t Timeout=5000/portTICK_PERIOD_MS,
             size_t BatchBufferSize=64
             >
     struct st7789 final : 
@@ -94,7 +93,6 @@ namespace arduino {
 #else
                             10*1000*1000,
 #endif
-                            Timeout,
                             BatchBufferSize> {
         using base_type = spi_driver<Width,
                             Height,
@@ -105,7 +103,6 @@ namespace arduino {
 #else
                             10*1000*1000,
 #endif
-                            Timeout,
                             BatchBufferSize>;
         // the RST pin
         constexpr static const int8_t pin_rst = PinRst;

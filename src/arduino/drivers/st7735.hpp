@@ -1,102 +1,152 @@
 #pragma once
-#define HTCW_ILI9341_OVERCLOCK
+#define HTCW_ST7735_OVERCLOCK
 #include "common/spi_driver.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_palette.hpp"
+#define ST_CMD_DELAY 0x80 // special signifier for command lists
 
+#define ST77XX_NOP 0x00
+#define ST77XX_SWRESET 0x01
+#define ST77XX_RDDID 0x04
+#define ST77XX_RDDST 0x09
+
+#define ST77XX_SLPIN 0x10
+#define ST77XX_SLPOUT 0x11
+#define ST77XX_PTLON 0x12
+#define ST77XX_NORON 0x13
+
+#define ST77XX_INVOFF 0x20
+#define ST77XX_INVON 0x21
+#define ST77XX_DISPOFF 0x28
+#define ST77XX_DISPON 0x29
+#define ST77XX_CASET 0x2A
+#define ST77XX_RASET 0x2B
+#define ST77XX_RAMWR 0x2C
+#define ST77XX_RAMRD 0x2E
+
+#define ST77XX_PTLAR 0x30
+#define ST77XX_TEOFF 0x34
+#define ST77XX_TEON 0x35
+#define ST77XX_MADCTL 0x36
+#define ST77XX_COLMOD 0x3A
+
+#define ST77XX_MADCTL_MY 0x80
+#define ST77XX_MADCTL_MX 0x40
+#define ST77XX_MADCTL_MV 0x20
+#define ST77XX_MADCTL_ML 0x10
+#define ST77XX_MADCTL_RGB 0x00
+
+#define ST77XX_RDID1 0xDA
+#define ST77XX_RDID2 0xDB
+#define ST77XX_RDID3 0xDC
+#define ST77XX_RDID4 0xDD
+
+#define ST7735_MADCTL_BGR 0x08
+#define ST7735_MADCTL_MH 0x04
+
+#define ST7735_FRMCTR1 0xB1
+#define ST7735_FRMCTR2 0xB2
+#define ST7735_FRMCTR3 0xB3
+#define ST7735_INVCTR 0xB4
+#define ST7735_DISSET5 0xB6
+
+#define ST7735_PWCTR1 0xC0
+#define ST7735_PWCTR2 0xC1
+#define ST7735_PWCTR3 0xC2
+#define ST7735_PWCTR4 0xC3
+#define ST7735_PWCTR5 0xC4
+#define ST7735_VMCTR1 0xC5
+
+#define ST7735_PWCTR6 0xFC
+
+#define ST7735_GMCTRP1 0xE0
+#define ST7735_GMCTRN1 0xE1
 namespace arduino {
-    namespace ili9341_helpers {
-    struct init_cmd {
-            uint8_t cmd;
-            uint8_t data[16];
-            uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
-        };
-    const init_cmd s_init_cmds[]={
-            /* Power contorl B, power control = 0, DC_ENA = 1 */
-            {0xCF, {0x00, 0x83, 0X30}, 3},
-            /* Power on sequence control,
-            * cp1 keeps 1 frame, 1st frame enable
-            * vcl = 0, ddvdh=3, vgh=1, vgl=2
-            * DDVDH_ENH=1
-            */
-            {0xED, {0x64, 0x03, 0X12, 0X81}, 4},
-            /* Driver timing control A,
-            * non-overlap=default +1
-            * EQ=default - 1, CR=default
-            * pre-charge=default - 1
-            */
-            {0xE8, {0x85, 0x01, 0x79}, 3},
-            /* Power control A, Vcore=1.6V, DDVDH=5.6V */
-            {0xCB, {0x39, 0x2C, 0x00, 0x34, 0x02}, 5},
-            /* Pump ratio control, DDVDH=2xVCl */
-            {0xF7, {0x20}, 1},
-            /* Driver timing control, all=0 unit */
-            {0xEA, {0x00, 0x00}, 2},
-            /* Power control 1, GVDD=4.75V */
-            {0xC0, {0x26}, 1},
-            /* Power control 2, DDVDH=VCl*2, VGH=VCl*7, VGL=-VCl*3 */
-            {0xC1, {0x11}, 1},
-            /* VCOM control 1, VCOMH=4.025V, VCOML=-0.950V */
-            {0xC5, {0x35, 0x3E}, 2},
-            /* VCOM control 2, VCOMH=VMH-2, VCOML=VML-2 */
-            {0xC7, {0xBE}, 1},
-            /* Memory access contorl, MX=MY=0, MV=1, ML=0, BGR=1, MH=0 */
-            {0x36, {0x28}, 1},
-            /* Pixel format, 16bits/pixel for RGB/MCU interface */
-            {0x3A, {0x55}, 1},
-            /* Frame rate control, f=fosc, 70Hz fps */
-            {0xB1, {0x00, 0x1B}, 2},
-            /* Enable 3G, disabled */
-            {0xF2, {0x08}, 1},
-            /* Gamma set, curve 1 */
-            {0x26, {0x01}, 1},
-            /* Positive gamma correction */
-            {0xE0, {0x1F, 0x1A, 0x18, 0x0A, 0x0F, 0x06, 0x45, 0X87, 0x32, 0x0A, 0x07, 0x02, 0x07, 0x05, 0x00}, 15},
-            /* Negative gamma correction */
-            {0XE1, {0x00, 0x25, 0x27, 0x05, 0x10, 0x09, 0x3A, 0x78, 0x4D, 0x05, 0x18, 0x0D, 0x38, 0x3A, 0x1F}, 15},
-            /* Column address set, SC=0, EC=0xEF */
-            {0x2A, {0x00, 0x00, 0x00, 0xEF}, 4},
-            /* Page address set, SP=0, EP=0x013F */
-            {0x2B, {0x00, 0x00, 0x01, 0x3f}, 4},
-            /* Memory write */
-            {0x2C, {0}, 0},
-            /* Entry mode set, Low vol detect disabled, normal display */
-            {0xB7, {0x07}, 1},
-            /* Display function control */
-            {0xB6, {0x0A, 0x82, 0x27, 0x00}, 4},
-            /* Sleep out */
-            {0x11, {0}, 0x80},
-            /* Display on */
-            {0x29, {0}, 0x80},
-            {0, {0}, 0xff},
-        };
+    namespace st7735_helpers {
+        static const uint8_t generic_st7735[] =  {                // Init commands for 7735 screens
+                                              // 7735R init, part 1 (red or green tab)
+    15,                             // 15 commands in list:
+    ST77XX_SWRESET,   ST_CMD_DELAY, //  1: Software reset, 0 args, w/delay
+      150,                          //     150 ms delay
+    ST77XX_SLPOUT,    ST_CMD_DELAY, //  2: Out of sleep mode, 0 args, w/delay
+      255,                          //     500 ms delay
+    ST7735_FRMCTR1, 3,              //  3: Framerate ctrl - normal mode, 3 arg:
+      0x01, 0x2C, 0x2D,             //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
+    ST7735_FRMCTR2, 3,              //  4: Framerate ctrl - idle mode, 3 args:
+      0x01, 0x2C, 0x2D,             //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
+    ST7735_FRMCTR3, 6,              //  5: Framerate - partial mode, 6 args:
+      0x01, 0x2C, 0x2D,             //     Dot inversion mode
+      0x01, 0x2C, 0x2D,             //     Line inversion mode
+    ST7735_INVCTR,  1,              //  6: Display inversion ctrl, 1 arg:
+      0x07,                         //     No inversion
+    ST7735_PWCTR1,  3,              //  7: Power control, 3 args, no delay:
+      0xA2,
+      0x02,                         //     -4.6V
+      0x84,                         //     AUTO mode
+    ST7735_PWCTR2,  1,              //  8: Power control, 1 arg, no delay:
+      0xC5,                         //     VGH25=2.4C VGSEL=-10 VGH=3 * AVDD
+    ST7735_PWCTR3,  2,              //  9: Power control, 2 args, no delay:
+      0x0A,                         //     Opamp current small
+      0x00,                         //     Boost frequency
+    ST7735_PWCTR4,  2,              // 10: Power control, 2 args, no delay:
+      0x8A,                         //     BCLK/2,
+      0x2A,                         //     opamp current small & medium low
+    ST7735_PWCTR5,  2,              // 11: Power control, 2 args, no delay:
+      0x8A, 0xEE,
+    ST7735_VMCTR1,  1,              // 12: Power control, 1 arg, no delay:
+      0x0E,
+    ST77XX_INVOFF,  0,              // 13: Don't invert display, no args
+    ST77XX_MADCTL,  1,              // 14: Mem access ctl (directions), 1 arg:
+      0xC8,                         //     row/col addr, bottom-top refresh
+    ST77XX_COLMOD,  1,              // 15: set color mode, 1 arg, no delay:
+      0x05 };                       //     16-bit color
+
+     static const uint8_t generic_st7735_2[] = {                       // 7735R init, part 3 (red or green tab)
+    4,                              //  4 commands in list:
+    ST7735_GMCTRP1, 16      ,       //  1: Gamma Adjustments (pos. polarity), 16 args + delay:
+      0x02, 0x1c, 0x07, 0x12,       //     (Not entirely necessary, but provides
+      0x37, 0x32, 0x29, 0x2d,       //      accurate colors)
+      0x29, 0x25, 0x2B, 0x39,
+      0x00, 0x01, 0x03, 0x10,
+    ST7735_GMCTRN1, 16      ,       //  2: Gamma Adjustments (neg. polarity), 16 args + delay:
+      0x03, 0x1d, 0x07, 0x06,       //     (Not entirely necessary, but provides
+      0x2E, 0x2C, 0x29, 0x2D,       //      accurate colors)
+      0x2E, 0x2E, 0x37, 0x3F,
+      0x00, 0x00, 0x02, 0x10,
+    ST77XX_NORON,     ST_CMD_DELAY, //  3: Normal display on, no args, w/delay
+      10,                           //     10 ms delay
+    ST77XX_DISPON,    ST_CMD_DELAY, //  4: Main screen turn on, no args w/delay
+      100 };                        //     100 ms delay
     }
-    // the driver for an ILI9341 display
-    template<int8_t PinCS,
+    
+    // the driver for an ST7735 display
+    template<uint16_t Width,
+            uint16_t Height,
+            int8_t PinCS,
             int8_t PinDC,
             int8_t PinRst,
             int8_t PinBacklight,
             size_t BatchBufferSize=64
             >
-    struct ili9341 final : 
-            public spi_driver<320,
-                            240,
+    struct st7735 final : 
+            public spi_driver<Width,
+                            Height,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
-                            40*1000*1000,
+#ifdef HTCW_ST7735_OVERCLOCK
+                            26*1000*1000,
 #else
                             10*1000*1000,
 #endif
                             BatchBufferSize> {
-        using base_type = spi_driver<320,
-                            240,
+        using base_type = spi_driver<Width,
+                            Height,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
-                            40*1000*1000,
+#ifdef HTCW_ST7735_OVERCLOCK
+                            26*1000*1000,
 #else
                             10*1000*1000,
 #endif
@@ -107,6 +157,26 @@ namespace arduino {
         constexpr static const int8_t pin_backlight = PinBacklight;
         
     private:
+        void send_init_commands(const uint8_t* addr) {
+            uint8_t numCommands, cmd, numArgs;
+            uint16_t ms;
+            numCommands = *(addr++); // Number of commands to follow
+            while (numCommands--) {              // For each command...
+                cmd = *(addr++);       // Read command
+                numArgs = *(addr++);   // Number of args to follow
+                ms = numArgs & ST_CMD_DELAY;       // If hibit set, delay follows args
+                numArgs &= ~ST_CMD_DELAY;          // Mask out delay bit
+                this->send_command_init(cmd);
+                this->send_data_init(addr, numArgs);
+                addr += numArgs;
+                if (ms) {
+                    ms = *(addr++); // Read post-command delay time (ms)
+                    if (ms == 255)
+                        ms = 500; // If 255, delay for 500 ms
+                    delay(ms);
+                }
+            }
+        }
     protected:
         virtual void initialize_impl() {
             if(pin_rst>=0) {
@@ -117,23 +187,29 @@ namespace arduino {
                 digitalWrite(pin_backlight,HIGH);
             }
             reset();
-            //Send all the commands
-            int cmd=0;
-            while (ili9341_helpers::s_init_cmds[cmd].databytes!=0xff) {
-                this->send_command_init(ili9341_helpers::s_init_cmds[cmd].cmd);
-                this->send_data_init(ili9341_helpers::s_init_cmds[cmd].data,ili9341_helpers::s_init_cmds[cmd].databytes&0x1F);
-                if (ili9341_helpers::s_init_cmds[cmd].databytes&0x80) {
-                    delay(100);
-                }
-                ++cmd;
-            }
+            send_init_commands(st7735_helpers::generic_st7735);
+            this->send_command_init(ST77XX_CASET);
+            uint8_t c_init_data[] = {0,0,0,Width-1};
+            this->send_data_init(c_init_data,4);
+            this->send_command_init(ST77XX_RASET);  //  6: Row addr set, 4 args, no delay:
+            uint8_t r_init_data[] ={0,0,0,Height-1};
+            this->send_data_init(r_init_data,4);
+            send_init_commands(st7735_helpers::generic_st7735_2);
             //Enable backlight
             if(pin_backlight>=0) {
                 digitalWrite(pin_backlight, HIGH);
             }
         
         }
-        virtual void write_window(const spi_driver_rect& bounds, spi_driver_set_window_flags flags) {
+        virtual void write_window(const spi_driver_rect& w, spi_driver_set_window_flags flags) {
+            const uint16_t offsx = 2;
+            const uint16_t offsy = 3;
+            spi_driver_rect bounds;
+            bounds.x1=w.x1+offsx;
+            bounds.x2=w.x2+offsx;
+            bounds.y1=w.y1+offsy;
+            bounds.y2=w.y2+offsy;
+
             uint8_t tx_data[4];
             //Column Address Set
             this->send_next_command(0x2A);
@@ -157,7 +233,7 @@ namespace arduino {
             this->send_next_command(0x2C,true);
         }
     public:
-        ili9341(SPIClass& spi) : base_type(spi) {
+        st7735(SPIClass& spi) : base_type(spi) {
 
         }
         void reset() {
@@ -176,7 +252,7 @@ namespace arduino {
         // GFX bindings
  public:
         // indicates the type, itself
-        using type = ili9341;
+        using type = st7735;
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver

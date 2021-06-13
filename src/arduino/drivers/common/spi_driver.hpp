@@ -2,15 +2,6 @@
 #include <Arduino.h>
 #include <SPI.h>
 namespace arduino {
-    enum struct spi_driver_result {
-        success = 0,
-        invalid_argument,
-        io_error,
-        io_busy,
-        out_of_memory,
-        timeout,
-        not_supported
-    };
     // for faster function calls:
     struct spi_driver_rect {
         uint16_t x1;
@@ -29,7 +20,6 @@ namespace arduino {
         int8_t PinCS, 
         int8_t PinDC, 
         uint32_t ClockSpeed=10*1000*1000, 
-        TickType_t Timeout=portMAX_DELAY,
         size_t BatchBufferSize=64>
     struct spi_driver {
         constexpr static const uint16_t width = Width;
@@ -38,7 +28,6 @@ namespace arduino {
         constexpr static const int8_t pin_dc = PinDC;
         constexpr static const uint32_t clock_speed = ClockSpeed;
         constexpr static const size_t batch_buffer_size = (BatchBufferSize/sizeof(uint16_t))*sizeof(uint16_t);
-        constexpr static const size_t timeout = Timeout;
     private:
         bool m_initialized;
         SPIClass& m_spi;
@@ -59,13 +48,13 @@ namespace arduino {
 #endif
         }
         void spi_start() {
-            m_spi.beginTransaction(m_spi_settings);
             if (pin_cs >= 0) digitalWrite(pin_cs, LOW);
+            m_spi.beginTransaction(m_spi_settings);
         }
 
         void spi_end() {
-            if (pin_cs >= 0) digitalWrite(pin_cs, HIGH);
             m_spi.endTransaction();
+            if (pin_cs >= 0) digitalWrite(pin_cs, HIGH);
         }
         inline void spi_write(uint8_t data) {
             m_spi.transfer(data);

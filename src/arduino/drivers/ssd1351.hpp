@@ -1,101 +1,122 @@
-#pragma once
-#define HTCW_ILI9341_OVERCLOCK
+#include <Arduino.h>
 #include "common/spi_driver.hpp"
-#include "gfx_core.hpp"
-#include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_palette.hpp"
-
+#include "gfx_positioning.hpp"
+#define SSD1351_CMD_SETCOLUMN 0x15      ///< See datasheet
+#define SSD1351_CMD_SETROW 0x75         ///< See datasheet
+#define SSD1351_CMD_WRITERAM 0x5C       ///< See datasheet
+#define SSD1351_CMD_READRAM 0x5D        ///< Not currently used
+#define SSD1351_CMD_SETREMAP 0xA0       ///< See datasheet
+#define SSD1351_CMD_STARTLINE 0xA1      ///< See datasheet
+#define SSD1351_CMD_DISPLAYOFFSET 0xA2  ///< See datasheet
+#define SSD1351_CMD_DISPLAYALLOFF 0xA4  ///< Not currently used
+#define SSD1351_CMD_DISPLAYALLON 0xA5   ///< Not currently used
+#define SSD1351_CMD_NORMALDISPLAY 0xA6  ///< See datasheet
+#define SSD1351_CMD_INVERTDISPLAY 0xA7  ///< See datasheet
+#define SSD1351_CMD_FUNCTIONSELECT 0xAB ///< See datasheet
+#define SSD1351_CMD_DISPLAYOFF 0xAE     ///< See datasheet
+#define SSD1351_CMD_DISPLAYON 0xAF      ///< See datasheet
+#define SSD1351_CMD_PRECHARGE 0xB1      ///< See datasheet
+#define SSD1351_CMD_DISPLAYENHANCE 0xB2 ///< Not currently used
+#define SSD1351_CMD_CLOCKDIV 0xB3       ///< See datasheet
+#define SSD1351_CMD_SETVSL 0xB4         ///< See datasheet
+#define SSD1351_CMD_SETGPIO 0xB5        ///< See datasheet
+#define SSD1351_CMD_PRECHARGE2 0xB6     ///< See datasheet
+#define SSD1351_CMD_SETGRAY 0xB8        ///< Not currently used
+#define SSD1351_CMD_USELUT 0xB9         ///< Not currently used
+#define SSD1351_CMD_PRECHARGELEVEL 0xBB ///< Not currently used
+#define SSD1351_CMD_VCOMH 0xBE          ///< See datasheet
+#define SSD1351_CMD_CONTRASTABC 0xC1    ///< See datasheet
+#define SSD1351_CMD_CONTRASTMASTER 0xC7 ///< See datasheet
+#define SSD1351_CMD_MUXRATIO 0xCA       ///< See datasheet
+#define SSD1351_CMD_COMMANDLOCK 0xFD    ///< See datasheet
+#define SSD1351_CMD_HORIZSCROLL 0x96    ///< Not currently used
+#define SSD1351_CMD_STOPSCROLL 0x9E     ///< Not currently used
+#define SSD1351_CMD_STARTSCROLL 0x9F    ///< Not currently used
 namespace arduino {
-    namespace ili9341_helpers {
-    struct init_cmd {
-            uint8_t cmd;
-            uint8_t data[16];
-            uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
-        };
-    const init_cmd s_init_cmds[]={
-            /* Power contorl B, power control = 0, DC_ENA = 1 */
-            {0xCF, {0x00, 0x83, 0X30}, 3},
-            /* Power on sequence control,
-            * cp1 keeps 1 frame, 1st frame enable
-            * vcl = 0, ddvdh=3, vgh=1, vgl=2
-            * DDVDH_ENH=1
-            */
-            {0xED, {0x64, 0x03, 0X12, 0X81}, 4},
-            /* Driver timing control A,
-            * non-overlap=default +1
-            * EQ=default - 1, CR=default
-            * pre-charge=default - 1
-            */
-            {0xE8, {0x85, 0x01, 0x79}, 3},
-            /* Power control A, Vcore=1.6V, DDVDH=5.6V */
-            {0xCB, {0x39, 0x2C, 0x00, 0x34, 0x02}, 5},
-            /* Pump ratio control, DDVDH=2xVCl */
-            {0xF7, {0x20}, 1},
-            /* Driver timing control, all=0 unit */
-            {0xEA, {0x00, 0x00}, 2},
-            /* Power control 1, GVDD=4.75V */
-            {0xC0, {0x26}, 1},
-            /* Power control 2, DDVDH=VCl*2, VGH=VCl*7, VGL=-VCl*3 */
-            {0xC1, {0x11}, 1},
-            /* VCOM control 1, VCOMH=4.025V, VCOML=-0.950V */
-            {0xC5, {0x35, 0x3E}, 2},
-            /* VCOM control 2, VCOMH=VMH-2, VCOML=VML-2 */
-            {0xC7, {0xBE}, 1},
-            /* Memory access contorl, MX=MY=0, MV=1, ML=0, BGR=1, MH=0 */
-            {0x36, {0x28}, 1},
-            /* Pixel format, 16bits/pixel for RGB/MCU interface */
-            {0x3A, {0x55}, 1},
-            /* Frame rate control, f=fosc, 70Hz fps */
-            {0xB1, {0x00, 0x1B}, 2},
-            /* Enable 3G, disabled */
-            {0xF2, {0x08}, 1},
-            /* Gamma set, curve 1 */
-            {0x26, {0x01}, 1},
-            /* Positive gamma correction */
-            {0xE0, {0x1F, 0x1A, 0x18, 0x0A, 0x0F, 0x06, 0x45, 0X87, 0x32, 0x0A, 0x07, 0x02, 0x07, 0x05, 0x00}, 15},
-            /* Negative gamma correction */
-            {0XE1, {0x00, 0x25, 0x27, 0x05, 0x10, 0x09, 0x3A, 0x78, 0x4D, 0x05, 0x18, 0x0D, 0x38, 0x3A, 0x1F}, 15},
-            /* Column address set, SC=0, EC=0xEF */
-            {0x2A, {0x00, 0x00, 0x00, 0xEF}, 4},
-            /* Page address set, SP=0, EP=0x013F */
-            {0x2B, {0x00, 0x00, 0x01, 0x3f}, 4},
-            /* Memory write */
-            {0x2C, {0}, 0},
-            /* Entry mode set, Low vol detect disabled, normal display */
-            {0xB7, {0x07}, 1},
-            /* Display function control */
-            {0xB6, {0x0A, 0x82, 0x27, 0x00}, 4},
-            /* Sleep out */
-            {0x11, {0}, 0x80},
-            /* Display on */
-            {0x29, {0}, 0x80},
-            {0, {0}, 0xff},
-        };
+namespace ssd1351_helpers {
+        static const uint8_t generic_ssd1351[] =  {                
+     SSD1351_CMD_COMMANDLOCK,
+    1, // Set command lock, 1 arg
+    0x12,
+    SSD1351_CMD_COMMANDLOCK,
+    1, // Set command lock, 1 arg
+    0xB1,
+    SSD1351_CMD_DISPLAYOFF,
+    0, // Display off, no args
+    SSD1351_CMD_CLOCKDIV,
+    1,
+    0xF1, // 7:4 = Oscillator Freq, 3:0 = CLK Div Ratio (A[3:0]+1 = 1..16)
+    SSD1351_CMD_MUXRATIO,
+    1,
+    127,
+    SSD1351_CMD_DISPLAYOFFSET,
+    1,
+    0x0,
+    SSD1351_CMD_SETGPIO,
+    1,
+    0x00,
+    SSD1351_CMD_FUNCTIONSELECT,
+    1,
+    0x01, // internal (diode drop)
+    SSD1351_CMD_PRECHARGE,
+    1,
+    0x32,
+    SSD1351_CMD_VCOMH,
+    1,
+    0x05,
+    SSD1351_CMD_NORMALDISPLAY,
+    0,
+    SSD1351_CMD_SETREMAP,
+    1,
+    0b01110100,
+    SSD1351_CMD_STARTLINE,
+    1,
+    128,
+    SSD1351_CMD_CONTRASTABC,
+    3,
+    0xC8,
+    0x80,
+    0xC8,
+    SSD1351_CMD_CONTRASTMASTER,
+    1,
+    0x0F,
+    SSD1351_CMD_SETVSL,
+    3,
+    0xA0,
+    0xB5,
+    0x55,
+    SSD1351_CMD_PRECHARGE2,
+    1,
+    0x01,
+    SSD1351_CMD_DISPLAYON,
+    0,  // Main screen turn on
+    0}; // END OF COMMAND LIST                         //    10 ms delay
     }
-    // the driver for an ILI9341 display
+    
+    // the driver for an SSD1351 display
     template<int8_t PinCS,
             int8_t PinDC,
             int8_t PinRst,
-            int8_t PinBacklight,
             size_t BatchBufferSize=64
             >
-    struct ili9341 final : 
-            public spi_driver<320,
-                            240,
+    struct ssd1351 final : 
+            public spi_driver<128,
+                            128,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
+#ifdef HTCW_SSD1351_OVERCLOCK
                             40*1000*1000,
 #else
                             10*1000*1000,
 #endif
                             BatchBufferSize> {
-        using base_type = spi_driver<320,
-                            240,
+        using base_type = spi_driver<128,
+                            128,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
+#ifdef HTCW_SSD1351_OVERCLOCK
                             40*1000*1000,
 #else
                             10*1000*1000,
@@ -103,8 +124,6 @@ namespace arduino {
                             BatchBufferSize>;
         // the RST pin
         constexpr static const int8_t pin_rst = PinRst;
-        // the BL pin
-        constexpr static const int8_t pin_backlight = PinBacklight;
         
     private:
     protected:
@@ -112,52 +131,37 @@ namespace arduino {
             if(pin_rst>=0) {
                 pinMode(pin_rst,OUTPUT);
             }
-            if(pin_backlight>=0) {
-                pinMode(pin_backlight,OUTPUT);
-                digitalWrite(pin_backlight,HIGH);
-            }
+            
             reset();
-            //Send all the commands
-            int cmd=0;
-            while (ili9341_helpers::s_init_cmds[cmd].databytes!=0xff) {
-                this->send_command_init(ili9341_helpers::s_init_cmds[cmd].cmd);
-                this->send_data_init(ili9341_helpers::s_init_cmds[cmd].data,ili9341_helpers::s_init_cmds[cmd].databytes&0x1F);
-                if (ili9341_helpers::s_init_cmds[cmd].databytes&0x80) {
-                    delay(100);
+            const uint8_t *addr = ssd1351_helpers::generic_ssd1351;
+            uint8_t cmd, x, numArgs;
+            while ((cmd = *(addr++)) > 0) { // '0' command ends list
+                x = *(addr++);
+                numArgs = x & 0x7F;
+                if (cmd != 0xFF) { // '255' is ignored
+                    this->send_command_init(cmd);
+                    this->send_data_init(addr, numArgs);
+                    
                 }
-                ++cmd;
+                addr += numArgs;
             }
-            //Enable backlight
-            if(pin_backlight>=0) {
-                digitalWrite(pin_backlight, HIGH);
-            }
-        
+            
         }
-        virtual void write_window(const spi_driver_rect& bounds, spi_driver_set_window_flags flags) {
-            uint8_t tx_data[4];
-            //Column Address Set
-            this->send_next_command(0x2A);
-            if(flags.x1 || flags.x2) {
-                tx_data[0]=bounds.x1>>8;             //Start Col High
-                tx_data[1]=bounds.x1&0xFF;           //Start Col Low
-                tx_data[2]=bounds.x2>>8;             //End Col High
-                tx_data[3]=bounds.x2&0xff;           //End Col Low
-                this->send_next_data(tx_data,4,true);
-            }
-            if(flags.y1 || flags.y2 || !(flags.x1 || flags.x2)) {
-                //Page address set
-                this->send_next_command(0x2B,true);
-                tx_data[0]=bounds.y1>>8;        //Start page high
-                tx_data[1]=bounds.y1&0xff;      //start page low
-                tx_data[2]=bounds.y2>>8;        //end page high
-                tx_data[3]=bounds.y2&0xff;      //end page low
-                this->send_next_data(tx_data,4,true);
-            }
-            // Memory write
-            this->send_next_command(0x2C,true);
+        virtual void write_window(const spi_driver_rect& win, spi_driver_set_window_flags flags) {
+            uint8_t tx_data[2];
+
+            this->send_next_command(SSD1351_CMD_SETCOLUMN); // X range
+            tx_data[0]=win.x1;
+            tx_data[1]=win.x2;
+            this->send_next_data(tx_data,2);
+            this->send_next_command(SSD1351_CMD_SETROW); // Y range
+            tx_data[0]=win.y1;
+            tx_data[1]=win.y2;
+            this->send_next_data(tx_data,2);
+            this->send_next_command(SSD1351_CMD_WRITERAM);
         }
     public:
-        ili9341(SPIClass& spi) : base_type(spi) {
+        ssd1351(SPIClass& spi) : base_type(spi) {
 
         }
         void reset() {
@@ -176,7 +180,7 @@ namespace arduino {
         // GFX bindings
  public:
         // indicates the type, itself
-        using type = ili9341;
+        using type = ssd1351;
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver

@@ -6,7 +6,8 @@ MISO 19 (not all devices)
 
 DC 2
 RST 4
-BKL 15
+BKL 15 (lcd devices)
+BUSY 15 (e-paper devices)
 
 I2C Displays:
 SCL 22

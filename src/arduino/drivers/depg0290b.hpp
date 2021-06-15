@@ -1,12 +1,13 @@
 #pragma once
-#include "common/spi_master.hpp"
+#include <Arduino.h>
+#include <SPI.h>
 #include "gfx_pixel.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_palette.hpp"
-namespace espidf {
+namespace arduino {
     
     namespace dep0290b_helpers {
-         static const uint8_t display[] = {
+         static const uint8_t display[] PROGMEM = {
             7,                             
             0x12,0x80,0xFE,      
             0x11,0x01,0x03,
@@ -18,11 +19,10 @@ namespace espidf {
         };                 
             
     }
-    template<spi_host_device_t HostId,
-        gpio_num_t PinCS,
-        gpio_num_t PinDC,
-        gpio_num_t PinRst,
-        gpio_num_t PinBusy>
+    template<int8_t PinCS,
+        int8_t PinDC,
+        int8_t PinRst,
+        int8_t PinBusy>
     struct depg0290b final {
         enum struct result {
             success = 0,
@@ -35,15 +35,12 @@ namespace espidf {
         };
         constexpr static const uint16_t width = 128;
         constexpr static const uint16_t height = 296;
-        
-        constexpr static const spi_host_device_t host_id = HostId;
-
-        constexpr static const gpio_num_t pin_cs = PinCS;
-        constexpr static const gpio_num_t pin_dc = PinDC;
+        constexpr static const int8_t pin_cs = PinCS;
+        constexpr static const int8_t pin_dc = PinDC;
         // the RST pin
-        constexpr static const gpio_num_t pin_rst = PinRst;
+        constexpr static const int8_t pin_rst = PinRst;
         // the Busy pin
-        constexpr static const gpio_num_t pin_busy = PinBusy;
+        constexpr static const int8_t pin_busy = PinBusy;
 
         constexpr static const uint32_t clock_speed = 4*1000*1000;
         struct rect {
@@ -54,91 +51,78 @@ namespace espidf {
         };
     private: 
         bool m_initialized;
-        spi_device m_spi;
+        SPIClass& m_spi;
         int m_suspend_count;
         uint8_t m_frame_buffer[width*height/8];
-
-        static result xlt_err(spi_result rr) {    
-            if(spi_result::success!=rr) {
-                switch(rr) {
-                    case spi_result::timeout:
-                        return result::timeout;
-                    case spi_result::out_of_memory:
-                        return result::out_of_memory;
-                    case spi_result::previous_transactions_pending:
-                        return result::io_busy;
-                    default:
-                        return result::io_error;
-                }
-            }
-            return result::success;
-        }
-
-        result send_commands(const uint8_t* commands) {
+        void send_commands(const uint8_t* commands) {
             uint8_t cmd_count, cmd, arg_count;
             uint16_t ms;
-            cmd_count = *(commands++); // Number of commands to follow
+            cmd_count = pgm_read_byte(commands++); // Number of commands to follow
             while (cmd_count--) {              // For each command...
                 cmd = *(commands++);       // Read command
                 arg_count = *(commands++);   // Number of args to follow
                 ms = arg_count & 0x80;       // If hibit set, delay follows args
                 arg_count &= ~0x80;          // Mask out delay bit
-                result r=send_command(cmd);
-                if(result::success!=r) {
-                    return r;
-                }
+                send_command(cmd);
                 while(arg_count--) {
-                    r=send_data(*commands++);
-                    if(result::success!=r) {
-                        return r;
-                    }
+                    send_data(pgm_read_byte(commands++));
                 }
                 if (ms) {
-                    ms = *(commands++);
+                    ms = pgm_read_byte(commands++);
                     if(ms==254) {
                         ms=1000;
                     }
                     if (ms == 255)
                         ms = 1200;
-                    r =wait_busy(ms);
-                    if(result::success!=r) {
-                        return r;
-                    }
+                    wait_busy(ms);
                 }
             }
-            return result::success;
         }
-        result wait_busy(unsigned int ms=100) {
-            if(GPIO_NUM_NC!=pin_busy) {
-                uint32_t start = esp_timer_get_time();
-                while(esp_timer_get_time()-start<5000*1000) {
-                    if(0!=gpio_get_level(pin_busy)) {
-                        return result::success;
+        void wait_busy(uint16_t ms) {
+            if (pin_busy >= 0) {
+                uint32_t ts = millis();
+                while (true) {
+                    if (!digitalRead(pin_busy)) {
+                        return;
                     }
-                    vTaskDelay(1);
+                    delay(1);
+                    if (millis() - ts > 5000) {
+                        return;
+                    }
                 }
-                
-                return result::timeout;
-            }
-            vTaskDelay(ms/portTICK_PERIOD_MS);
-            return result::success;
+            } 
+            delay(ms);
         }
-        result send_command(uint8_t command)
+        void send_command(uint8_t command)
         {
-            spi_result r= m_spi.write(&command,1,(void*)0,true);
-            if(spi_result::success!=r) {
-                return xlt_err(r);
+            m_spi.beginTransaction(SPISettings(clock_speed, MSBFIRST, SPI_MODE0));
+            if (pin_dc >= 0) {
+                digitalWrite(pin_dc, LOW);
             }
-            return result::success;
+            if (pin_cs >= 0) {
+                digitalWrite(pin_cs, LOW);
+            }
+            m_spi.transfer(command);
+            if (pin_cs >= 0) {
+                digitalWrite(pin_cs, HIGH);
+            }
+            if (pin_dc >= 0) {
+                digitalWrite(pin_dc, HIGH);
+            }
+            m_spi.endTransaction();
         }
 
-        result send_data(uint8_t data)
+        void send_data(uint8_t data)
         {
-            spi_result r= m_spi.write(&data,1,(void*)1,true);
-            if(spi_result::success!=r) {
-                return xlt_err(r);
+            m_spi.beginTransaction(SPISettings(clock_speed, MSBFIRST, SPI_MODE0));
+            if (pin_cs >= 0) {
+                digitalWrite(pin_cs, LOW);
             }
-            return result::success;
+            m_spi.transfer(data);
+            if (pin_cs >= 0) {
+                digitalWrite(pin_cs, HIGH);
+            }
+            m_spi.endTransaction();
         }
 
         static bool normalize_values(rect& r,bool check_bounds=true) {
@@ -197,62 +181,40 @@ namespace espidf {
                 m_initialized=false;   
             }
         }
-        inline static spi_device_interface_config_t get_device_config() {
-            spi_device_interface_config_t devcfg={
-                .command_bits=0,
-                .address_bits=0,
-                .dummy_bits=0,
-                .mode=0,
-                .duty_cycle_pos=0,
-                .cs_ena_pretrans=0,
-                .cs_ena_posttrans=0,
-                .clock_speed_hz=clock_speed,           //Clock out at 4 MHz
-                .input_delay_ns = 0,
-                .spics_io_num=pin_cs,               //CS pin
-                .flags =0,
-                .queue_size=1,                          //We only need 1 at a time
-                .pre_cb=[](spi_transaction_t*t){
-                    int dc=(int)t->user;
-                    gpio_set_level(pin_dc, dc!=0);
-                },  //Specify pre-transfer callback to handle D/C line
-                .post_cb=NULL
-            };
-            return devcfg;
-        } 
     public:
-        depg0290b() : m_initialized(false),m_spi(host_id,get_device_config()),m_suspend_count(0) {
+        depg0290b(SPIClass& spi) : m_initialized(false),m_spi(spi),m_suspend_count(0) {
 
         }
         void reset() {
-            if (pin_rst != GPIO_NUM_NC)
+            if (pin_rst >= 0)
             {
-                vTaskDelay(10/portTICK_PERIOD_MS);
-                gpio_set_level(pin_rst, 0);
-                vTaskDelay(10/portTICK_PERIOD_MS);
-                gpio_set_level(pin_rst, 1);
-                vTaskDelay(150/portTICK_PERIOD_MS);
+                delay(10);
+                digitalWrite(pin_rst, LOW);
+                delay(10);
+                digitalWrite(pin_rst, HIGH);
+                delay(150);
             }
         }
         void initialize() {
             if(!m_initialized) {
-                if (pin_cs != GPIO_NUM_NC) {
-                    gpio_set_direction(pin_cs, GPIO_MODE_OUTPUT);
+                if (pin_cs >= 0) {
+                    pinMode(pin_cs, OUTPUT);
                 }
-                if (pin_dc != GPIO_NUM_NC) {
-                    gpio_set_direction(pin_dc, GPIO_MODE_OUTPUT);
-                }
-                if (pin_rst >= GPIO_NUM_NC) {
-                    gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);
-                }
-                reset();
-                if (pin_busy >= GPIO_NUM_NC) {
-                    gpio_set_direction(pin_busy, GPIO_MODE_OUTPUT);
+                if (pin_dc >= 0) {
+                    pinMode(pin_dc, OUTPUT);
                 }
                 if (pin_rst >= 0) {
-                    gpio_set_level(pin_rst, 0);
-                    vTaskDelay(10/portTICK_PERIOD_MS);
-                    gpio_set_level(pin_rst, 1);
-                    vTaskDelay(10/portTICK_PERIOD_MS);    
+                    pinMode(pin_rst, OUTPUT);
+                }
+                reset();
+                m_spi.begin();
+                if (pin_busy >= 0) pinMode(pin_busy, INPUT);
+                if (pin_rst >= 0) {
+                    pinMode(pin_rst, OUTPUT);
+                    digitalWrite(pin_rst, LOW);
+                    delay(10);
+                    digitalWrite(pin_rst, HIGH);
+                    delay(10);
                     wait_busy(5000);
                 }
                 m_initialized = true;

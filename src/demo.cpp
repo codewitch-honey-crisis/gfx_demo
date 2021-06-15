@@ -11,6 +11,10 @@
         #include "arduino/st7735_demo.hpp"
     #elif defined(MAX7219)
         #include "arduino/max7219_demo.hpp"
+    #elif defined(DEPG0290B)
+        #include "arduino/depg0290b_demo.hpp"
+    #elif defined(GDEH0154Z90)
+        #include "arduino/gdeh0154z90_demo.hpp"
     #endif
 #elif defined(FRAMEWORK_ESP_IDF)
     #if defined(ILI9341)
@@ -25,6 +29,8 @@
         #include "esp-idf/st7735_demo.hpp"
     #elif defined(MAX7219)
         #include "esp-idf/max7219_demo.hpp"
+    #elif defined(GDEH0154Z90)
+        #include "esp-idf/gdeh0154z90_demo.hpp"
     #elif defined(DEPG0290B)
         // not working yet
         #include "esp-idf/depg0290b_demo.hpp"

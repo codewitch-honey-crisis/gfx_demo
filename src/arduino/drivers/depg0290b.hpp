@@ -1,9 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <SPI.h>
-#include "gfx_pixel.hpp"
-#include "gfx_positioning.hpp"
-#include "gfx_palette.hpp"
+#include "gfx_bitmap.hpp"
 namespace arduino {
     
     namespace dep0290b_helpers {
@@ -22,7 +20,8 @@ namespace arduino {
     template<int8_t PinCS,
         int8_t PinDC,
         int8_t PinRst,
-        int8_t PinBusy>
+        int8_t PinBusy,
+        size_t BitDepth=1>
     struct depg0290b final {
         enum struct result {
             success = 0,
@@ -43,17 +42,27 @@ namespace arduino {
         constexpr static const int8_t pin_busy = PinBusy;
 
         constexpr static const uint32_t clock_speed = 4*1000*1000;
+
+        constexpr static const size_t bit_depth = BitDepth;
+
         struct rect {
             uint16_t x1;
             uint16_t y1;
             uint16_t x2;
             uint16_t y2;
         };
+        
+        // GFX Bindings
+        using type = depg0290b;
+        using pixel_type = gfx::gsc_pixel<BitDepth>;
+        using caps = gfx::gfx_caps<false,false,false,false,true,true,false>;
+        using frame_buffer_type = gfx::large_bitmap<pixel_type>;
+
     private: 
         bool m_initialized;
         SPIClass& m_spi;
         int m_suspend_count;
-        uint8_t m_frame_buffer[width*height/8];
+        frame_buffer_type m_frame_buffer;
         void send_commands(const uint8_t* commands) {
             uint8_t cmd_count, cmd, arg_count;
             uint16_t ms;
@@ -125,52 +134,44 @@ namespace arduino {
             m_spi.endTransaction();
         }
 
-        static bool normalize_values(rect& r,bool check_bounds=true) {
-            // normalize values
-            uint16_t tmp;
-            if(r.x1>r.x2) {
-                tmp=r.x1;
-                r.x1=r.x2;
-                r.x2=tmp;
-            }
-            if(r.y1>r.y2) {
-                tmp=r.y1;
-                r.y1=r.y2;
-                r.y2=tmp;
-            }
-            if(check_bounds) {
-                if(r.x1>=width||r.y1>=height)
-                    return false;
-                if(r.x2>=width)
-                    r.x2=width-1;
-                if(r.y2>height)
-                    r.y2=height-1;
-            }
-            return true;
-        }
-        void buffer_fill(const rect& bounds,bool color) {
-            rect b = bounds;
-            if(!normalize_values(b))
-                return;
-            
-            const uint16_t w=b.x2-b.x1+1,h = b.y2-b.y1+1;
-            
-            for(int y = 0;y<h;++y) {
-                const size_t offs = ((y+b.y1)*width+(b.x1));
-                uint8_t* const pbegin = m_frame_buffer+(offs/8);
-                bits::set_bits(pbegin,offs%8,w,color);
-            }
-        }
         void display_update() {
             initialize();
             // don't draw if we're suspended
             if(0==m_suspend_count) {    
-               
-               send_commands(dep0290b_helpers::display);
-                const uint8_t* p = m_frame_buffer;
-                for (uint32_t y = 0; y < height; y++) {
-                    for (uint32_t x = 0; x < width / 8; x++) {
-                        send_data(*p++);
+                send_commands(dep0290b_helpers::display);
+                if(1==bit_depth) {
+                    for (int y = 0; y < height; y++) {
+                        for (int x = 0; x < width ; x+=8) {
+                            uint8_t data = 0;
+                            for(int i = 0;i<8;++i) {
+                                pixel_type px;
+                                gfx::gfx_result r=m_frame_buffer.point(gfx::point16(x+i,y),&px);
+                                if(gfx::gfx_result::success!=r) {
+                                    return;
+                                }
+                                data |= (1<<(7-i))*px.template channel<gfx::channel_name::L>();
+                            }
+                            send_data(data);
+                        }
+                    }
+                } else {
+                    int col, row;
+                    for (int y = 0; y < height; y++) {
+                        row = y & 15;
+                        for (int x = 0; x < width ; x+=8) {
+                            uint8_t data = 0;
+                            for(int i = 0;i<8;++i) {
+                                const int xx = x+i;
+                                col = xx & 15;
+                                pixel_type px;
+                                gfx::gfx_result r=m_frame_buffer.point(gfx::point16(xx,y),&px);
+                                if(gfx::gfx_result::success!=r) {
+                                    return;
+                                }
+                                data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither_bayer_16[col][row]);
+                            }
+                            send_data(data);
+                        }
                     }
                 }
                 send_command(0x20);
@@ -182,7 +183,8 @@ namespace arduino {
             }
         }
     public:
-        depg0290b(SPIClass& spi) : m_initialized(false),m_spi(spi),m_suspend_count(0) {
+     
+        depg0290b(SPIClass& spi) : m_initialized(false),m_spi(spi),m_suspend_count(0),m_frame_buffer(gfx::size16(width,height),1) {
 
         }
         void reset() {
@@ -220,47 +222,7 @@ namespace arduino {
                 m_initialized = true;
             }
         }
-        const uint8_t* frame_buffer() const {
-            return m_frame_buffer;
-        }
-        
-        result pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
-            if(nullptr==out_color)
-                return result::invalid_argument;
-            if(x>=width || y>=height) {
-                *out_color = false;
-                return result::success;
-            }
-            const uint8_t* p = m_frame_buffer+(y/8*width)+x;
-            *out_color = 0!=(*p & (1<<(y&7)));
-            return result::success;
-        }
-        result frame_fill(const rect& bounds,bool color) {
-            initialize();
-            buffer_fill(bounds,color);
-            display_update();
-            return result::success;
-        }
-        result frame_suspend() {
-            ++m_suspend_count;
-            return result::success;
-        }
-        result frame_resume(bool force=false) {
-            if(0!=m_suspend_count) {
-                --m_suspend_count;
-                if(force)
-                    m_suspend_count = 0;
-                if(0==m_suspend_count) {
-                    display_update();
-                }
-                
-            } 
-            return result::success;
-        }
-        // GFX Bindings
-        using type = depg0290b;
-        using pixel_type = gfx::gsc_pixel<1>;
-        using caps = gfx::gfx_caps<false,false,false,false,true,true,false>;
+       
     private:
         static gfx::gfx_result xlt_err(result r) {
             switch(r) {
@@ -283,27 +245,15 @@ namespace arduino {
         constexpr inline gfx::rect16 bounds() const { return dimensions().bounds(); }
         // gets a point 
         gfx::gfx_result point(gfx::point16 location,pixel_type* out_color) const {
-            bool col=false;
-            result r = pixel_read(location.x,location.y,&col);
-            if(result::success!=r)
-                return xlt_err(r);
-            pixel_type p(!!col);
-            *out_color=p;
-            return gfx::gfx_result::success;
+            return m_frame_buffer.point(location,out_color);
        }
         // sets a point to the specified pixel
         gfx::gfx_result point(gfx::point16 location,pixel_type color) {
-            result r = frame_fill({location.x,location.y,location.x,location.y},color.native_value!=0);
-            if(result::success!=r)
-                return xlt_err(r);
-            return gfx::gfx_result::success;
+            return m_frame_buffer.point(location,color);
         }
         gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
             
-            result r = frame_fill({rect.x1,rect.y1,rect.x2,rect.y2},color.native_value!=0);
-            if(result::success!=r)
-                return xlt_err(r);
-            return gfx::gfx_result::success;
+            return m_frame_buffer.fill(rect,color);
         }
         
         // clears the specified rectangle
@@ -312,15 +262,18 @@ namespace arduino {
             return fill(rect,p);
         }
         inline gfx::gfx_result suspend() {
-            result r =frame_suspend();
-            if(result::success!=r)
-                return xlt_err(r);
+            ++m_suspend_count;
             return gfx::gfx_result::success;
         }
-        inline gfx::gfx_result resume(bool force=false) {
-            result r =frame_resume(force);
-            if(result::success!=r)
-                return xlt_err(r);
+        gfx::gfx_result resume(bool force=false) {
+            if(0!=m_suspend_count) {
+                --m_suspend_count;
+                if(force)
+                    m_suspend_count = 0;
+                if(0==m_suspend_count) {
+                    display_update();
+                }
+            }
             return gfx::gfx_result::success;
         }
     };

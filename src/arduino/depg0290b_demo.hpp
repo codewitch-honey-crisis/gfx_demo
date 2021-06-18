@@ -35,7 +35,7 @@ SPIClass spi(LCD_HOST);
 using lcd_type = depg0290b<PIN_NUM_CS,
                         PIN_NUM_DC,
                         PIN_NUM_RST,
-                        PIN_NUM_BUSY>;
+                        PIN_NUM_BUSY,8>;
 using lcd_color = color<typename lcd_type::pixel_type>;
 
 lcd_type lcd(spi);
@@ -60,8 +60,8 @@ void lines_demo() {
                 lcd_type::width-i*(lcd_type::width/100.0)-1,
                 lcd_type::height-i*(lcd_type::height/100.0)-1);
         // draw the four lines
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::black);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::black);
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::red);
+        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::red);
         draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::black);
         draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::black);
     }

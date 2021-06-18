@@ -1,8 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <SPI.h>
-#include "gfx_bitmap.hpp"
-
+#include "common/epaper_spi_driver.hpp"
 // unlike most of the other drivers, which simply expose 
 // GFX binding which may be removed, this driver 
 // requires GFX in order to function due to the 
@@ -64,6 +63,7 @@ namespace arduino {
             return gfx::gfx_result::success;
         }
     };
+    
     template<int8_t PinCS,
         int8_t PinDC,
         int8_t PinRst,
@@ -220,25 +220,6 @@ namespace arduino {
             return gfx::gfx_result::success;
         }
     public:
-        using caps = gfx::gfx_caps<false,false,false,false,true,true,false>;
-    private:
-        static gfx::gfx_result xlt_err(result r) {
-            switch(r) {
-                case result::io_error:
-                    return gfx::gfx_result::device_error;
-                case result::out_of_memory:
-                    return gfx::gfx_result::out_of_memory;
-                case result::success:
-                    return gfx::gfx_result::success;
-                case result::not_supported:
-                    return gfx::gfx_result::not_supported;
-                case result::invalid_argument:
-                    return gfx::gfx_result::invalid_argument;
-                default:
-                    return gfx::gfx_result::unknown_error;
-            }
-        }
- public:
         gdeh0154z90(SPIClass& spi) : m_initialized(false),m_spi(spi),m_palette() {
 
         }
@@ -273,24 +254,24 @@ namespace arduino {
                 send_data(0x00);
 
                 send_command(0x11); //data entry mode       
-                send_data(0x03);
+                send_data(0x00);
 
                 send_command(0x44); //set Ram-X address start/end position   
-                send_data(0x00);
                 send_data(0x18);    //0x18-->(24+1)*8=200
+                send_data(0x00);
                 
                 send_command(0x45); //set Ram-Y address start/end position          
-                send_data(0x00);
-                send_data(0x00); 
                 send_data(0xC7);    //0xC7-->(199+1)=200
                 send_data(0x00);
-                
-                send_command(0x4E);
                 send_data(0x00);
+                send_data(0x00); 
+                
+                send_command(0x4E); // set Ram pointer
+                send_data(0x18); // X
 
                 send_data(0x4F);
-                send_data(0x00);
-                send_data(0x00);
+                send_data(0xC7); // Y1
+                send_data(0x00); // Y2
 
                 send_command(0x3C); //BorderWavefrom
                 send_data(0x05);  
@@ -298,16 +279,38 @@ namespace arduino {
                 send_command(0x18); //Read built-in temperature sensor
                 send_data(0x80);  
                 
-                send_command(0x4E);   // set RAM x address count to 0;
-                send_data(0x00);
+                send_command(0x4E);   // set RAM x address count to 0x199;
+                send_data(0x18);
                 send_command(0x4F);   // set RAM y address count to 0X199;    
                 send_data(0xC7);
                 send_data(0x00);
+                
                 wait_busy(300);
                 m_initialized = true;
                 
             }
         }
+    // GFX Bindings
+    public:
+        using caps = gfx::gfx_caps<false,false,false,false,true,true,false>;
+    private:
+        static gfx::gfx_result xlt_err(result r) {
+            switch(r) {
+                case result::io_error:
+                    return gfx::gfx_result::device_error;
+                case result::out_of_memory:
+                    return gfx::gfx_result::out_of_memory;
+                case result::success:
+                    return gfx::gfx_result::success;
+                case result::not_supported:
+                    return gfx::gfx_result::not_supported;
+                case result::invalid_argument:
+                    return gfx::gfx_result::invalid_argument;
+                default:
+                    return gfx::gfx_result::unknown_error;
+            }
+        }
+    public:
         constexpr inline gfx::size16 dimensions() const {return gfx::size16(width,height);}
         constexpr inline gfx::rect16 bounds() const { return dimensions().bounds(); }
         // gets a point 
@@ -355,4 +358,7 @@ namespace arduino {
         }
         
     };
+    
+    
+    
 }

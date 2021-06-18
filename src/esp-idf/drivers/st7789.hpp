@@ -4,7 +4,7 @@
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include "common/spi_driver.hpp"
+#include "common/tft_spi_driver.hpp"
 #include "gfx_core.hpp"
 #include "gfx_positioning.hpp"
 #include "gfx_pixel.hpp"
@@ -91,7 +91,7 @@ namespace espidf {
             size_t BatchBufferSize=64
             >
     struct st7789 : 
-            public spi_driver<Width,
+            public tft_spi_driver<Width,
                             Height,
                             HostId,
                             PinCS,
@@ -106,7 +106,7 @@ namespace espidf {
                             DmaSize,
                             Timeout,
                             BatchBufferSize> {
-        using base_type = spi_driver<Width,
+        using base_type = tft_spi_driver<Width,
                             Height,
                             HostId,
                             PinCS,
@@ -134,20 +134,20 @@ namespace espidf {
         constexpr static const size_t max_transactions = (0==MaxTransactions)?1:MaxTransactions;
     private:
        
-        spi_driver_result write_window_impl(const spi_driver_rect& w,bool queued,spi_driver_set_window_flags set_flags) {
+        tft_spi_driver_result write_window_impl(const tft_spi_driver_rect& w,bool queued,tft_spi_driver_set_window_flags set_flags) {
             //printf("(%d, %d)-(%d, %d)\r\n",win.x1,win.y1,win.x2,win.y2);
-            spi_driver_rect win;
+            tft_spi_driver_rect win;
             const uint16_t offsx = (320-Width)/2;
             const uint16_t offsy = (240-Height)/2;
             win.x1=w.x1+offsx;
             win.x2=w.x2+offsx;
             win.y1=w.y1+offsy;
             win.y2=w.y2+offsy;
-            spi_driver_result r;
+            tft_spi_driver_result r;
             uint8_t tx_data[4];
             //Column Address Set
             r=this->send_next_command(0x2A,queued);
-            if(spi_driver_result::success!=r)
+            if(tft_spi_driver_result::success!=r)
                 return r;
             if(set_flags.x1 || set_flags.x2) {
                 tx_data[0]=win.x1>>8;             //Start Col High
@@ -155,20 +155,20 @@ namespace espidf {
                 tx_data[2]=win.x2>>8;             //End Col High
                 tx_data[3]=win.x2&0xff;           //End Col Low
                 r=this->send_next_data(tx_data,4,queued,true);
-                if(spi_driver_result::success!=r)
+                if(tft_spi_driver_result::success!=r)
                     return r;
             }
             if(set_flags.y1 || set_flags.y2 || !(set_flags.x1 || set_flags.x2)) {
                 //Page address set
                 r=this->send_next_command(0x2B,queued,true);
-                if(spi_driver_result::success!=r)
+                if(tft_spi_driver_result::success!=r)
                     return r;
                 tx_data[0]=win.y1>>8;        //Start page high
                 tx_data[1]=win.y1&0xff;      //start page low
                 tx_data[2]=win.y2>>8;        //end page high
                 tx_data[3]=win.y2&0xff;      //end page low
                 r=this->send_next_data(tx_data,4,queued,true);
-                if(spi_driver_result::success!=r)
+                if(tft_spi_driver_result::success!=r)
                     return r;
             }
             // Memory write
@@ -181,7 +181,7 @@ namespace espidf {
         }
         virtual ~st7789() {}
         // forces initialization of the driver
-        spi_driver_result initialize()
+        tft_spi_driver_result initialize()
         {
             if(!this->initialized()) {
                 static const TickType_t ts = 100/portTICK_RATE_MS;
@@ -201,7 +201,7 @@ namespace espidf {
                 uint8_t numCommands, cmd, numArgs;
                 uint16_t ms;
                 const uint8_t* addr = st7789_helpers::generic_st7789;
-                spi_driver_result r;
+                tft_spi_driver_result r;
                 numCommands = *(addr++); // Number of commands to follow
                 while (numCommands--) {              // For each command...
                     cmd = *(addr++);       // Read command
@@ -209,11 +209,11 @@ namespace espidf {
                     ms = numArgs & ST_CMD_DELAY;       // If hibit set, delay follows args
                     numArgs &= ~ST_CMD_DELAY;          // Mask out delay bit
                     r= this->send_init_command(cmd);
-                    if(spi_driver_result::success!=r) {
+                    if(tft_spi_driver_result::success!=r) {
                         return r;
                     }
                     r= this->send_init_data(addr, numArgs);
-                    if(spi_driver_result::success!=r) {
+                    if(tft_spi_driver_result::success!=r) {
                         return r;
                     }
                     addr += numArgs;
@@ -225,30 +225,30 @@ namespace espidf {
                     }
                 }
                 r= this->send_init_command(ST77XX_RASET);  //  6: Row addr set, 4 args, no delay:
-                if(spi_driver_result::success!= r) {
+                if(tft_spi_driver_result::success!= r) {
                     return r;
                 }
                 uint8_t init_data[] ={0,0,Width>>8,Height&0xFF};
                 r=this->send_init_data(init_data,4);
-                if(spi_driver_result::success!= r) {
+                if(tft_spi_driver_result::success!= r) {
                     return r;
                 }
                 r= this->send_init_command(ST77XX_MADCTL);  
                 cmd = ST77XX_MADCTL_MY | ST77XX_MADCTL_MV | ST77XX_MADCTL_RGB;//ST77XX_MADCTL_MX | ST77XX_MADCTL_MY | ST77XX_MADCTL_RGB;
                 r=this->send_init_data(&cmd,1);
-                if(spi_driver_result::success!=r) {
+                if(tft_spi_driver_result::success!=r) {
                     return r;
                 }
                 ///Enable backlight
                 gpio_set_level(pin_backlight, 1);
             }
-            return spi_driver_result::success;
+            return tft_spi_driver_result::success;
         }
 protected:
-        virtual spi_driver_result write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags) {
+        virtual tft_spi_driver_result write_window(const tft_spi_driver_rect& bounds,tft_spi_driver_set_window_flags set_flags) {
             return write_window_impl(bounds,false,set_flags);
         }
-        virtual spi_driver_result queued_write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags set_flags) {
+        virtual tft_spi_driver_result queued_write_window(const tft_spi_driver_rect& bounds,tft_spi_driver_set_window_flags set_flags) {
             return write_window_impl(bounds,true,set_flags);
         }
 
@@ -262,13 +262,13 @@ protected:
         using caps = gfx::gfx_caps<false,true,true,true,false,false,false>;
  
  private:
-        gfx::gfx_result xlt_err(spi_driver_result r) {
+        gfx::gfx_result xlt_err(tft_spi_driver_result r) {
             switch(r) {
-                case spi_driver_result::io_error:
+                case tft_spi_driver_result::io_error:
                     return gfx::gfx_result::device_error;
-                case spi_driver_result::out_of_memory:
+                case tft_spi_driver_result::out_of_memory:
                     return gfx::gfx_result::out_of_memory;
-                case spi_driver_result::success:
+                case tft_spi_driver_result::success:
                     return gfx::gfx_result::success;
                 default:
                     return gfx::gfx_result::invalid_argument;
@@ -276,7 +276,7 @@ protected:
         }
         template<typename Source>
         gfx::gfx_result copy_from_impl(const gfx::rect16& src_rect,const Source& src,gfx::point16 location,bool async) {
-            spi_driver_result r;
+            tft_spi_driver_result r;
             gfx::rect16 srcr = src_rect.normalize().crop(src.bounds());
             gfx::rect16 dstr(location,src_rect.dimensions());
             dstr=dstr.crop(bounds());
@@ -289,12 +289,12 @@ protected:
             if(gfx::helpers::is_same<pixel_type,typename Source::pixel_type>::value && Source::caps::blt) {
                 // direct blt
                 if(src.bounds().width()==srcr.width() && srcr.x1==0) {
-                    spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
+                    tft_spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
                     if(!async)
                         r=this->frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
                     else
                         r=this->queued_frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
-                    if(spi_driver_result::success!=r) {
+                    if(tft_spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
                     return gfx::gfx_result::success;
@@ -304,12 +304,12 @@ protected:
                 uint16_t hh=srcr.height();
                 uint16_t ww = src.dimensions().width;
                 while(yy<hh) {
-                    spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
+                    tft_spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
                     if(!async)
                         r = this->frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
                     else
                         r = this->queued_frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
-                    if(spi_driver_result::success!=r) {
+                    if(tft_spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
                     ++yy;
@@ -318,12 +318,12 @@ protected:
             }
             uint16_t w = dstr.dimensions().width;
             uint16_t h = dstr.dimensions().height;
-            spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
+            tft_spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
             if(!async)
                 r=this->batch_write_begin(drr);
             else
                 r=this->queued_batch_write_begin(drr);
-            if(spi_driver_result::success!=r) {
+            if(tft_spi_driver_result::success!=r) {
                 return xlt_err(r);
             }
             for(uint16_t y=0;y<h;++y) {
@@ -342,7 +342,7 @@ protected:
                         r = this->batch_write(&pv,1);
                     else
                         r = this->queued_batch_write(&pv,1);
-                    if(spi_driver_result::success!=r) {
+                    if(tft_spi_driver_result::success!=r) {
                         return xlt_err(r);
                     }
                 }
@@ -351,7 +351,7 @@ protected:
                 r=this->batch_write_commit();
             else
                 r=this->queued_batch_write_commit();
-            if(spi_driver_result::success!=r) {
+            if(tft_spi_driver_result::success!=r) {
                 return xlt_err(r);
             }
             return gfx::gfx_result::success;
@@ -367,31 +367,31 @@ protected:
         }
         // sets a point to the specified pixel
         gfx::gfx_result point(gfx::point16 location,pixel_type pixel) {
-            spi_driver_result r = this->pixel_write(location.x,location.y,pixel.value());
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r = this->pixel_write(location.x,location.y,pixel.value());
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // asynchronously sets a point to the specified pixel
         gfx::gfx_result point_async(gfx::point16 location,pixel_type pixel) {
-            spi_driver_result r = this->queued_pixel_write(location.x,location.y,pixel.value());
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r = this->queued_pixel_write(location.x,location.y,pixel.value());
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // fills the specified rectangle with the specified pixel
         gfx::gfx_result fill(const gfx::rect16& bounds,pixel_type color) {
-            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
-            spi_driver_result r=this->frame_fill(b,color.value());
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            tft_spi_driver_result r=this->frame_fill(b,color.value());
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // asynchronously fills the specified rectangle with the specified pixel
         gfx::gfx_result fill_async(const gfx::rect16& bounds,pixel_type color) {
-            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
-            spi_driver_result r=this->queued_frame_fill(b,color.value());
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            tft_spi_driver_result r=this->queued_frame_fill(b,color.value());
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
@@ -407,47 +407,47 @@ protected:
         }
         // begins a batch operation for the specified rectangle
         gfx::gfx_result begin_batch(const gfx::rect16& bounds) {
-            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
-            if(spi_driver_result::success!= this->batch_write_begin(b))
+            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            if(tft_spi_driver_result::success!= this->batch_write_begin(b))
                 return gfx::gfx_result::device_error;
             return gfx::gfx_result::success;
         }
         // asynchronously begins a batch operation for the specified rectangle
         gfx::gfx_result begin_batch_async(const gfx::rect16& bounds) {
-            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
-            spi_driver_result r = this->queued_batch_write_begin(b);
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            tft_spi_driver_result r = this->queued_batch_write_begin(b);
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // writes a pixel to a pending batch
         gfx::gfx_result write_batch(pixel_type color) {
             uint16_t p = color.value();
-            spi_driver_result r = this->batch_write(&p,1);
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r = this->batch_write(&p,1);
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // asynchronously writes a pixel to a pending batch
         gfx::gfx_result write_batch_async(pixel_type color) {
             uint16_t p = color.value();
-            spi_driver_result r = this->queued_batch_write(&p,1);
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r = this->queued_batch_write(&p,1);
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
         // commits a pending batch
         gfx::gfx_result commit_batch() {
-            spi_driver_result r=this->batch_write_commit();
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r=this->batch_write_commit();
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
                 
             return gfx::gfx_result::success;
         }
         // asynchronously commits a pending batch
         gfx::gfx_result commit_batch_async() {
-            spi_driver_result r=this->queued_batch_write_commit();
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r=this->queued_batch_write_commit();
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }
@@ -462,8 +462,8 @@ protected:
         }
         // waits for all pending asynchronous operations to complete
         gfx::gfx_result wait_all_async() {
-            spi_driver_result r=this->queued_wait_all();
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r=this->queued_wait_all();
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             return gfx::gfx_result::success;
         }

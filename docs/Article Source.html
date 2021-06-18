@@ -79,9 +79,9 @@ file to your hard drive for editing.</b></p>
 
 <p>I recommend the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html">Espressif ESP-WROVER-KIT</a> development board which has an integrated ILI9341 display and several other pre-wired peripherals, plus an integrated debugger and a superior USB to serial bridge with faster upload speeds. They can be harder to find than a standard ESP32 devboard, but I found them at JAMECO and Mouser for about $40 USD. They're well worth the investment if you do ESP32 development. The integrated debugger, though very slow compared to a PC, is faster than you can get with an external JTAG probe attached to a standard WROVER devboard.</p>
 
-<p>Most of you however, will be using one or more of the "generic-esp32" configurations. At the bottom of the screen in the blue bar of VS Code, there is a configuration switcher. It should be set at Default to start, but you can change it by clicking on default. A list of many configurations will drop down from the top of the screen. From there, you can choose which generic-esp32 setup you have, based on the display attached to it.&nbsp;</p>
+<p>Most of you however, will be using one or more of the generic esp32&nbsp;configurations. First decide which framework you want to use - ESP-IDF, or Arduino. At the bottom of the screen in the blue bar of VS Code, there is a configuration switcher. It should be set at Default to start, but you can change it by clicking on default. A list of many configurations will drop down from the top of the screen. From there, you can choose which generic esp32 setup you have, based on the display attached to it, and with it, which framework you want to use.</p>
 
-<p>In order to wire all this up, refer to <em>wiring_guide.txt</em>&nbsp;which has display wirings for SPI and I2C displays. Keep in mind some display vendors name their pins with non-standard names. For example, on some displays <code>MOSI</code> might be labled as <code>DIN</code> or <code>A0</code>. You make have to do some googling to find out the particulars for your device.</p>
+<p>In order to wire all this up, refer to <em>wiring_guide.txt</em>&nbsp;which has display wirings for SPI&nbsp;and I2C displays. Keep in mind some display vendors name their pins with non-standard names. For example, on some displays <code>MOSI</code> might be labled as <code>DIN</code> or <code>A0</code>. You make have to do some googling to find out the particulars for your device.</p>
 
 <p>Before you can run it, you must Upload Filesystem Image under the Platform IO sidebar - Tasks.</p>
 
@@ -92,11 +92,7 @@ file to your hard drive for editing.</b></p>
 <p>The following configurations are currently supported. Select the one that you want to use before building:</p>
 
 <ul>
-	<li>esp-idf-esp-wrover-kit</li>	<li>esp-idf-lilygo-ttgo</li>	<li>esp-idf-ST7735</li>	<li>esp-idf-ILI9341</li>	<li>esp-idf-ST7789</li>	<li>esp-idf-SSD1306</li>	<li>esp-idf-SSD1351</li>	<li>esp-idf-MAX7219*</li>	<li>	<p>esp-idf-GDEH0154Z90</p>
-	</li>	<li>arduino-esp-wrover-kit</li>	<li>arduino-lilygo-ttgo</li>	<li>	<p>arduino-lilygo-t5_v22</p>
-	</li>	<li>arduino-ILI9341</li>	<li>	<p>arduino-DEPG0290B</p>
-	</li>	<li>	<p>arduino-GDEH0154Z90</p>
-	</li>	<li>arduino-ST7789</li>	<li>arduino-SSD1306</li>	<li>arduino-SSD1351</li>	<li>arduino-ST7735</li></ul>
+	<li>esp-idf-esp-wrover-kit</li>	<li>esp-idf-lilygo-ttgo</li>	<li>esp-idf-ST7735</li>	<li>esp-idf-ILI9341</li>	<li>esp-idf-ST7789</li>	<li>esp-idf-SSD1306</li>	<li>esp-idf-SSD1351</li>	<li>esp-idf-MAX7219*</li>	<li>esp-idf-GDEH0154Z90</li>	<li>arduino-esp-wrover-kit</li>	<li>arduino-lilygo-ttgo</li>	<li>arduino-lilygo-t5_v22</li>	<li>arduino-ILI9341</li>	<li>arduino-DEPG0290B</li>	<li>arduino-GDEH0154Z90</li>	<li>arduino-ST7789</li>	<li>arduino-SSD1306</li>	<li>arduino-SSD1351</li>	<li>arduino-ST7735</li></ul>
 
 <p>The MAX7219 CS pin is 15, not 5. Driver is experimental and multiple rows of segments does not work, but multiple segments in a single row works.</p>
 
@@ -118,17 +114,17 @@ file to your hard drive for editing.</b></p>
 
 <h4>Drivers</h4>
 
-<p>Drivers are a typically a more limited draw destination, but may have performance features, which GFX will use when available. You can check what features draw sources and destinations have available using the <code>caps</code> member so that you can call the right methods for the job and for your device. You don't need to worry about that if you use the <code>draw</code> class which does all the work for you. Drivers may have certain limitations in terms of the size of bitmap they can take in one operation, or performance characteristics that vary from device to device. As much as possible, I've tried to make using them consistent across disparate sources/destinations.</p>
+<p>Drivers are a typically a more limited draw target, but may have performance features, which GFX will use when available. You can check what features draw sources and destinations have available using the <code>caps</code> member so that you can call the right methods for the job and for your device. You don't need to worry about that if you use the <code>draw</code> class which does all the work for you. Drivers may have certain limitations in terms of the size of bitmap they can take in one operation, or performance characteristics that vary from device to device. As much as possible, I've tried to make using them consistent across disparate sources/destinations, but some devices, like e-paper displays are so different that&nbsp;care must be taken when using them in order to employ them in the way that is most effective.</p>
 
 <h4>Custom</h4>
 
-<p>You can implement your own draw sources and destinations by simply writing a class with the appropriate members.</p>
+<p>You can implement your own draw sources and destinations by simply writing a class with the appropriate members. We'll cover that toward the end.</p>
 
 <h3>Pixel Types</h3>
 
 <p>Pixels in GFX may take any form you can imagine, up to your machine's maximum word size. They can have as many as one channel per bit, and will take on any binary footprint you specify. If you want a 3 bit RGB pixel, you can easily make one, and then create bitmaps in that format - where there are 3 pixels every 9 bytes. You'll never have to worry whether or not this library can support your display driver or file format's pixel and color model. With GFX, you can define the binary footprint and channels of your pixels, and then extend GFX to support additional color models other than the 4 it supports simply by telling it how to convert to and from RGB*.</p>
 
-<p>*Indexed pixel formats are partially accounted for, but there is no CLUT/palette support yet.</p>
+<p>*Indexed pixel formats are accounted for, but there are certain restrictions in place and care must be taken when using them because they need an associated palette in order to resolve to a color.</p>
 
 <p>When you declare a pixel format, it becomes part of the type signature for anything that uses it. For example, a bitmap that uses a 24-bit pixel format is a different type than one that uses a 16-bit pixel format.</p>
 
@@ -136,11 +132,11 @@ file to your hard drive for editing.</b></p>
 
 <h4>Alpha Blending</h4>
 
-<p>If you create pixels with an alpha channel, it will be respected on supported destinations. Not all devices support the necessary features to enable this. It's also a performance killer, with no way to make it faster without hardware support, which isn't currently available for any supported device.</p>
+<p>If you create pixels with an alpha channel, it will be respected on supported destinations. Not all devices support the necessary features to enable this. It's also a performance killer, with no way to make it faster without hardware support, which isn't currently available for any supported device. Typically, it's best to alpha blend on a bitmap, and then draw the bitmap to a driver due to performance issues and the fact that many drivers currently do not act as draw sources, and so cannot alpha blend.</p>
 
 <h4>Indexed Color/Palette Support</h4>
 
-<p>Some draw destinations use an indexed color scheme, wherein they might have&nbsp;16 active colors for example picked from a palette of 262,144 possible colors. Or they may have a fixed set of 8 active colors and that's all. The active colors are all that can be displayed at any given point. This was common on older systems with limited frame buffer sizes. It may also be the case with some IoT display hardware, especially color e-Ink displays. e-Ink displays range from 2 color (monochrome) to 8 color that I've seen.</p>
+<p>Some draw destinations use an indexed color scheme, wherein they might have&nbsp;16 active colors for example picked from a palette of 262,144 possible colors. Or they may have a fixed set of 8 active colors and that's all. The active colors are all that can be displayed at any given point. This was common on older systems with limited frame buffer sizes. It may also be the case with some IoT display hardware, especially color e-paper&nbsp;displays. e-paper&nbsp;displays range from 2 color (monochrome) to 7&nbsp;color that I've seen.</p>
 
 <p>Draw targets that use an indexed pixel for their <code>pixel_type</code>&nbsp;- that is, devices with pixels that have a channel with a <code>channel_name</code> of <code>index</code>, are expected to expose a <code>palette_type</code>&nbsp;type alias that indicates the type of the palette they are using, as well as a <code>palette_type* palette() const</code> method that returns a pointer to the current palette.</p>
 
@@ -174,7 +170,7 @@ file to your hard drive for editing.</b></p>
 
 <h3>Images</h3>
 
-<p>Images include things like JPEGs, which is currently the only format this library supports, although PNG will be included very soon.</p>
+<p>Images include things like JPEGs, which is currently the only format this library supports, although PNG will be included soon-ish.</p>
 
 <p>Images are not drawing elements because it's not practical to either load an image into memory all at once, nor get random access to the pixel data therein, due to compression or things like progressively stored data.</p>
 
@@ -257,8 +253,8 @@ file to your hard drive for editing.</b></p>
 
 <p>Let's dive into some code. The following draws a classic effect around the four edges of the screen in four different colors, with "ESP32 GFX Demo" in the center of the screen:</p>
 
-<div class="pre-lang" id="premain868873"><div>C++</div><div class="pre-action-link"><span id="copycode868873" class="copy-code" data-index="868873" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre868873" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
+<div class="pre-lang" id="premain42896"><div>C++</div><div class="pre-action-link"><span id="copycode42896" class="copy-code" data-index="42896" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre42896" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font&amp; f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -284,7 +280,7 @@ for(int i = 1;i&lt;100;++i) {
 
 <p>The first thing is the screen gets filled with white by drawing a white rectangle over the entire screen. Note that draw sources and targets report their bounds as unsigned rectangles, but <code>draw</code> typically takes signed rectangles. That's nothing an explicit cast can't solve, and we do that as we need above.</p>
 
-<p>After that, we declare a reference to a <code>font</code> we included as a header file. The header file was generated from a old Windows 3.1 <em>.FON</em> file using the <em>fontgen</em> tool that ships with GFX. GFX can also load them into memory from a stream like a file rather than embedding them in the binary as a header. Each has advantages and disadvantages. The header is less flexible, but allows you to store the font as program memory rather than keeping it on the heap.</p>
+<p>After that, we declare a reference to a <code>font</code> we included as a header file. The header file was generated from a old Windows 3.1 <em>.FON</em> file using the <em>fontgen</em> tool that ships with GFX. GFX can also load them into memory from a stream like a file rather than embedding them in the binary as a header. Each has advantages and disadvantages. The header is less flexible, but allows you to store the font as program memory rather than keeping it on the heap. Again, the former method will not yet work with the Arduino framework.</p>
 
 <p>Now we declare a string literal to display, which isn't exciting, followed by something a little more interesting. We're measuring the text we're about to display so that we can center it. Keep in mind that measuring text requires an initial <code>ssize16</code> that indicates the total area the font has to work with, which allows for things like wrapping text that gets too long. Essentially measure text takes this size and returns a size that is shrunk down to the minimum required to hold the text at the given font. We then get the <code>bounds()</code> of the returned size to give us a bounding rectangle. Note that we call <code>center()</code> on this rectangle when we go to <code>draw::text&lt;&gt;()</code>.</p>
 
@@ -294,10 +290,10 @@ for(int i = 1;i&lt;100;++i) {
 
 <h4>Double Buffering, Suspend and Resume</h4>
 
-<p>Let's try it again - or at least something similar - this time using double buffering on a supporting target, like an SSD1306 display. Note that <code>suspend&lt;&gt;()</code> and <code>resume&lt;&gt;()</code> can be called regardless of the draw destination, but they will report <code>gfx::gfx_result::not_supported</code> on targets that are not double buffered:</p>
+<p>Let's try it again - or at least something similar - this time using double buffering on a supporting target, like an SSD1306 display. Note that <code>suspend&lt;&gt;()</code> and <code>resume&lt;&gt;()</code> can be called regardless of the draw destination, but they will report <code>gfx::gfx_result::not_supported</code> on targets that are not double buffered. You don't have to care that much about that, because the draws will still work, unbuffered. Anyway, here's the code:</p>
 
-<div class="pre-lang" id="premain51891"><div>C++</div><div class="pre-action-link"><span id="copycode51891" class="copy-code" data-index="51891" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre51891" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
+<div class="pre-lang" id="premain674793"><div>C++</div><div class="pre-action-link"><span id="copycode674793" class="copy-code" data-index="674793" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre674793" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font&amp; f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
 srect16 text_rect = srect16(spoint16(0,0),
@@ -334,8 +330,8 @@ for(int i = 1;i&lt;100;i+=10) {
 
 <p>Since adding polygon support, I suppose an example of that will be helpful. Here it is in practice:</p>
 
-<div class="pre-lang" id="premain508960"><div>C++</div><div class="pre-action-link"><span id="copycode508960" class="copy-code" data-index="508960" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre508960" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// draw a polygon (a triangle in this case)
+<div class="pre-lang" id="premain249070"><div>C++</div><div class="pre-action-link"><span id="copycode249070" class="copy-code" data-index="249070" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre249070" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// draw a polygon (a triangle in this case)
 // find the origin:
 const spoint16 porg = srect16(0,0,31,31)
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; .center_horizontal((srect16)lcd.bounds())
@@ -354,18 +350,18 @@ draw::filled_polygon(lcd,path,lcd_color::coral);</pre>
 
 <h4>A Pixel For Any Situation</h4>
 
-<p>You can define pixels by using the <code>pixel&lt;&gt;</code> template, which takes one or more <code>channel_traits&lt;&gt;</code> as arguments, themselves taking a name, a bit depth, and optional minimum, maximum, and scale. The channel names are predefined, and combinations of channel names make up <em>known color models</em>. Known color models are models that can be converted to and from an RGB color model, essentially. Currently they include RGB, Y'UV, YbCbCr, and grayscale. Declare pixels in order to create bitmaps in different formats or to declare color pixels for use with your particular display driver's native format. In the rare case you need to define one manually, you can do something like this:</p>
+<p>You can define pixels by using the <code>pixel&lt;&gt;</code> template, which takes one or more <code>channel_traits&lt;&gt;</code> as arguments, themselves taking a name, a bit depth, and optional minimum, maximum, default value, and scale. The channel names are predefined, and combinations of channel names make up <em>known color models</em>. Known color models are models that can be converted to and from an RGB color model, essentially. Currently they include RGB, Y'UV, YbCbCr, and grayscale. Declare pixels in order to create bitmaps in different formats or to declare color pixels for use with your particular display driver's native format. In the rare case you need to define one manually, you can do something like this:</p>
 
-<div class="pre-lang" id="premain158835"><div>C++</div><div class="pre-action-link"><span id="copycode158835" class="copy-code" data-index="158835" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre158835" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 16-bit RGB pixel
+<div class="pre-lang" id="premain195290"><div>C++</div><div class="pre-action-link"><span id="copycode195290" class="copy-code" data-index="195290" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre195290" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 16-bit RGB pixel
 using rgb565 = pixel&lt;channel_traits&lt;channel_name::R,5&gt;,
                     channel_traits&lt;channel_name::G,6&gt;,
                     channel_traits&lt;channel_name::B,5&gt;&gt;;</pre>
 
 <p>That declares a pixel with 3 channels, each of <code>uint8_t</code>: <code>R:5</code>, <code>G:6</code>, and <code>B:5</code>. Note that after the colon is how many effective bits it has. The <code>uint8_t</code> type is only for representing each pixel channel in value space in your code. In binary space, like laid out in an in memory bitmap, the pixel takes 16 bits, not 24. This defines a standard 16-bit pixel you typically find on color display adapters for IoT platforms. RGB is one of the known color models so there is a shorthand for declaring an RGB pixel type of any bit depth:</p>
 
-<div class="pre-lang" id="premain142040"><div>C++</div><div class="pre-action-link"><span id="copycode142040" class="copy-code" data-index="142040" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre142040" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using rgb565 = rgb_pixel&lt;16&gt;; // declare a 16-bit RGB pixel</pre>
+<div class="pre-lang" id="premain768788"><div>C++</div><div class="pre-action-link"><span id="copycode768788" class="copy-code" data-index="768788" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre768788" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using rgb565 = rgb_pixel&lt;16&gt;; // declare a 16-bit RGB pixel</pre>
 
 <p>This will divide the bits evenly among the channels, with remaining bits going on the green channel. It is shorthand for the longhand declaration given initially and it resolves to that.</p>
 
@@ -377,8 +373,8 @@ using rgb565 = pixel&lt;channel_traits&lt;channel_name::R,5&gt;,
 
 <p>Each pixel is composed of the channels you declared, and the channels may be accessed by "name" (<code>channel_name</code> enumeration) or by index. The values can be retrieved or set using <code>channel&lt;&gt;()</code> accessors for the native integer value and <code>channelr&lt;&gt;()</code> for real/floating point values scaled to between zero&nbsp;and one. Often times you need to set or get the channel programmatically based on some other compile time constant and the compiler will complain because it can't verify that the channel actually exists. In order to avoid this you can use <code>channel_unchecked&lt;&gt;()</code> which accesses the channel without compile time verification. If the channel does not exist, setting and getting does nothing. If you need to translate between real and integer values for a channel you can use the channel's <code>::scale</code> and <code>::scaler</code> values.</p>
 
-<div class="pre-lang" id="premain86542"><div>C++</div><div class="pre-action-link"><span id="copycode86542" class="copy-code" data-index="86542" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre86542" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 24-bit rgb pixel
+<div class="pre-lang" id="premain831742"><div>C++</div><div class="pre-action-link"><span id="copycode831742" class="copy-code" data-index="831742" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre831742" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">// declare a 24-bit rgb pixel
 rgb_pixel&lt;24&gt; rgb888;
 
 // set channel by index
@@ -404,12 +400,12 @@ uint32_t v = rgb888.value();</pre>
 
 <h5>Using the Alpha Channel</h5>
 
-<p>Pixels that have <code>channel_name::A</code>&nbsp;are said to have an alpha channel. In this case, the color can be semi-transparent. Internally the color will be blended with the background color when it is drawn, as long as the destination can support reading, or otherwise supports alpha blending natively (as in its <code>pixel_format</code> has an alpha channel). Draw destinations that do not support it always report black for the background color to blend with. Any <code>draw</code>&nbsp;method can take pixel colors with an alpha channel present. This is a powerful way to do color blending, but the tradeoff is a significant decrease in performance in most cases due to having to draw pixel by pixel to apply blending. It's also necessary to convert other color models to RGB to do the blending operation, so if conversion is lossy the colors will be fuzzed somewhat. The <code>rgba_pixel&lt;&gt;</code> template will create an RGB pixel with an alpha channel.</p>
+<p>Pixels that have <code>channel_name::A</code>&nbsp;are said to have an alpha channel. In this case, the color can be semi-transparent. Internally the color will be blended with the background color when it is drawn, as long as the destination can support reading, or otherwise supports alpha blending natively (as in its <code>pixel_format</code> has an alpha channel). Draw destinations that do not support it will not respect the alpha channel and will not blend. Any <code>draw</code>&nbsp;method can take pixel colors with an alpha channel present. This is a powerful way to do color blending, but the tradeoff is a significant decrease in performance in most cases due to having to draw pixel by pixel to apply blending.&nbsp;The <code>rgba_pixel&lt;&gt;</code> template will create an RGB pixel with an alpha channel.</p>
 
 <p>Here's an example of using it in the wild:</p>
 
-<div class="pre-lang" id="premain848681"><div>C++</div><div class="pre-action-link"><span id="copycode848681" class="copy-code" data-index="848681" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre848681" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmpa_type = rgba_pixel&lt;32&gt;;
+<div class="pre-lang" id="premain408944"><div>C++</div><div class="pre-action-link"><span id="copycode408944" class="copy-code" data-index="408944" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre408944" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmpa_type = rgba_pixel&lt;32&gt;;
 using bmpa_color = color&lt;bmpa_type&gt;;
 
 // do some alpha blended rectangles
@@ -458,7 +454,7 @@ draw::filled_rectangle(bmp,
 
 <h4>Ruminating on Rectangles</h4>
 
-<p>We've been using rectangles above a lot. As I've said, you have signed and unsigned rectangles, but you can convert between them with a cast. They also have an arsenal of manipulation methods on them. While rectangles themselves are mutable, these functions do not modify the rectangle, but rather they return a new rectangle, so for example, if you <code>offset()</code> a rectangle, a new rectangle is returned from the function.</p>
+<p>We've been using rectangles above a lot. As I've said, you have signed and unsigned rectangles, but you can convert between them with a cast. They also have an arsenal of manipulation methods on them. While rectangles themselves are mutable, these functions do not modify the rectangle, but rather they return a new rectangle, so for example, if you <code>offset()</code> a rectangle, a new rectangle is returned from the function. That said, there are <code>XXXX_inplace()</code> counterparts for some of these that modify the existing rectangle.</p>
 
 <p>Some functions that take a destination rectangle will use it as a hint about the orientation of what it is going to draw. <code>draw::arc&lt;&gt;()</code> is one such method. <code>draw::bitmap&lt;&gt;()</code> is another. You can use the <code>flip_XXXX()</code> methods to change the orientation of a rectangle, and the <code>orientation()</code> accessor to retrieve the orientation as flags. Most drawing operations - even lines and ellipses - use rectangles as their input parameters due to their flexibility. Get used to using them, as there's a lot of functionality packed into that two coordinate structure.</p>
 
@@ -484,31 +480,31 @@ draw::filled_rectangle(bmp,
 
 <p>Anyway, first we have to declare our buffer. I was very careful to make my objects <code>constexpr</code> enabled so you could do things like the following:</p>
 
-<div class="pre-lang" id="premain125191"><div>C++</div><div class="pre-action-link"><span id="copycode125191" class="copy-code" data-index="125191" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre125191" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmp_type = bitmap&lt;rgb_pixel&lt;16&gt;&gt;;
+<div class="pre-lang" id="premain325565"><div>C++</div><div class="pre-action-link"><span id="copycode325565" class="copy-code" data-index="325565" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre325565" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">using bmp_type = bitmap&lt;rgb_pixel&lt;16&gt;&gt;;
 // the following is for convenience:
 using bmp_color = color&lt;typename bmp_type::pixel_type&gt;; // needs GFX color header</pre>
 
 <p>followed by:</p>
 
-<div class="pre-lang" id="premain607634"><div>C++</div><div class="pre-action-link"><span id="copycode607634" class="copy-code" data-index="607634" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre607634" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">constexpr static const size16 bmp_size(16,16);
+<div class="pre-lang" id="premain375907"><div>C++</div><div class="pre-action-link"><span id="copycode375907" class="copy-code" data-index="375907" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre375907" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];</pre>
 
 <p>To be honest, the first time I wrote code like that, I was surprised it compiled. The modern C++ compiler is a truly wonderful thing. Back in the bad old days, I used to get so frustrated that C and C++ refused to allow you to put array size declarations behind a function call, regardless of how trivial the function was. I knew why, but it didn't make me less frustrated knowing that. The expression <code>sizeof_buffer()</code> computes is <code>(width*height*bit_depth+7)/8</code>. That returns the minimum number of whole bytes required to store your bitmap data at that size and color resolution.</p>
 
 <p>Now that we have all that, wrapping it with a bitmap is trivial:</p>
 
-<div class="pre-lang" id="premain420123"><div>C++</div><div class="pre-action-link"><span id="copycode420123" class="copy-code" data-index="420123" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre420123" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">bmp_type bmp(bmp_size,bmp_buf);
+<div class="pre-lang" id="premain302806"><div>C++</div><div class="pre-action-link"><span id="copycode302806" class="copy-code" data-index="302806" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre302806" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
 bmp.clear(bmp.bounds()); // zero the bmp memory</pre>
 
 <p>Now you can call <code>draw</code> methods passing <code>bmp</code> as the destination:</p>
 
-<div class="pre-lang" id="premain995390"><div>C++</div><div class="pre-action-link"><span id="copycode995390" class="copy-code" data-index="995390" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre995390" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"> // draw a happy face
+<div class="pre-lang" id="premain480416"><div>C++</div><div class="pre-action-link"><span id="copycode480416" class="copy-code" data-index="480416" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre480416" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"> // draw a happy face
 
 // bounding info for the face
 // change the line below if you want a subregion
@@ -566,8 +562,8 @@ draw::ellipse(bmp,mouth_bounds,bmp_color::black,&amp;mouth_clip);</pre>
 
 <p>The code looks approximately like this under the ESP-IDF at least:</p>
 
-<div class="pre-lang" id="premain766469"><div>C++</div><div class="pre-action-link"><span id="copycode766469" class="copy-code" data-index="766469" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre766469" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">uint16_t *lines[2];
+<div class="pre-lang" id="premain591388"><div>C++</div><div class="pre-action-link"><span id="copycode591388" class="copy-code" data-index="591388" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre591388" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i&lt;2; i++) {
     lines[i]=(uint16_t*)heap_caps_malloc(lcd.dimensions().width
@@ -627,8 +623,8 @@ for (int y=0; y&lt;lcd.dimensions().height; y+=PARALLEL_LINES) {
 
 <p>Below&nbsp;<code>lcd</code> represents our target on which to draw the image:</p>
 
-<div class="pre-lang" id="premain357900"><div>C++</div><div class="pre-action-link"><span id="copycode357900" class="copy-code" data-index="357900" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre357900" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
+<div class="pre-lang" id="premain507369"><div>C++</div><div class="pre-action-link"><span id="copycode507369" class="copy-code" data-index="507369" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre507369" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 draw::image(lcd,(srect16)lcd.bounds(),&amp;fs,rect16(0,0,-1,-1));</pre>
 
@@ -636,8 +632,8 @@ draw::image(lcd,(srect16)lcd.bounds(),&amp;fs,rect16(0,0,-1,-1));</pre>
 
 <p>The second way of loading an image is passing the stream to an image loader function along with a callback (I prefer to use an anonymous method/lambda for this) that handles the progressive loading. You'll be called back multiple times, each time with a portion of the image as a bitmap, along with a location where it belongs within the image, and any state you passed along to the load function. Note that to reduce overhead, a state variable is used to pass state instead of using a functor like <code>std::function</code>. You can use a "flat" lambda that decays to a simple function pointer, and then pass your class pointer in as the <code>state</code> argument, to be reconstituted inside your callback. Often times, you won't even need a state argument because everything you're after, such as the display itself, is available globally:</p>
 
-<div class="pre-lang" id="premain226263"><div>C++</div><div class="pre-action-link"><span id="copycode226263" class="copy-code" data-index="226263" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre226263" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
+<div class="pre-lang" id="premain339059"><div>C++</div><div class="pre-action-link"><span id="copycode339059" class="copy-code" data-index="339059" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre339059" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 jpeg_image::load(&amp;fs,[](size16 dimensions,
 &nbsp;                       typename jpeg_image::region_type&amp; region,
@@ -653,28 +649,28 @@ jpeg_image::load(&amp;fs,[](size16 dimensions,
 
 <p>Fonts can be used with <code>draw::text&lt;&gt;()</code> and can either be loaded from a stream, similar to images, or they can be embedded into the binary by generating a C++ header file for them. Which way you choose depends on what you need and what you're willing to give up. With embedded, everything is a matter of robbing Peter to pay Paul.</p>
 
-<p>Anyway, you'll usually want to go with the embedded fonts, unless you intend for the fonts to be able to be loaded and unloaded at runtime for some reason, or program space is at more of a premium than say, SPIFFs and RAM, or if you want to be able to load <em>.FON</em> files from an SD card for example.</p>
+<p>Anyway, you'll usually want to go with the embedded fonts, unless you intend for the fonts to be able to be loaded and unloaded at runtime for some reason, or program space is at more of a premium than say, SPIFFs and RAM, or if you want to be able to load <em>.FON</em> files from an SD card for example. Note once again that Arduino only supports embedding fonts, not loading them.</p>
 
 <p>Speaking of <em>.FON</em> files, they are an old (primarily) raster font format from the Windows 3.1 days. Given those were 16-bit systems, the <em>.FON</em> files were to the point, with little extra overhead and were designed to be read quickly. Furthermore while being old, at least they aren't a completely proprietary format. It is possible to hunt them down online, or even make your own. For these devices, <em>.FON</em> files are a nearly ideal format, which is why they were chosen here. With IoT, everything old is new again.</p>
 
-<p>You can use the <em>fontgen</em> tool to create header files from font files. Simply include these and reference the font in your code. The font is a global variable with the same name as the file, including the extension, with illegal identifier characters turned into underscores.</p>
+<p>You can use the <em>fontgen</em> tool to create header files from font files. Simply include these to embed them and then reference the font in your code. The font is a global variable with the same name as the file, including the extension, with illegal identifier characters turned into underscores.</p>
 
 <p>Let's talk about the first method - embedding:</p>
 
 <p>First, generate a header file from a font file using fontgen under the <em>tools</em> folder of the GFX library:</p>
 
-<div class="pre-lang" id="premain607685"><div>C++</div><div class="pre-action-link"><span id="copycode607685" class="copy-code" data-index="607685" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre607685" style="margin-top:0;" class=" lang-cplusplus" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True">~$ fontgen myfont.fon &gt; myfont.hpp</pre>
+<div class="pre-lang" id="premain31308"><div>Shell</div><div class="pre-action-link"><span id="copycode31308" class="copy-code" data-index="31308" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre31308" style="margin-top:0;" class=" lang-shell" data-language="shell" data-collapse="False" data-linecount="False" data-allow-shrink="True">~$ fontgen myfont.fon &gt; myfont.hpp</pre>
 
 <p>Now you can include that in your code:</p>
 
-<div class="pre-lang" id="premain649272"><div>C++</div><div class="pre-action-link"><span id="copycode649272" class="copy-code" data-index="649272" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre649272" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">#include <span class="code-string">"myfont.hpp"</span></pre>
+<div class="pre-lang" id="premain270698"><div>C++</div><div class="pre-action-link"><span id="copycode270698" class="copy-code" data-index="270698" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre270698" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">#include <span class="code-string">"myfont.hpp"</span></pre>
 
 <p>This allows you to reference the font like this:</p>
 
-<div class="pre-lang" id="premain346056"><div>C++</div><div class="pre-action-link"><span id="copycode346056" class="copy-code" data-index="346056" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre346056" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">const font&amp; f = myfont_fon;
+<div class="pre-lang" id="premain93088"><div>C++</div><div class="pre-action-link"><span id="copycode93088" class="copy-code" data-index="93088" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre93088" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">const font&amp; f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                         text).bounds();
@@ -686,8 +682,8 @@ draw::text(lcd,
 
 <p>The second way to access a font is by loading a <em>.FON</em> file from a stream, which stores the font around on the heap rather than embedded as a <code>static</code> <code>const</code> array in your code is to&nbsp;just replace the first line of code above with this:</p>
 
-<div class="pre-lang" id="premain438618"><div>C++</div><div class="pre-action-link"><span id="copycode438618" class="copy-code" data-index="438618" style="visibility:hidden">Copy Code</span></div></div>
-<pre id="pre438618" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/myfon.fon");
+<div class="pre-lang" id="premain156736"><div>C++</div><div class="pre-action-link"><span id="copycode156736" class="copy-code" data-index="156736" style="visibility:hidden">Copy Code</span></div></div>
+<pre id="pre156736" style="margin-top:0;" class=" lang-cplusplus" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True">file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");
     vTaskDelay(portMAX_DELAY);
@@ -788,10 +784,7 @@ font f(&amp;fs);</pre>
 <h2>History</h2>
 
 <ul>
-	<li>10<sup>th</sup> May, 2021 - Initial submission</li>	<li>16<sup>th</sup> May, 2021 - Added drivers, configurations, wiring guide</li>	<li>17<sup>th</sup> May, 2021 - Added more drivers</li>	<li>18<sup>th</sup> May, 2021 - Added sprite/transparent color support to <code>draw::bitmap&lt;&gt;()</code></li>	<li>21<sup>st</sup> May, 2021 - Bugfix and added another driver</li>	<li>21<sup>st</sup> May, 2021 - <code>draw::bitmap&lt;&gt;()</code>&nbsp;bugfix</li>	<li><span style="font-size: 14px">24</span><sup>th</sup> May, 2021 - Fixed build errors on some demos</li>	<li><span style="font-size: 14px">27</span><sup>th</sup> May, 2021 - Added alpha blending support</li>	<li><span style="font-size: 14px">29</span><sup>th</sup> May, 2021 - Added <code>large_bitmap&lt;&gt;</code>&nbsp;support, API changes, demo changes</li>	<li>31<sup>st</sup> May, 2021 - API cleanup and added paths and polygon support</li>	<li>31<sup>st</sup> May, 2021 - Fixed several build errors</li>	<li>1<sup>st</sup> June, 2021 - Added/fixed bitmap resize options and added dimensions to image callback</li>	<li><span style="font-size: 14px">5</span><sup>th</sup> June, 2021 - Added single header file, and easier to use image loading. cleaned up positioning api a bit. bugfix in declarions of clipping rect parameters on <code>draw::</code></li>	<li><span style="font-size: 14px">7</span><sup>th</sup> June, 2021 - Service&nbsp;release.&nbsp;Certain&nbsp;draw&nbsp;operations&nbsp;between&nbsp;certain&nbsp;draw&nbsp;targets&nbsp;would&nbsp;fail&nbsp;to&nbsp;compile</li>	<li><span style="font-size: 14px">8</span><sup>th</sup> June, 2021 - Added palette/CLUT support (initial/experimental)</li>	<li>	<p><span style="font-size: 14px">8</span><sup>th</sup> June, 2021 - Service&nbsp;release.&nbsp;Fixed&nbsp;<code>large_bitmap&lt;&gt;</code>&nbsp;out&nbsp;of&nbsp;bounds&nbsp;crashing&nbsp;issue</p>
-	</li>	<li>	<p><span style="font-size: 14px">13</span><sup>th</sup> June, 2021 - Added Arduino framework support and several Arduino based drivers</p>
-	</li>	<li>	<p><span style="font-size: 14px">15</span><sup>th</sup> June, 2021 - Added support for two e-ink/e-paper displays: the DEP0290B (and the associated LilyGo T5 2.2 board) as well as the&nbsp;GDEH0154Z90 (WaveShare 1.54 inch 3-color black/white/red display).</p>
-	</li></ul>
+	<li>10<sup>th</sup> May, 2021 - Initial submission</li>	<li>16<sup>th</sup> May, 2021 - Added drivers, configurations, wiring guide</li>	<li>17<sup>th</sup> May, 2021 - Added more drivers</li>	<li>18<sup>th</sup> May, 2021 - Added sprite/transparent color support to <code>draw::bitmap&lt;&gt;()</code></li>	<li>21<sup>st</sup> May, 2021 - Bugfix and added another driver</li>	<li>21<sup>st</sup> May, 2021 - <code>draw::bitmap&lt;&gt;()</code>&nbsp;bugfix</li>	<li><span style="font-size: 14px">24</span><sup>th</sup> May, 2021 - Fixed build errors on some demos</li>	<li><span style="font-size: 14px">27</span><sup>th</sup> May, 2021 - Added alpha blending support</li>	<li><span style="font-size: 14px">29</span><sup>th</sup> May, 2021 - Added <code>large_bitmap&lt;&gt;</code>&nbsp;support, API changes, demo changes</li>	<li>31<sup>st</sup> May, 2021 - API cleanup and added paths and polygon support</li>	<li>31<sup>st</sup> May, 2021 - Fixed several build errors</li>	<li>1<sup>st</sup> June, 2021 - Added/fixed bitmap resize options and added dimensions to image callback</li>	<li><span style="font-size: 14px">5</span><sup>th</sup> June, 2021 - Added single header file, and easier to use image loading. cleaned up positioning api a bit. bugfix in declarions of clipping rect parameters on <code>draw::</code></li>	<li><span style="font-size: 14px">7</span><sup>th</sup> June, 2021 - Service&nbsp;release.&nbsp;Certain&nbsp;draw&nbsp;operations&nbsp;between&nbsp;certain&nbsp;draw&nbsp;targets&nbsp;would&nbsp;fail&nbsp;to&nbsp;compile</li>	<li><span style="font-size: 14px">8</span><sup>th</sup> June, 2021 - Added palette/CLUT support (initial/experimental)</li>	<li><span style="font-size: 14px">8</span><sup>th</sup> June, 2021 - Service&nbsp;release.&nbsp;Fixed&nbsp;<code>large_bitmap&lt;&gt;</code>&nbsp;out&nbsp;of&nbsp;bounds&nbsp;crashing&nbsp;issue</li>	<li><span style="font-size: 14px">13</span><sup>th</sup> June, 2021 - Added Arduino framework support and several Arduino based drivers</li>	<li><span style="font-size: 14px">15</span><sup>th</sup> June, 2021 - Added support for two e-ink/e-paper displays: the DEP0290B (and the associated LilyGo T5 2.2 board) as well as the&nbsp;GDEH0154Z90 (WaveShare 1.54 inch 3-color black/white/red display).</li></ul>
 
 
 </span>

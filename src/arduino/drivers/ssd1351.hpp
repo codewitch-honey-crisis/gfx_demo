@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "common/spi_driver.hpp"
+#include "common/tft_spi_driver.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_palette.hpp"
 #include "gfx_positioning.hpp"
@@ -102,7 +102,7 @@ namespace ssd1351_helpers {
             size_t BatchBufferSize=64
             >
     struct ssd1351 final : 
-            public spi_driver<128,
+            public tft_spi_driver<128,
                             128,
                             PinCS,
                             PinDC,
@@ -112,7 +112,7 @@ namespace ssd1351_helpers {
                             10*1000*1000,
 #endif
                             BatchBufferSize> {
-        using base_type = spi_driver<128,
+        using base_type = tft_spi_driver<128,
                             128,
                             PinCS,
                             PinDC,
@@ -147,7 +147,7 @@ namespace ssd1351_helpers {
             }
             
         }
-        virtual void write_window(const spi_driver_rect& win, spi_driver_set_window_flags flags) {
+        virtual void write_window(const tft_spi_driver_rect& win, tft_spi_driver_set_window_flags flags) {
             uint8_t tx_data[2];
 
             this->send_next_command(SSD1351_CMD_SETCOLUMN); // X range
@@ -192,7 +192,7 @@ namespace ssd1351_helpers {
             static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr)  {
                 uint16_t w = dstr.dimensions().width;
                 uint16_t h = dstr.dimensions().height;
-                spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
+                tft_spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
                 this_->batch_write_begin(drr);
                 for(uint16_t y=0;y<h;++y) {
                     for(uint16_t x=0;x<w;++x) {
@@ -219,7 +219,7 @@ namespace ssd1351_helpers {
             static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr) {
                 // direct blt
                 if(src.bounds().width()==srcr.width() && srcr.x1==0) {
-                    spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
+                    tft_spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
                     this_->frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
                     return gfx::gfx_result::success;
                 }
@@ -228,7 +228,7 @@ namespace ssd1351_helpers {
                 uint16_t hh=srcr.height();
                 uint16_t ww = src.dimensions().width;
                 while(yy<hh) {
-                    spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
+                    tft_spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
                     this_->frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
                     ++yy;
                 }
@@ -269,8 +269,8 @@ namespace ssd1351_helpers {
             if(nullptr==pixel)
                 return gfx::gfx_result::invalid_argument;
             uint16_t pv;
-            spi_driver_result r = this->pixel_read(location.x,location.y,&pv);
-            if(spi_driver_result::success!=r)
+            tft_spi_driver_result r = this->pixel_read(location.x,location.y,&pv);
+            if(tft_spi_driver_result::success!=r)
                 return xlt_err(r);
             pixel->value(pv);
             return gfx::gfx_result::success;
@@ -278,7 +278,7 @@ namespace ssd1351_helpers {
         */
         // fills the specified rectangle with the specified pixel
         gfx::gfx_result fill(const gfx::rect16& bounds,pixel_type color) {
-            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
             this->frame_fill(b,color.value());
             return gfx::gfx_result::success;
         }
@@ -289,7 +289,7 @@ namespace ssd1351_helpers {
         }
         // begins a batch operation for the specified rectangle
         inline gfx::gfx_result begin_batch(const gfx::rect16& bounds) {
-            spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
+            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
             this->batch_write_begin(b);
             return gfx::gfx_result::success;
         }

@@ -23,12 +23,12 @@ using lcd_type = gdeh0154z90<PIN_NUM_CS,
                         PIN_NUM_RST,
                         PIN_NUM_BUSY>;
 using lcd_color = color<typename lcd_type::pixel_type>;
-using lcdm_color = color<typename lcd_type::palette_type::mapped_pixel_type>;
+
 lcd_type lcd(spi);
 void lines_demo() {
     draw::suspend(lcd);
     const font& f = Bm437_Acer_VGA_8x8_FON;
-    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcdm_color::white);
+    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),color_max::white);
     const char* text = "GFX Demo";
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
                             text).bounds();
@@ -37,13 +37,13 @@ void lines_demo() {
             text_rect.center((srect16)lcd.bounds()),
             text,
             f,
-            lcdm_color::red);
+            color_max::red);
     text_rect.offset_inplace(-1,-1);
     draw::text(lcd,
             text_rect.center((srect16)lcd.bounds()),
             text,
             f,
-            lcdm_color::black);
+            color_max::black);
     for(int i = 1;i<100;i+=2) {
         // calculate our extents
         srect16 r(i*(lcd_type::width/100.0),
@@ -51,10 +51,10 @@ void lines_demo() {
                 lcd_type::width-i*(lcd_type::width/100.0)-1,
                 lcd_type::height-i*(lcd_type::height/100.0)-1);
         // draw the four lines
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcdm_color::black);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcdm_color::black);
-        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcdm_color::red);
-        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcdm_color::red);
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),color_max::black);
+        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),color_max::black);
+        draw::line(lcd,srect16(0,r.y2,r.x1,0),color_max::red);
+        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),color_max::red);
     }
     draw::resume(lcd);
 }
@@ -68,7 +68,7 @@ void setup() {
     // refresh rate is terribly slow.
     while(true) {
         draw::suspend(lcd);
-        draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcdm_color::white);
+        draw::filled_rectangle(lcd,(srect16)lcd.bounds(),color_max::white);
         rect16 image_bounds(0,0,199,199);
         rect16 crop_bounds(0,0,199,199);
         File fs = SPIFFS.open("/image_200.jpg");
@@ -79,13 +79,20 @@ void setup() {
         ssize16 fd=f.measure_text({200,200},text);
         srect16 tr=srect16(spoint16(0,lcd.height-f.height()*3-1),fd).center_horizontal((srect16)lcd.bounds());
         tr.offset_inplace(1,1);
-        draw::text(lcd,tr,text,f,lcdm_color::red);
+        draw::text(lcd,tr,text,f,color_max::red);
         tr.offset_inplace(-1,-1);
-        draw::text(lcd,tr,text,f,lcdm_color::black);
+        draw::text(lcd,tr,text,f,color_max::black);
         draw::resume(lcd);
-        delay(30000);
+        delay(15000);
         lines_demo();
-        delay(30000);
+        delay(15000);
+        draw::suspend(lcd);
+        image_bounds = rect16(0,0,335,255);
+        fs = SPIFFS.open("/image2.jpg");
+        draw::image(lcd,(srect16)crop_bounds,&fs,crop_bounds.center(image_bounds));
+        fs.close();
+        draw::resume(lcd);
+        delay(15000);
     }
 }
 void loop() {

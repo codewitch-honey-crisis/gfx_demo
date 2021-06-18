@@ -58,9 +58,9 @@ You'll need Visual Studio Code with the Platform IO extension installed. You'll 
 
 I recommend the [Espressif ESP-WROVER-KIT](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) development board which has an integrated ILI9341 display and several other pre-wired peripherals, plus an integrated debugger and a superior USB to serial bridge with faster upload speeds. They can be harder to find than a standard ESP32 devboard, but I found them at JAMECO and Mouser for about \$40 USD. They're well worth the investment if you do ESP32 development. The integrated debugger, though very slow compared to a PC, is faster than you can get with an external JTAG probe attached to a standard WROVER devboard.
 
-Most of you however, will be using one or more of the "generic-esp32" configurations. At the bottom of the screen in the blue bar of VS Code, there is a configuration switcher. It should be set at Default to start, but you can change it by clicking on default. A list of many configurations will drop down from the top of the screen. From there, you can choose which generic-esp32 setup you have, based on the display attached to it. 
+Most of you however, will be using one or more of the generic esp32 configurations. First decide which framework you want to use - ESP-IDF, or Arduino. At the bottom of the screen in the blue bar of VS Code, there is a configuration switcher. It should be set at Default to start, but you can change it by clicking on default. A list of many configurations will drop down from the top of the screen. From there, you can choose which generic esp32 setup you have, based on the display attached to it, and with it, which framework you want to use.
 
-In order to wire all this up, refer to *wiring\_guide.txt* which has display wirings for SPI and I2C displays. Keep in mind some display vendors name their pins with non-standard names. For example, on some displays `MOSI` might be labled as `DIN` or `A0`. You make have to do some googling to find out the particulars for your device.
+In order to wire all this up, refer to *wiring\_guide.txt* which has display wirings for SPI and I2C displays. Keep in mind some display vendors name their pins with non-standard names. For example, on some displays `MOSI` might be labled as `DIN` or `A0`. You make have to do some googling to find out the particulars for your device.
 
 Before you can run it, you must Upload Filesystem Image under the Platform IO sidebar - Tasks.
 
@@ -79,7 +79,6 @@ The following configurations are currently supported. Select the one that you wa
 -   esp-idf-SSD1351
 -   esp-idf-MAX7219\*
 -   esp-idf-GDEH0154Z90
-
 -   arduino-esp-wrover-kit
 -   arduino-lilygo-ttgo
 -   arduino-lilygo-t5\_v22
@@ -112,17 +111,17 @@ Bitmaps are sort of all-purpose draw source/destinations. They basically allow y
 
 #### Drivers
 
-Drivers are a typically a more limited draw destination, but may have performance features, which GFX will use when available. You can check what features draw sources and destinations have available using the `caps` member so that you can call the right methods for the job and for your device. You don't need to worry about that if you use the `draw` class which does all the work for you. Drivers may have certain limitations in terms of the size of bitmap they can take in one operation, or performance characteristics that vary from device to device. As much as possible, I've tried to make using them consistent across disparate sources/destinations.
+Drivers are a typically a more limited draw target, but may have performance features, which GFX will use when available. You can check what features draw sources and destinations have available using the `caps` member so that you can call the right methods for the job and for your device. You don't need to worry about that if you use the `draw` class which does all the work for you. Drivers may have certain limitations in terms of the size of bitmap they can take in one operation, or performance characteristics that vary from device to device. As much as possible, I've tried to make using them consistent across disparate sources/destinations, but some devices, like e-paper displays are so different that care must be taken when using them in order to employ them in the way that is most effective.
 
 #### Custom
 
-You can implement your own draw sources and destinations by simply writing a class with the appropriate members.
+You can implement your own draw sources and destinations by simply writing a class with the appropriate members. We'll cover that toward the end.
 
 ### Pixel Types
 
 Pixels in GFX may take any form you can imagine, up to your machine's maximum word size. They can have as many as one channel per bit, and will take on any binary footprint you specify. If you want a 3 bit RGB pixel, you can easily make one, and then create bitmaps in that format - where there are 3 pixels every 9 bytes. You'll never have to worry whether or not this library can support your display driver or file format's pixel and color model. With GFX, you can define the binary footprint and channels of your pixels, and then extend GFX to support additional color models other than the 4 it supports simply by telling it how to convert to and from RGB\*.
 
-\*Indexed pixel formats are partially accounted for, but there is no CLUT/palette support yet.
+\*Indexed pixel formats are accounted for, but there are certain restrictions in place and care must be taken when using them because they need an associated palette in order to resolve to a color.
 
 When you declare a pixel format, it becomes part of the type signature for anything that uses it. For example, a bitmap that uses a 24-bit pixel format is a different type than one that uses a 16-bit pixel format.
 
@@ -130,11 +129,11 @@ Due to this, the more pixel formats you have, the greater your code size will be
 
 #### Alpha Blending
 
-If you create pixels with an alpha channel, it will be respected on supported destinations. Not all devices support the necessary features to enable this. It's also a performance killer, with no way to make it faster without hardware support, which isn't currently available for any supported device.
+If you create pixels with an alpha channel, it will be respected on supported destinations. Not all devices support the necessary features to enable this. It's also a performance killer, with no way to make it faster without hardware support, which isn't currently available for any supported device. Typically, it's best to alpha blend on a bitmap, and then draw the bitmap to a driver due to performance issues and the fact that many drivers currently do not act as draw sources, and so cannot alpha blend.
 
 #### Indexed Color/Palette Support
 
-Some draw destinations use an indexed color scheme, wherein they might have 16 active colors for example picked from a palette of 262,144 possible colors. Or they may have a fixed set of 8 active colors and that's all. The active colors are all that can be displayed at any given point. This was common on older systems with limited frame buffer sizes. It may also be the case with some IoT display hardware, especially color e-Ink displays. e-Ink displays range from 2 color (monochrome) to 8 color that I've seen.
+Some draw destinations use an indexed color scheme, wherein they might have 16 active colors for example picked from a palette of 262,144 possible colors. Or they may have a fixed set of 8 active colors and that's all. The active colors are all that can be displayed at any given point. This was common on older systems with limited frame buffer sizes. It may also be the case with some IoT display hardware, especially color e-paper displays. e-paper displays range from 2 color (monochrome) to 7 color that I've seen.
 
 Draw targets that use an indexed pixel for their `pixel_type` - that is, devices with pixels that have a channel with a `channel_name` of `index`, are expected to expose a `palette_type` type alias that indicates the type of the palette they are using, as well as a `palette_type* palette() const` method that returns a pointer to the current palette.
 
@@ -168,7 +167,7 @@ In addition to loading and providing basic information about fonts, the `font` c
 
 ### Images
 
-Images include things like JPEGs, which is currently the only format this library supports, although PNG will be included very soon.
+Images include things like JPEGs, which is currently the only format this library supports, although PNG will be included soon-ish.
 
 Images are not drawing elements because it's not practical to either load an image into memory all at once, nor get random access to the pixel data therein, due to compression or things like progressively stored data.
 
@@ -261,7 +260,7 @@ Let's dive into some code. The following draws a classic effect around the four 
 
 C++
 
-``` {#pre868873 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre42896 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font& f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
@@ -289,7 +288,7 @@ for(int i = 1;i<100;++i) {
 
 The first thing is the screen gets filled with white by drawing a white rectangle over the entire screen. Note that draw sources and targets report their bounds as unsigned rectangles, but `draw` typically takes signed rectangles. That's nothing an explicit cast can't solve, and we do that as we need above.
 
-After that, we declare a reference to a `font` we included as a header file. The header file was generated from a old Windows 3.1 *.FON* file using the *fontgen* tool that ships with GFX. GFX can also load them into memory from a stream like a file rather than embedding them in the binary as a header. Each has advantages and disadvantages. The header is less flexible, but allows you to store the font as program memory rather than keeping it on the heap.
+After that, we declare a reference to a `font` we included as a header file. The header file was generated from a old Windows 3.1 *.FON* file using the *fontgen* tool that ships with GFX. GFX can also load them into memory from a stream like a file rather than embedding them in the binary as a header. Each has advantages and disadvantages. The header is less flexible, but allows you to store the font as program memory rather than keeping it on the heap. Again, the former method will not yet work with the Arduino framework.
 
 Now we declare a string literal to display, which isn't exciting, followed by something a little more interesting. We're measuring the text we're about to display so that we can center it. Keep in mind that measuring text requires an initial `ssize16` that indicates the total area the font has to work with, which allows for things like wrapping text that gets too long. Essentially measure text takes this size and returns a size that is shrunk down to the minimum required to hold the text at the given font. We then get the `bounds()` of the returned size to give us a bounding rectangle. Note that we call `center()` on this rectangle when we go to `draw::text<>()`.
 
@@ -299,11 +298,11 @@ Compare the performance of line drawing with GFX to other libraries. You'll be p
 
 #### Double Buffering, Suspend and Resume
 
-Let's try it again - or at least something similar - this time using double buffering on a supporting target, like an SSD1306 display. Note that `suspend<>()` and `resume<>()` can be called regardless of the draw destination, but they will report `gfx::gfx_result::not_supported` on targets that are not double buffered:
+Let's try it again - or at least something similar - this time using double buffering on a supporting target, like an SSD1306 display. Note that `suspend<>()` and `resume<>()` can be called regardless of the draw destination, but they will report `gfx::gfx_result::not_supported` on targets that are not double buffered. You don't have to care that much about that, because the draws will still work, unbuffered. Anyway, here's the code:
 
 C++
 
-``` {#pre51891 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre674793 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font& f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
@@ -344,7 +343,7 @@ Since adding polygon support, I suppose an example of that will be helpful. Here
 
 C++
 
-``` {#pre508960 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre249070 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // draw a polygon (a triangle in this case)
 // find the origin:
 const spoint16 porg = srect16(0,0,31,31)
@@ -365,11 +364,11 @@ This will draw a small triangle horizontally centered at the bottom of the scree
 
 #### A Pixel For Any Situation
 
-You can define pixels by using the `pixel<>` template, which takes one or more `channel_traits<>` as arguments, themselves taking a name, a bit depth, and optional minimum, maximum, and scale. The channel names are predefined, and combinations of channel names make up *known color models*. Known color models are models that can be converted to and from an RGB color model, essentially. Currently they include RGB, Y'UV, YbCbCr, and grayscale. Declare pixels in order to create bitmaps in different formats or to declare color pixels for use with your particular display driver's native format. In the rare case you need to define one manually, you can do something like this:
+You can define pixels by using the `pixel<>` template, which takes one or more `channel_traits<>` as arguments, themselves taking a name, a bit depth, and optional minimum, maximum, default value, and scale. The channel names are predefined, and combinations of channel names make up *known color models*. Known color models are models that can be converted to and from an RGB color model, essentially. Currently they include RGB, Y'UV, YbCbCr, and grayscale. Declare pixels in order to create bitmaps in different formats or to declare color pixels for use with your particular display driver's native format. In the rare case you need to define one manually, you can do something like this:
 
 C++
 
-``` {#pre158835 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre195290 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 16-bit RGB pixel
 using rgb565 = pixel<channel_traits<channel_name::R,5>,
                     channel_traits<channel_name::G,6>,
@@ -380,7 +379,7 @@ That declares a pixel with 3 channels, each of `uint8_t`: `R:5`, `G:6`, and `B:5
 
 C++
 
-``` {#pre142040 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre768788 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using rgb565 = rgb_pixel<16>; // declare a 16-bit RGB pixel
 ```
 
@@ -396,7 +395,7 @@ Each pixel is composed of the channels you declared, and the channels may be acc
 
 C++
 
-``` {#pre86542 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre831742 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 24-bit rgb pixel
 rgb_pixel<24> rgb888;
 
@@ -424,13 +423,13 @@ These are accessed through the `color<>` template which provides a psuedo-enum o
 
 ##### Using the Alpha Channel
 
-Pixels that have `channel_name::A` are said to have an alpha channel. In this case, the color can be semi-transparent. Internally the color will be blended with the background color when it is drawn, as long as the destination can support reading, or otherwise supports alpha blending natively (as in its `pixel_format` has an alpha channel). Draw destinations that do not support it always report black for the background color to blend with. Any `draw` method can take pixel colors with an alpha channel present. This is a powerful way to do color blending, but the tradeoff is a significant decrease in performance in most cases due to having to draw pixel by pixel to apply blending. It's also necessary to convert other color models to RGB to do the blending operation, so if conversion is lossy the colors will be fuzzed somewhat. The `rgba_pixel<>` template will create an RGB pixel with an alpha channel.
+Pixels that have `channel_name::A` are said to have an alpha channel. In this case, the color can be semi-transparent. Internally the color will be blended with the background color when it is drawn, as long as the destination can support reading, or otherwise supports alpha blending natively (as in its `pixel_format` has an alpha channel). Draw destinations that do not support it will not respect the alpha channel and will not blend. Any `draw` method can take pixel colors with an alpha channel present. This is a powerful way to do color blending, but the tradeoff is a significant decrease in performance in most cases due to having to draw pixel by pixel to apply blending. The `rgba_pixel<>` template will create an RGB pixel with an alpha channel.
 
 Here's an example of using it in the wild:
 
 C++
 
-``` {#pre848681 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre408944 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmpa_type = rgba_pixel<32>;
 using bmpa_color = color<bmpa_type>;
 
@@ -481,7 +480,7 @@ Forgive the formatting. It's the best I could do to avoid even worse line breaks
 
 #### Ruminating on Rectangles
 
-We've been using rectangles above a lot. As I've said, you have signed and unsigned rectangles, but you can convert between them with a cast. They also have an arsenal of manipulation methods on them. While rectangles themselves are mutable, these functions do not modify the rectangle, but rather they return a new rectangle, so for example, if you `offset()` a rectangle, a new rectangle is returned from the function.
+We've been using rectangles above a lot. As I've said, you have signed and unsigned rectangles, but you can convert between them with a cast. They also have an arsenal of manipulation methods on them. While rectangles themselves are mutable, these functions do not modify the rectangle, but rather they return a new rectangle, so for example, if you `offset()` a rectangle, a new rectangle is returned from the function. That said, there are `XXXX_inplace()` counterparts for some of these that modify the existing rectangle.
 
 Some functions that take a destination rectangle will use it as a hint about the orientation of what it is going to draw. `draw::arc<>()` is one such method. `draw::bitmap<>()` is another. You can use the `flip_XXXX()` methods to change the orientation of a rectangle, and the `orientation()` accessor to retrieve the orientation as flags. Most drawing operations - even lines and ellipses - use rectangles as their input parameters due to their flexibility. Get used to using them, as there's a lot of functionality packed into that two coordinate structure.
 
@@ -509,7 +508,7 @@ Anyway, first we have to declare our buffer. I was very careful to make my objec
 
 C++
 
-``` {#pre125191 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre325565 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmp_type = bitmap<rgb_pixel<16>>;
 // the following is for convenience:
 using bmp_color = color<typename bmp_type::pixel_type>; // needs GFX color header
@@ -519,7 +518,7 @@ followed by:
 
 C++
 
-``` {#pre607634 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre375907 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 ```
@@ -530,7 +529,7 @@ Now that we have all that, wrapping it with a bitmap is trivial:
 
 C++
 
-``` {#pre420123 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre302806 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
@@ -541,7 +540,7 @@ Now you can call `draw` methods passing `bmp` as the destination:
 
 C++
 
-``` {#pre995390 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre480416 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
  // draw a happy face
 
 // bounding info for the face
@@ -603,7 +602,7 @@ The code looks approximately like this under the ESP-IDF at least:
 
 C++
 
-``` {#pre766469 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre591388 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i<2; i++) {
@@ -667,7 +666,7 @@ Below `lcd` represents our target on which to draw the image:
 
 C++
 
-``` {#pre357900 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre507369 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 draw::image(lcd,(srect16)lcd.bounds(),&fs,rect16(0,0,-1,-1));
@@ -679,7 +678,7 @@ The second way of loading an image is passing the stream to an image loader func
 
 C++
 
-``` {#pre226263 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre339059 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 jpeg_image::load(&fs,[](size16 dimensions,
@@ -697,19 +696,19 @@ jpeg_image::load(&fs,[](size16 dimensions,
 
 Fonts can be used with `draw::text<>()` and can either be loaded from a stream, similar to images, or they can be embedded into the binary by generating a C++ header file for them. Which way you choose depends on what you need and what you're willing to give up. With embedded, everything is a matter of robbing Peter to pay Paul.
 
-Anyway, you'll usually want to go with the embedded fonts, unless you intend for the fonts to be able to be loaded and unloaded at runtime for some reason, or program space is at more of a premium than say, SPIFFs and RAM, or if you want to be able to load *.FON* files from an SD card for example.
+Anyway, you'll usually want to go with the embedded fonts, unless you intend for the fonts to be able to be loaded and unloaded at runtime for some reason, or program space is at more of a premium than say, SPIFFs and RAM, or if you want to be able to load *.FON* files from an SD card for example. Note once again that Arduino only supports embedding fonts, not loading them.
 
 Speaking of *.FON* files, they are an old (primarily) raster font format from the Windows 3.1 days. Given those were 16-bit systems, the *.FON* files were to the point, with little extra overhead and were designed to be read quickly. Furthermore while being old, at least they aren't a completely proprietary format. It is possible to hunt them down online, or even make your own. For these devices, *.FON* files are a nearly ideal format, which is why they were chosen here. With IoT, everything old is new again.
 
-You can use the *fontgen* tool to create header files from font files. Simply include these and reference the font in your code. The font is a global variable with the same name as the file, including the extension, with illegal identifier characters turned into underscores.
+You can use the *fontgen* tool to create header files from font files. Simply include these to embed them and then reference the font in your code. The font is a global variable with the same name as the file, including the extension, with illegal identifier characters turned into underscores.
 
 Let's talk about the first method - embedding:
 
 First, generate a header file from a font file using fontgen under the *tools* folder of the GFX library:
 
-C++
+Shell
 
-``` {#pre607685 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre31308 .lang-shell style="margin-top:0;" data-language="shell" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 ~$ fontgen myfont.fon > myfont.hpp
 ```
 
@@ -717,7 +716,7 @@ Now you can include that in your code:
 
 C++
 
-``` {#pre649272 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre270698 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 #include "myfont.hpp"
 ```
 
@@ -725,7 +724,7 @@ This allows you to reference the font like this:
 
 C++
 
-``` {#pre346056 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre93088 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 const font& f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -741,7 +740,7 @@ The second way to access a font is by loading a *.FON* file from a stream, which
 
 C++
 
-``` {#pre438618 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre156736 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");

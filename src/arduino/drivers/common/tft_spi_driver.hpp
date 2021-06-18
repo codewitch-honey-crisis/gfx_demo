@@ -3,13 +3,13 @@
 #include <SPI.h>
 namespace arduino {
     // for faster function calls:
-    struct spi_driver_rect {
+    struct tft_spi_driver_rect {
         uint16_t x1;
         uint16_t y1;
         uint16_t x2;
         uint16_t y2;
     };
-    struct spi_driver_set_window_flags {
+    struct tft_spi_driver_set_window_flags {
         int x1 : 1;
         int y1 : 1;
         int x2 : 1;
@@ -21,7 +21,7 @@ namespace arduino {
         int8_t PinDC, 
         uint32_t ClockSpeed=10*1000*1000, 
         size_t BatchBufferSize=64>
-    struct spi_driver {
+    struct tft_spi_driver {
         constexpr static const uint16_t width = Width;
         constexpr static const uint16_t height = Height;
         constexpr static const int8_t pin_cs = PinCS;
@@ -34,7 +34,7 @@ namespace arduino {
         SPISettings m_spi_settings;
         size_t m_batch_left;
         uint16_t m_batch_buffer[batch_buffer_size/sizeof(uint16_t)];
-        spi_driver_rect m_batch_window;
+        tft_spi_driver_rect m_batch_window;
         
         void spi_write(const uint8_t* data,size_t size) {
 #if defined(ESP8266) || defined(ESP32)
@@ -81,9 +81,9 @@ namespace arduino {
            send_next_data((uint8_t*)m_batch_buffer,m_batch_left*sizeof(uint16_t),true);
             m_batch_left=0;
         }
-        void batch_write_begin_impl(const spi_driver_rect& r,spi_driver_set_window_flags set_flags) {
+        void batch_write_begin_impl(const tft_spi_driver_rect& r,tft_spi_driver_set_window_flags set_flags) {
              // normalize values
-            spi_driver_rect b;
+            tft_spi_driver_rect b;
             if(r.x1>r.x2) {
                 b.x2=r.x1;
                 b.x1=r.x2;
@@ -137,11 +137,11 @@ namespace arduino {
                 }
             }
         }
-        void frame_fill_impl(const spi_driver_rect& b,
+        void frame_fill_impl(const tft_spi_driver_rect& b,
                             uint16_t color) {
             
             // normalize values
-            spi_driver_rect br;
+            tft_spi_driver_rect br;
             if(b.x1>b.x2) {
                 br.x2=b.x1;
                 br.x1=b.x2;
@@ -181,10 +181,10 @@ namespace arduino {
             
             // set the address window. we're not
             // actually batching here.
-            spi_driver_rect b;
+            tft_spi_driver_rect b;
             b.x1=b.x2=x;
             b.y1=b.y2=y;
-            spi_driver_set_window_flags f;
+            tft_spi_driver_set_window_flags f;
             f.x1 = m_batch_window.x1!=x;
             f.y1 = m_batch_window.y1!=y;
            
@@ -210,8 +210,8 @@ namespace arduino {
             spi_write(data,size);
             spi_end();
         }
-        virtual void write_window(const spi_driver_rect& bounds,spi_driver_set_window_flags flags)=0;
-        virtual void read_window(const spi_driver_rect& bounds) {
+        virtual void write_window(const tft_spi_driver_rect& bounds,tft_spi_driver_set_window_flags flags)=0;
+        virtual void read_window(const tft_spi_driver_rect& bounds) {
 
         }
         virtual void initialize_impl() {
@@ -230,14 +230,14 @@ namespace arduino {
         }
         
     public:
-        spi_driver(SPIClass& spi) : 
+        tft_spi_driver(SPIClass& spi) : 
                 m_initialized(false),
                 m_spi(spi),
                 m_spi_settings(clock_speed,MSBFIRST,SPI_MODE0),
                 m_batch_left(0) {
             
         }
-        virtual ~spi_driver() {
+        virtual ~tft_spi_driver() {
             
         }
         inline bool initialized() const {
@@ -260,9 +260,9 @@ namespace arduino {
             }
         }
         // writes bitmap data to the frame buffer
-        void frame_write(const spi_driver_rect& bounds,const uint8_t* bmp_data) {
+        void frame_write(const tft_spi_driver_rect& bounds,const uint8_t* bmp_data) {
             // normalize values
-            spi_driver_rect b;
+            tft_spi_driver_rect b;
             if(bounds.x1>bounds.x2) {
                 b.x2=bounds.x1;
                 b.x1=bounds.x2;
@@ -284,14 +284,14 @@ namespace arduino {
             send_next_data(bmp_data,(b.x2-b.x1+1)*(b.y2-b.y1+1)*2,true);
         }
         // fills the target rectangle of the frame buffer with a pixel
-        void frame_fill(const spi_driver_rect& bounds,uint16_t color) {
+        void frame_fill(const tft_spi_driver_rect& bounds,uint16_t color) {
             if(bounds.x1==bounds.x2&&bounds.y1==bounds.y2)
                return pixel_write_impl(bounds.x1,bounds.y1,color);
             return frame_fill_impl(bounds,color);
         }
 
         // begins a batch write for the given target coordinates
-        inline void batch_write_begin(const spi_driver_rect& bounds) {
+        inline void batch_write_begin(const tft_spi_driver_rect& bounds) {
             batch_write_begin_impl(bounds,{1,1,1,1});
         }
         // does a batch write. the batch operation must have been started with

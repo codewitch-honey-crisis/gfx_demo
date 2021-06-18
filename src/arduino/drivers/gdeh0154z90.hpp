@@ -183,9 +183,8 @@ namespace arduino {
             }
             return true;
         }
-        
-        void send_command(uint8_t command)
-        {
+            
+        void send_command(uint8_t command) {
             m_spi.beginTransaction(SPISettings(clock_speed, MSBFIRST, SPI_MODE0));
             if (pin_dc >= 0) {
                 digitalWrite(pin_dc, LOW);

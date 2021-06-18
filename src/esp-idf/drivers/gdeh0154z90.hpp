@@ -186,14 +186,14 @@ namespace espidf {
             return true;
         }
         
-        void send_command(uint8_t command)
-        {
-            m_spi.write(&command,1,(void*)0);
+        void send_command(uint8_t command) {
+            gpio_set_level(pin_dc,0);
+            m_spi.write(&command,1);
+            gpio_set_level(pin_dc,1);
         }
 
-        void send_data(uint8_t data)
-        {
-            m_spi.write(&data,1,(void*)1);
+        void send_data(uint8_t data) {
+            m_spi.write(&data,1);
         }
         void wait_busy(unsigned int ms) {
             if(GPIO_NUM_NC!=pin_busy) {
@@ -311,10 +311,10 @@ namespace espidf {
                 .spics_io_num=pin_cs,               //CS pin
                 .flags =0,
                 .queue_size=1,                          //We only need 1 at a time
-                .pre_cb=[](spi_transaction_t*t){
+                .pre_cb= nullptr /*[](spi_transaction_t*t){
                     int dc=(int)t->user;
                     gpio_set_level(pin_dc, dc!=0);
-                },  //Specify pre-transfer callback to handle D/C line
+                }*/,  //Specify pre-transfer callback to handle D/C line
                 .post_cb=NULL
             };
             return devcfg;

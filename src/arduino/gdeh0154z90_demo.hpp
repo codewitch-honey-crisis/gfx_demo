@@ -21,7 +21,8 @@ SPIClass spi(LCD_HOST);
 using lcd_type = gdeh0154z90<PIN_NUM_CS,
                         PIN_NUM_DC,
                         PIN_NUM_RST,
-                        PIN_NUM_BUSY>;
+                        PIN_NUM_BUSY,
+                        rgb_pixel<16>>;
 using lcd_color = color<typename lcd_type::pixel_type>;
 
 lcd_type lcd(spi);
@@ -78,9 +79,6 @@ void setup() {
         const char* text = "GFX Demo by\r\n honey the\r\n codewitch";
         ssize16 fd=f.measure_text({200,200},text);
         srect16 tr=srect16(spoint16(0,lcd.height-f.height()*3-1),fd).center_horizontal((srect16)lcd.bounds());
-        tr.offset_inplace(1,1);
-        draw::text(lcd,tr,text,f,color_max::red);
-        tr.offset_inplace(-1,-1);
         draw::text(lcd,tr,text,f,color_max::black);
         draw::resume(lcd);
         delay(15000);

@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <SPI.h>
-#include "common/epaper_spi_driver.hpp"
+#include "gfx_bitmap.hpp"
 // unlike most of the other drivers, which simply expose 
 // GFX binding which may be removed, this driver 
 // requires GFX in order to function due to the 
@@ -9,7 +9,6 @@
 // there was no sense in duplicating the code for
 // bit mangling.
 namespace arduino {
-    
     struct gdeh0154z90_palette {
         
     private:
@@ -64,10 +63,60 @@ namespace arduino {
         }
     };
     
+    namespace gdeh0154z90_helpers {
+        template<typename PixelTypeLhs,typename PixelTypeRhs,bool Dithered> struct convert_helper {
+            static gfx::gfx_result convert(PixelTypeLhs pixel,PixelTypeRhs* out_pixel) {
+                return gfx::convert(pixel,out_pixel);
+            }
+        };
+        template<typename PixelTypeLhs,typename PixelTypeRhs> struct convert_helper<PixelTypeLhs,PixelTypeRhs,false> {
+            static gfx::gfx_result convert(PixelTypeLhs pixel,PixelTypeRhs* out_pixel) {
+                out_pixel->native_value = pixel.native_value;
+                return gfx::gfx_result::success;
+            }
+        };
+        template<typename Target,bool Dithered,bool Dithering> struct write_pixel_helper
+        {
+            
+            
+        };
+        
+        template<typename Target> struct write_pixel_helper<Target,true,false> {
+            static void write_pixel(Target* target,typename Target::pixel_type pixel) {
+          
+            }
+        };
+        
+        template<typename Target> struct write_pixel_helper<Target,false,true> {
+            static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
+          
+            }
+        };
+        
+
+        template<typename Target> struct write_pixel_helper<Target,true,true> {
+            static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
+                target->write_next_pixel(pixel);
+            }
+        };
+        template<typename Target> struct write_pixel_helper<Target,false,false> {
+            static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
+                return target->write_next_pixel(pixel);
+            }
+        };
+        template<typename PixelType,typename NativePixelType> struct palette_helper {
+            using type = gfx::palette<PixelType,PixelType>;
+        };
+        template<typename PixelType> struct palette_helper<PixelType,PixelType> {
+            using type = gdeh0154z90_palette;
+        };
+    }
+    
     template<int8_t PinCS,
         int8_t PinDC,
         int8_t PinRst,
-        int8_t PinBusy>
+        int8_t PinBusy,
+        typename PixelType = typename gdeh0154z90_palette::pixel_type>
     struct gdeh0154z90 final {
         enum struct result {
             success = 0,
@@ -95,15 +144,22 @@ namespace arduino {
             uint16_t y2;
         };
         using palette_type = gdeh0154z90_palette;
-        using pixel_type = typename palette_type::pixel_type;
-        using frame_buffer_type = gfx::bitmap<pixel_type,palette_type>;
+        using native_pixel_type = typename palette_type::pixel_type;
+        using pixel_type = PixelType;
+        using frame_buffer_type = gfx::large_bitmap<pixel_type,typename gdeh0154z90_helpers::palette_helper<pixel_type,typename gdeh0154z90_palette::pixel_type>::type>;
+        constexpr static const bool dithered = !gfx::helpers::is_same<pixel_type,gdeh0154z90_palette::pixel_type>::value;
+        static_assert(!dithered || !pixel_type::template has_channel_names<gfx::channel_name::index>::value,"PixelType to virtualize must not be indexed.");
     private: 
         
         bool m_initialized;
         SPIClass& m_spi;
         int m_suspend_count;
         const gdeh0154z90_palette m_palette;
-        uint8_t m_frame_buffer[frame_buffer_type::sizeof_buffer(width,height)];
+        frame_buffer_type m_frame_buffer;
+        int m_data_index;
+        uint8_t m_data;
+        int m_data_pixel;
+        
         static bool normalize_values(rect& r,bool check_bounds=true) {
             // normalize values
             uint16_t tmp;
@@ -174,44 +230,87 @@ namespace arduino {
             } 
             delay(ms);
         }
+        void process_frame_buffer() {
+            this->initialize();
+            if(dithered) {
+                const bool use_fast = true;
+
+                gfx::gfx_result r=gfx::helpers::dither_prepare(&m_palette);
+                if(gfx::gfx_result::success!=r) {
+                    return;
+                }
+                if(use_fast) {
+                    for(int y = 0; y < height; ++y) {
+                        for(int x = 0; x<width; ++x) {
+                            double map_value = gfx::helpers::dither_threshhold_map_fast[(x & 7) + ((y & 7) << 3)];
+                            pixel_type px;
+                            typename palette_type::mapped_pixel_type mpx;
+                            gfx::gfx_result r = m_frame_buffer.point(gfx::point16(x,y),&px);
+                            if(gfx::gfx_result::success!=r) {
+                                return;
+                            }
+                            r=gdeh0154z90_helpers::convert_helper<pixel_type,typename palette_type::mapped_pixel_type,dithered>::convert(px,&mpx);
+                            if(gfx::gfx_result::success!=r) {
+                                return;
+                            }
+                            gfx::helpers::dither_mixing_plan_data_fast plan;
+                            gfx::helpers::dither_mixing_plan_fast(&m_palette,mpx,&plan);
+                            gdeh0154z90_helpers::write_pixel_helper<gdeh0154z90,dithered,true>::write_pixel(this,plan.colors[map_value<plan.ratio?0:1]);
+                        }
+                    }
+                     
+                } else {   
+                    native_pixel_type plan[64];
+                    for(int y = 0; y < height; ++y) {
+                        for(int x = 0; x<width; ++x) {
+                            gfx::point16 pt(x,y);
+                            pixel_type px;
+                            typename palette_type::mapped_pixel_type mpx;
+                            gfx::gfx_result r = m_frame_buffer.point(pt,&px);
+                            if(gfx::gfx_result::success!=r) {
+                                return;
+                            }
+                            r=gdeh0154z90_helpers::convert_helper<pixel_type,typename palette_type::mapped_pixel_type,dithered>::convert(px,&mpx);
+                            if(gfx::gfx_result::success!=r) {
+                                return;
+                            }
+                            unsigned map_value = gfx::helpers::dither_threshold_map[(x & 7) + ((y & 7) << 3)];
+                            r=gfx::helpers::dither_mixing_plan(&m_palette,mpx,plan);
+                            if(gfx::gfx_result::success!=r) {
+                                return;;
+                            }
+                            gdeh0154z90_helpers::write_pixel_helper<gdeh0154z90,dithered,true>::write_pixel(this,plan[map_value]);
+                        }
+                    }
+                    r=gfx::helpers::dither_unprepare();
+                    if(gfx::gfx_result::success!=r) {
+                        return;
+                    }
+                }
+            } else {
+                for(int y = 0; y < height; ++y) {
+                    for(int x = 0; x<width; ++x) {
+                        gfx::point16 pt(x,y);
+                        pixel_type px;
+                        gfx::gfx_result r = m_frame_buffer.point(pt,&px);
+                        if(gfx::gfx_result::success!=r) {
+                            return;
+                        }
+                        
+                        gdeh0154z90_helpers::write_pixel_helper<gdeh0154z90,dithered,false>::write_pixel(this,px);
+                    }
+                }
+            }
+        }
         gfx::gfx_result display_update() {
             initialize();
             if(0==m_suspend_count) {
                 send_command(0x24);   //write RAM for black(0)/white (1)
-                frame_buffer_type fb(dimensions(),m_frame_buffer,&m_palette);
-                for(int y=0;y<height;++y) {
-                    for(int x=0;x<width;x+=8) {
-                        uint8_t data = 0;
-                        for(int i = 0;i<8;++i) {
-                            pixel_type px;
-                            gfx::point16 pt(x+i,y);
-                            gfx::gfx_result r = fb.point(pt,&px);
-                            if(gfx::gfx_result::success!=r) {
-                                return r;
-                            }
-                            bool is_white = px.channel<0>()==2;
-                            data |= (1<<(7-i))*is_white;
-                        }
-                        send_data(data);
-                    }
-                }
-                send_command(0x26);   //write RAM for black(0)/red (1)
-                for(int y=0;y<height;++y) {
-                    for(int x=0;x<width;x+=8) {
-                        uint8_t data = 0;
-                        for(int i = 0;i<8;++i) {
-                            pixel_type px;
-                            gfx::point16 pt(x+i,y);
-                            gfx::gfx_result r = fb.point(pt,&px);
-                            if(gfx::gfx_result::success!=r) {
-                                return r;
-                            }
-                            bool is_red = px.channel<0>()==1;
-                            data |= (1<<(7-i))*is_red;
-                        }
-                        send_data(data);
-                    }
-                }
+                m_data_pixel = 2;
+                process_frame_buffer();
+                send_command(0x26);   //write RAM for no-red(0)/red(1)
+                m_data_pixel = 1;
+                process_frame_buffer();
                 send_command(0x22); //Display Update Control
                 send_data(0xF7);   
                 send_command(0x20);  //Activate Display Update Sequence
@@ -220,8 +319,18 @@ namespace arduino {
             return gfx::gfx_result::success;
         }
     public:
-        gdeh0154z90(SPIClass& spi) : m_initialized(false),m_spi(spi),m_palette() {
+        gdeh0154z90(SPIClass& spi) : m_initialized(false),m_spi(spi),m_palette(),m_frame_buffer(gfx::size16(width,height), 1), m_data_index(0),m_data(0),m_data_pixel(-1) {
 
+        }
+        
+        // HACK: This should be private but it complicates the code:
+        void write_next_pixel(native_pixel_type pixel) {
+            m_data|=(m_data_pixel==pixel.template channel<gfx::channel_name::index>())<<(7-m_data_index);
+            m_data_index=(m_data_index+1)&7;
+            if(m_data_index==0) {
+                send_data(m_data);
+                m_data=0;
+            } 
         }
         void reset() {
             if(pin_rst>=0) {
@@ -315,20 +424,18 @@ namespace arduino {
         constexpr inline gfx::rect16 bounds() const { return dimensions().bounds(); }
         // gets a point 
         gfx::gfx_result point(gfx::point16 location,pixel_type* out_color) const {
-            return frame_buffer_type::point(dimensions(),m_frame_buffer,location,out_color);    
+            return m_frame_buffer.point(location,out_color);    
         }
         // sets a point to the specified pixel
         gfx::gfx_result point(gfx::point16 location,pixel_type color) {
-            frame_buffer_type fb(dimensions(),m_frame_buffer,&m_palette);
-            gfx::gfx_result r=fb.point(location,color);
+            gfx::gfx_result r=m_frame_buffer.point(location,color);
             if(gfx::gfx_result::success!=r) {
                 return r;
             }
             return display_update();
         }
         gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
-            frame_buffer_type fb(dimensions(),m_frame_buffer,&m_palette);
-            gfx::gfx_result r=fb.fill(rect,color);
+            gfx::gfx_result r=m_frame_buffer.fill(rect,color);
             if(gfx::gfx_result::success!=r) {
                 return r;
             }

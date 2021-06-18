@@ -35,7 +35,8 @@ SPIClass spi(LCD_HOST);
 using lcd_type = depg0290b<PIN_NUM_CS,
                         PIN_NUM_DC,
                         PIN_NUM_RST,
-                        PIN_NUM_BUSY,8>;
+                        PIN_NUM_BUSY,
+                        8>;
 using lcd_color = color<typename lcd_type::pixel_type>;
 
 lcd_type lcd(spi);
@@ -86,7 +87,6 @@ void setup() {
         fs = SPIFFS.open("/image3.jpg");
         draw::image(lcd,{0,lcd.height-128,127,lcd.height-1},&fs,crop_bounds.center(image_bounds));
         fs.close();
-        
         const font& f = Bm437_Acer_VGA_8x8_FON;
         const char* text = "GFX Demo by\r\n honey the\r\n codewitch";
         ssize16 fd=f.measure_text({128,128},text);

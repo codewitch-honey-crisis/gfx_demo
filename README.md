@@ -52,6 +52,8 @@ GFX on the other hand, isn't tied to anything. It can draw anywhere, on any plat
 
 **Update 17:** Added support for two e-ink/e-paper displays: the DEP0290B (and the associated LilyGo T5 2.2 board) as well as the GDEH0154Z90 (WaveShare 1.54 inch 3-color black/white/red display). The former only works on the Arduino Framework for now, until I hunt down the issue under the ESP-IDF that prevents it from working.
 
+**Update 18:** Added dithering support for e-paper displays
+
 ### Building this Mess
 
 You'll need Visual Studio Code with the Platform IO extension installed. You'll need an ESP32 with a connected ILI9341 LCD display an SSD1306 display, or other display depending on the demo.
@@ -91,6 +93,12 @@ The following configurations are currently supported. Select the one that you wa
 -   arduino-ST7735
 
 The MAX7219 CS pin is 15, not 5. Driver is experimental and multiple rows of segments does not work, but multiple segments in a single row works.
+
+#### E-Paper Display Support
+
+Black and white e-paper display drivers can virtualize an expanded bit depth to emulate grayscales through dithering. The final template parameter of the driver indicates the bit depth and defaults to 1, which disables dithering. Keep in mind the higher the virtualized bit depth, the more memory the driver will use.
+
+Color e-paper displays do not dither due to performance issues with color dithering on IoT platforms. They will however match the nearest color among their palette. If you need dithering, you can predither your JPEGs in a paint program targeting the e-paper display's palette.
 
 Concepts
 --------
@@ -260,7 +268,7 @@ Let's dive into some code. The following draws a classic effect around the four 
 
 C++
 
-``` {#pre42896 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre337780 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font& f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
@@ -302,7 +310,7 @@ Let's try it again - or at least something similar - this time using double buff
 
 C++
 
-``` {#pre674793 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre123055 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font& f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
@@ -343,7 +351,7 @@ Since adding polygon support, I suppose an example of that will be helpful. Here
 
 C++
 
-``` {#pre249070 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre993499 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // draw a polygon (a triangle in this case)
 // find the origin:
 const spoint16 porg = srect16(0,0,31,31)
@@ -368,7 +376,7 @@ You can define pixels by using the `pixel<>` template, which takes one or more `
 
 C++
 
-``` {#pre195290 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre878708 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 16-bit RGB pixel
 using rgb565 = pixel<channel_traits<channel_name::R,5>,
                     channel_traits<channel_name::G,6>,
@@ -379,7 +387,7 @@ That declares a pixel with 3 channels, each of `uint8_t`: `R:5`, `G:6`, and `B:5
 
 C++
 
-``` {#pre768788 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre627001 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using rgb565 = rgb_pixel<16>; // declare a 16-bit RGB pixel
 ```
 
@@ -395,7 +403,7 @@ Each pixel is composed of the channels you declared, and the channels may be acc
 
 C++
 
-``` {#pre831742 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre755609 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 // declare a 24-bit rgb pixel
 rgb_pixel<24> rgb888;
 
@@ -429,7 +437,7 @@ Here's an example of using it in the wild:
 
 C++
 
-``` {#pre408944 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre89353 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmpa_type = rgba_pixel<32>;
 using bmpa_color = color<bmpa_type>;
 
@@ -508,7 +516,7 @@ Anyway, first we have to declare our buffer. I was very careful to make my objec
 
 C++
 
-``` {#pre325565 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre928694 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 using bmp_type = bitmap<rgb_pixel<16>>;
 // the following is for convenience:
 using bmp_color = color<typename bmp_type::pixel_type>; // needs GFX color header
@@ -518,7 +526,7 @@ followed by:
 
 C++
 
-``` {#pre375907 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre260009 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 ```
@@ -529,7 +537,7 @@ Now that we have all that, wrapping it with a bitmap is trivial:
 
 C++
 
-``` {#pre302806 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre984702 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
@@ -540,7 +548,7 @@ Now you can call `draw` methods passing `bmp` as the destination:
 
 C++
 
-``` {#pre480416 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre3552 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
  // draw a happy face
 
 // bounding info for the face
@@ -602,7 +610,7 @@ The code looks approximately like this under the ESP-IDF at least:
 
 C++
 
-``` {#pre591388 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre971496 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i<2; i++) {
@@ -666,7 +674,7 @@ Below `lcd` represents our target on which to draw the image:
 
 C++
 
-``` {#pre507369 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre656479 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 draw::image(lcd,(srect16)lcd.bounds(),&fs,rect16(0,0,-1,-1));
@@ -678,7 +686,7 @@ The second way of loading an image is passing the stream to an image loader func
 
 C++
 
-``` {#pre339059 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre211959 .lang-cplusplus style="margin-top:0;" data-language="C++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 jpeg_image::load(&fs,[](size16 dimensions,
@@ -708,7 +716,7 @@ First, generate a header file from a font file using fontgen under the *tools* f
 
 Shell
 
-``` {#pre31308 .lang-shell style="margin-top:0;" data-language="shell" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre321993 .lang-shell style="margin-top:0;" data-language="shell" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 ~$ fontgen myfont.fon > myfont.hpp
 ```
 
@@ -716,7 +724,7 @@ Now you can include that in your code:
 
 C++
 
-``` {#pre270698 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre260849 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 #include "myfont.hpp"
 ```
 
@@ -724,7 +732,7 @@ This allows you to reference the font like this:
 
 C++
 
-``` {#pre93088 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre440551 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 const font& f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -740,7 +748,7 @@ The second way to access a font is by loading a *.FON* file from a stream, which
 
 C++
 
-``` {#pre156736 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
+``` {#pre660265 .lang-cplusplus style="margin-top:0;" data-language="c++" data-collapse="False" data-linecount="False" data-allow-shrink="True"}
 file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");
@@ -859,3 +867,5 @@ History
 -   8<sup>th</sup> June, 2021 - Service release. Fixed `large_bitmap<>` out of bounds crashing issue
 -   13<sup>th</sup> June, 2021 - Added Arduino framework support and several Arduino based drivers
 -   15<sup>th</sup> June, 2021 - Added support for two e-ink/e-paper displays: the DEP0290B (and the associated LilyGo T5 2.2 board) as well as the GDEH0154Z90 (WaveShare 1.54 inch 3-color black/white/red display).
+-   17<sup>th</sup> June, 2021 - Added dithering support for e-ink/e-paper displays
+

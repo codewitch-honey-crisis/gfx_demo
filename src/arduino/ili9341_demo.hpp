@@ -28,6 +28,7 @@
 #include "pretty_effect.hpp"
 #include "../fonts/Bm437_ATI_9x16.h"
 #include "../fonts/Bm437_Verite_9x16.h"
+//#include "../fonts/Maziro.h"
 using namespace arduino;
 using namespace gfx;
 
@@ -129,7 +130,6 @@ void scroll_text_demo() {
         // bitmap_resize::resize_bilinear;
         //bitmap_resize::resize_fast;
     draw::bitmap(lcd,new_bounds.center_horizontal((srect16)lcd.bounds()).flip_vertical(),bmp,bmp.bounds(),resize_type);
-
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "copyright (C) 2021\r\nby honey the codewitch";
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
@@ -176,17 +176,24 @@ void scroll_text_demo() {
     }
 }
 void lines_demo() {
-    const font& f=Bm437_Verite_9x16_FON;
+    open_font f;
+    // SHOULD EMBED THIS FOR MUCH FASTER RENDERING!!!:
+    File file = SPIFFS.open("/Maziro.ttf");
+    file_stream fs(file);
+    open_font::open(&fs,&f);
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
-    const char* text = "ESP32 GFX Demo";
-    srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
-                            text).bounds();
+    const char* text = "ESP32 GFX";
+    float scale = f.scale(60);
+    srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),{0,0},
+                            text,scale).bounds();
     draw::text(lcd,
             text_rect.center((srect16)lcd.bounds()),
+            {0,0},
             text,
-            f,
+            f,scale,
             lcd_color::dark_blue);
-
+    // free the font
+    file.close();
     for(int i = 1;i<100;i+=2) {
         // calculate our extents
         srect16 r(i*(lcd_type::width/100.0),
@@ -200,6 +207,7 @@ void lines_demo() {
         draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
         
     }
+    
 }
 
 //Simple routine to generate some patterns and send them to the LCD. Don't expect anything too

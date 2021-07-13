@@ -266,6 +266,10 @@ namespace espidf {
             return send_next_data((uint8_t*)&color,2,queued,false);
         }
         inline static spi_device_interface_config_t get_device_config() {
+            uint32_t flags = 0;
+            if(clock_speed>26*1000*1000) {
+                flags = SPI_DEVICE_NO_DUMMY;
+            }
             spi_device_interface_config_t devcfg={
                 .command_bits=0,
                 .address_bits=0,
@@ -277,7 +281,8 @@ namespace espidf {
                 .clock_speed_hz=clock_speed,           //Clock out at 26 MHz
                 .input_delay_ns = 0,
                 .spics_io_num=pin_cs,               //CS pin
-                .flags =0,
+                
+                .flags =flags,
                 .queue_size=max_transactions,                          //We want to be able to queue 7 transactions at a time
                 .pre_cb=[](spi_transaction_t*t){
                     int dc=(int)t->user;

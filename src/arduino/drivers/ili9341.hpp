@@ -129,7 +129,7 @@ namespace arduino {
             }
             //Enable backlight
             if(pin_backlight>=0) {
-                digitalWrite(pin_backlight, HIGH);
+                digitalWrite(pin_backlight, LOW);
             }
         
         }

@@ -1,5 +1,6 @@
 #pragma once
-#define HTCW_ILI9341_OVERCLOCK
+#define HTCW_ILI9341_OVERCLOCK_26
+//#define HTCW_ILI9341_OVERCLOCK_40
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/spi_master.h"
@@ -29,8 +30,10 @@ namespace espidf {
                             HostId,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
+#if defined(HTCW_ILI9341_OVERCLOCK_40)
                             40*1000*1000,
+#elif defined(HTCW_ILI9341_OVERCLOCK_26)
+                            26*1000*1000,
 #else
                             10*1000*1000,
 #endif
@@ -44,7 +47,9 @@ namespace espidf {
                             HostId,
                             PinCS,
                             PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
+#if defined(HTCW_ILI9341_OVERCLOCK_40)
+                            40*1000*1000,
+#elif defined(HTCW_ILI9341_OVERCLOCK_26)
                             26*1000*1000,
 #else
                             10*1000*1000,

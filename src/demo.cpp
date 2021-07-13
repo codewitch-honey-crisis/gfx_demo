@@ -15,6 +15,8 @@
         #include "arduino/depg0290b_demo.hpp"
     #elif defined(GDEH0154Z90)
         #include "arduino/gdeh0154z90_demo.hpp"
+    #elif defined(EP4IN2)
+        #include "arduino/ep4in2_demo.hpp"
     #endif
 #elif defined(FRAMEWORK_ESP_IDF)
     #if defined(ILI9341)

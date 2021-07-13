@@ -209,8 +209,8 @@ namespace espidf {
                 .clock_speed_hz=clock_speed,           //Clock out at 4 MHz
                 .input_delay_ns = 0,
                 .spics_io_num=pin_cs,               //CS pin
-                .flags =0,
-                .queue_size=1,                          //We only need 1 at a time
+                .flags =SPI_DEVICE_NO_DUMMY,
+                .queue_size=7,                          //We only need 1 at a time
                 .pre_cb=[](spi_transaction_t*t){
                     int dc=(int)t->user;
                     gpio_set_level(pin_dc, dc!=0);

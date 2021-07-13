@@ -1,0 +1,14 @@
+/.vscode
+src/gfx_bitmap
+src/gfx_pixel
+src/gfx_positioning
+src/bits
+src/gfx_drawing
+bitmap
+core
+fontgen
+reference/demo
+reference/bmp.exe
+src/gfx_drawing.exe
+reference/demo.exe
+reference/demo.exe

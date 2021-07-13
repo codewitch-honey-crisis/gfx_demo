@@ -21,8 +21,8 @@ SPIClass spi(LCD_HOST);
 using lcd_type = gdeh0154z90<PIN_NUM_CS,
                         PIN_NUM_DC,
                         PIN_NUM_RST,
-                        PIN_NUM_BUSY,
-                        rgb_pixel<16>>;
+                        PIN_NUM_BUSY
+                        ,rgb_pixel<16>>;
 using lcd_color = color<typename lcd_type::pixel_type>;
 
 lcd_type lcd(spi);

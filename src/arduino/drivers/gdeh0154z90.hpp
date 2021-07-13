@@ -82,26 +82,26 @@ namespace arduino {
         };
         
         template<typename Target> struct write_pixel_helper<Target,true,false> {
-            static void write_pixel(Target* target,typename Target::pixel_type pixel) {
+            inline static void write_pixel(Target* target,typename Target::pixel_type pixel) {
           
             }
         };
         
         template<typename Target> struct write_pixel_helper<Target,false,true> {
-            static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
+            inline static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
           
             }
         };
         
 
         template<typename Target> struct write_pixel_helper<Target,true,true> {
-            static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
+            inline static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
                 target->write_next_pixel(pixel);
             }
         };
         template<typename Target> struct write_pixel_helper<Target,false,false> {
-            static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
-                return target->write_next_pixel(pixel);
+            inline static void write_pixel(Target* target,typename Target::native_pixel_type pixel) {
+                target->write_next_pixel(pixel);
             }
         };
         template<typename PixelType,typename NativePixelType> struct palette_helper {

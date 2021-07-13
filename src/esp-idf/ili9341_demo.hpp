@@ -12,6 +12,7 @@ extern "C" { void app_main(); }
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ACM_VGA_9x16.h"
 #include "../fonts/Bm437_ATI_9x16.h"
+#include "../fonts/Maziro.h"
 #include "pretty_effect.hpp"
 using namespace espidf;
 using namespace gfx;
@@ -254,20 +255,18 @@ void scroll_text_demo() {
     }
 }
 void lines_demo() {
-    file_stream fs("/spiffs/Bm437_Verite_9x16.FON");
-    if(!fs.caps().read) {
-        printf("Font file not found.\r\n");
-        vTaskDelay(portMAX_DELAY);
-    }
-    font f(&fs);
+    const open_font& f=Maziro_ttf;
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
     const char* text = "ESP32 GFX Demo";
-    srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
-                            text).bounds();
+    float scale = f.scale(40);
+    srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),{5,-7},
+                            text,scale).bounds();
     draw::text(lcd,
             text_rect.center((srect16)lcd.bounds()),
+            {5,-7},
             text,
             f,
+            scale,
             lcd_color::dark_blue);
 
     for(int i = 1;i<100;i+=2) {

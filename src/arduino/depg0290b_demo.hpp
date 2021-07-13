@@ -36,7 +36,7 @@ using lcd_type = depg0290b<PIN_NUM_CS,
                         PIN_NUM_DC,
                         PIN_NUM_RST,
                         PIN_NUM_BUSY,
-                        8>;
+                        1>;
 using lcd_color = color<typename lcd_type::pixel_type>;
 
 lcd_type lcd(spi);

@@ -3,7 +3,7 @@
 #include <bits.hpp>
 #ifdef ARDUINO
 #include <Arduino.h>
-#include <SD.h>
+#include <FS.h>
 // TODO: Fix this ifdef so the AVR is the one that is special cased:
 #ifdef ESP32
 #include <pgmspace.h>
@@ -78,6 +78,9 @@ namespace io {
             rhs.m_size=0;
             return *this;
         }
+        uint8_t* handle() {
+            return m_begin;
+        }
         void set(uint8_t* buffer,size_t size) {
             m_begin = m_current = buffer;
             m_size = size;
@@ -149,7 +152,7 @@ namespace io {
                         p=(size_t)(offs+position);
                     break;
                 case seek_origin::end:
-                    return seek(m_size-position,seek_origin::start);
+                    return seek(m_size+position,seek_origin::start);
                 default:
                     return offs;
             }
@@ -179,6 +182,9 @@ namespace io {
             rhs.m_begin=rhs.m_current=nullptr;
             rhs.m_size=0;
             return *this;
+        }
+        const uint8_t* handle() const {
+            return m_begin;
         }
         void set(const uint8_t* buffer,size_t size) {
             m_begin = m_current = buffer;
@@ -343,6 +349,14 @@ namespace io {
         File& handle() const {
             return m_file;
         }
+        void set(File& file) {
+            if(!file) {
+                m_caps.read = m_caps.write = m_caps.seek = 0;
+            } else {
+                m_caps.read = m_caps.write = m_caps.seek = 1;
+            }
+            m_file = file;
+        }
         virtual size_t read(uint8_t* destination,size_t size) {
             if(!m_file) return 0;
             //return m_file.read(destination,size);
@@ -384,8 +398,35 @@ namespace io {
             }
             return m_file.position();
         }
+        void close() {
+            if(!m_file) {
+                return;;
+            }
+            m_file.close();
+        }
 #else
-        file_stream(const char* name,file_mode mode=file_mode::read) : m_caps({0,0,0}) {
+        file_stream(const char* name,file_mode mode=file_mode::read) : m_fd(nullptr), m_caps({0,0,0}) {
+            set(name,mode);
+        }
+        file_stream(file_stream&& rhs) : m_fd(rhs.m_fd),m_caps(rhs.m_caps) {
+            rhs.m_fd=nullptr;
+            rhs.m_caps={0,0,0};
+        }
+        file_stream& operator=(file_stream&& rhs) {
+            m_fd=rhs.m_fd;
+            m_caps=rhs.m_caps;
+            rhs.m_fd=nullptr;
+            rhs.m_caps={0,0,0};
+            return *this;
+        }
+        ~file_stream() {
+            close();
+        }
+        FILE* handle() const {
+            return m_fd;
+        }
+        void set(const char* name,file_mode mode = file_mode::read) {
+            close();
             if((int)file_mode::append==((int)mode & (int)file_mode::append)) {
                 if((int)file_mode::read==((int)mode & (int)file_mode::read)) {
                     m_fd = fopen(name,"ab+");
@@ -431,23 +472,6 @@ namespace io {
                 }
             }
         }
-        file_stream(file_stream&& rhs) : m_fd(rhs.m_fd),m_caps(rhs.m_caps) {
-            rhs.m_fd=nullptr;
-            rhs.m_caps={0,0,0};
-        }
-        file_stream& operator=(file_stream&& rhs) {
-            m_fd=rhs.m_fd;
-            m_caps=rhs.m_caps;
-            rhs.m_fd=nullptr;
-            rhs.m_caps={0,0,0};
-            return *this;
-        }
-        ~file_stream() {
-            close();
-        }
-        FILE* handle() const {
-            return m_fd;
-        }
         virtual size_t read(uint8_t* destination,size_t size) {
             if(0==m_caps.read) return 0;
             return fread(destination,1,size,m_fd);
@@ -473,8 +497,11 @@ namespace io {
             return ftell(m_fd);
         }
         void close() {
-            if(nullptr!=m_fd)
+            if(nullptr!=m_fd) {
+                m_caps = {0,0,0};
                 fclose(m_fd);
+                m_fd=nullptr;
+            }
         }
 #endif
         virtual stream_caps caps() const {

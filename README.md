@@ -56,6 +56,8 @@ GFX on the other hand, isn't tied to anything. It can draw anywhere, on any plat
 
 **Update 19:** Added TrueType font support!
 
+**Update 20:** Service release for updated ESP-IDF
+
 ### Building this Mess
 
 You'll need Visual Studio Code with the Platform IO extension installed. You'll need an ESP32 with a connected ILI9341 LCD display an SSD1306 display, or other display depending on the demo.
@@ -883,4 +885,5 @@ History
 -   15<sup>th</sup> June, 2021 - Added support for two e-ink/e-paper displays: the DEP0290B (and the associated LilyGo T5 2.2 board) as well as the GDEH0154Z90 (WaveShare 1.54 inch 3-color black/white/red display).
 -   17<sup>th</sup> June, 2021 - Added dithering support for e-ink/e-paper displays
 -   13<sup>th</sup> July, 2021 - Added TrueType font support
+-   30<sup>th</sup> July, 2021 - Service release for updated ESP-IDF
 

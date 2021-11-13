@@ -17,6 +17,8 @@
         #include "arduino/gdeh0154z90_demo.hpp"
     #elif defined(EP4IN2)
         #include "arduino/ep4in2_demo.hpp"
+    #elif defined(RA8875)
+        #include "arduino/ra8875_demo.hpp"
     #endif
 #elif defined(FRAMEWORK_ESP_IDF)
     #if defined(ILI9341)

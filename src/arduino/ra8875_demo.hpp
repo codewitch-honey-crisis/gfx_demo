@@ -41,7 +41,7 @@ using namespace gfx;
 using lcd_type = ra8875<LCD_WIDTH,LCD_HEIGHT,PIN_CS,PIN_RST>;
             
 SPIClass spi(LCD_HOST);
-lcd_type lcd(SPI);
+lcd_type lcd(spi);
 using lcd_color = color<typename lcd_type::pixel_type>;
 using frame_buffer_type = large_bitmap<rgb_pixel<16>>;
 using fb_color = color<typename frame_buffer_type::pixel_type>;
@@ -235,11 +235,11 @@ static void display_pretty_colors()
 #endif
     while(true) {
         if(0==frame%150) {
-            lines_demo();
-            scroll_text_demo();
+           lines_demo();
+           scroll_text_demo();
         }
         ++frame;
-        if(0!=(frame%10))
+        if(0!=(frame%10) )
             vTaskDelay(1);
         for (int y=0; y<240; y+=PARALLEL_LINES) {
             //Calculate a line.

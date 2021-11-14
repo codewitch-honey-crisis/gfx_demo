@@ -33,7 +33,7 @@ namespace gfx {
         using type = viewport;
         // the type of the pixel used for the bitmap
         using pixel_type = typename Destination::pixel_type;
-        using palette_type = typename Destination::palette_type;
+        // using palette_type = typename Destination::palette_type;
         using caps = gfx::gfx_caps< false,false,false,false,false,Destination::caps::read,false>;
         spoint16 offset;
         spoint16 center;

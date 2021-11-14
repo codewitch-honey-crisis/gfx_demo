@@ -222,16 +222,37 @@ namespace arduino {
             
             return true;
         }
-        
+        void set_active_window(const gfx::rect16& rect) {
+            static const uint8_t RA8875_HSAW0 = 0x30;
+            static const uint8_t RA8875_HSAW1 = 0x31;
+            static const uint8_t RA8875_VSAW0 = 0x32;
+            static const uint8_t RA8875_VSAW1 = 0x33;
+            static const uint8_t RA8875_HEAW0 = 0x34;
+            static const uint8_t RA8875_HEAW1 = 0x35;
+            static const uint8_t RA8875_VEAW0 = 0x36;
+            static const uint8_t RA8875_VEAW1 = 0x37;
+            gfx::rect16 r = rect.crop(bounds()).normalize();
+            reg(RA8875_HSAW0, r.x1); // horizontal start point
+            reg(RA8875_HSAW1, r.x1 >> 8);
+            reg(RA8875_HEAW0, r.x2); // horizontal end point
+            reg(RA8875_HEAW1, r.x2 >> 8);
+
+            /* Set active window Y */
+            reg(RA8875_VSAW0, (uint16_t)(r.y1 + m_voffset) & 0xFF); // vertical start point
+            reg(RA8875_VSAW1, (uint16_t)(r.y1 + m_voffset)>>8);
+            reg(RA8875_VEAW0,
+                    (uint16_t)(r.y2 + m_voffset) & 0xFF); // vertical end point
+            reg(RA8875_VEAW1, (uint16_t)(r.y2 + m_voffset) >> 8);
+        }
     public:
         // indicates the type, itself
         using type = ra8875;
         // indicates the pixel type
         using pixel_type = gfx::rgb_pixel<16>;
         // indicates the capabilities of the driver
-        using caps = gfx::gfx_caps<false,false,true,false,false,false,false>;
+        using caps = gfx::gfx_caps<false,false,true,true,false,false,false>;
 
-        ra8875(SPIClass& spi) : m_initialized(false), m_voffset(0),m_in_batch(false),m_batch_offset(0), m_batch_bounds(0,0,0,0), m_spi(spi),m_spi_settings(init_clock_speed,MSBFIRST,0) {
+        ra8875(SPIClass& spi) : m_initialized(false), m_voffset(0),m_in_batch(false),m_batch_offset(0), m_batch_bounds(0,0,0,0),m_spi(spi),m_spi_settings(init_clock_speed,MSBFIRST,0) {
 
         }
         
@@ -406,9 +427,11 @@ namespace arduino {
 
             return gfx::gfx_result::success;
         }
+        // clears the target rectangle
         gfx::gfx_result clear(const gfx::rect16& rect) {
             return fill(rect,pixel_type());
         }
+        // begins a batch operation
         gfx::gfx_result begin_batch(const gfx::rect16& rect) {
             static const uint8_t RA8875_DATAWRITE = 0x00;
             static const uint8_t RA8875_CURH0 = 0x46;
@@ -419,7 +442,7 @@ namespace arduino {
             static const uint8_t RA8875_MWCR0 = 0x40;
             static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
             static const uint8_t RA8875_MWCR0_LRTD = 0x00;
-
+            //static const uint8_t RA8875_MWCR0_TDLR = 0x08;
             gfx::rect16 r = rect.normalize();
             gfx::gfx_result rr = commit_batch();
             if(gfx::gfx_result::success != rr) {
@@ -432,12 +455,13 @@ namespace arduino {
             reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | RA8875_MWCR0_LRTD);
             send_command(RA8875_MRWC);
             digitalWrite(pin_cs, LOW);
-            SPI.transfer(RA8875_DATAWRITE);
+            m_spi.transfer(RA8875_DATAWRITE);
             m_batch_bounds = r;
             m_batch_offset = 0;
             m_in_batch = true;
             return gfx::gfx_result::success;
         }
+        
         // writes a pixel to a pending batch
         gfx::gfx_result write_batch(pixel_type color) {
             if(!m_in_batch) return gfx::gfx_result::invalid_state;
@@ -450,11 +474,13 @@ namespace arduino {
             static const uint8_t RA8875_MWCR0 = 0x40;
             static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
             static const uint8_t RA8875_MWCR0_LRTD = 0x00;
+            //static const uint8_t RA8875_MWCR0_TDLR = 0x08;
             uint16_t v = color.channel_unchecked<2>() | (color.channel_unchecked<1>()<<5) | (color.channel_unchecked<0>()<<11);
             m_spi.transfer16(v);
             ++m_batch_offset;
+
             gfx::point16 pt(m_batch_offset%m_batch_bounds.width()+m_batch_bounds.x1, m_batch_offset/m_batch_bounds.width()+m_batch_bounds.y1);
-            if(pt.x==m_batch_bounds.x1) {
+            if( pt.x==m_batch_bounds.x1) {
                 digitalWrite(pin_cs, HIGH);
                 reg(RA8875_CURH0, m_batch_bounds.x1);
                 reg(RA8875_CURH1, m_batch_bounds.x1 >> 8);
@@ -463,7 +489,7 @@ namespace arduino {
                 reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | RA8875_MWCR0_LRTD);
                 send_command(RA8875_MRWC);
                 digitalWrite(pin_cs, LOW);
-                SPI.transfer(RA8875_DATAWRITE);
+                m_spi.transfer(RA8875_DATAWRITE);
             }
             return gfx::gfx_result::success;
         }
@@ -474,6 +500,68 @@ namespace arduino {
             }
             digitalWrite(pin_cs, HIGH);
             m_in_batch = false;
+            return gfx::gfx_result::success;
+        }
+        template<typename Source>
+        gfx::gfx_result copy_from(const gfx::rect16& src_rect,const Source& src,gfx::point16 location)  {
+            static const uint8_t RA8875_DATAWRITE = 0x00;
+            static const uint8_t RA8875_CURH0 = 0x46;
+            static const uint8_t RA8875_CURH1 = 0x47;
+            static const uint8_t RA8875_CURV0 = 0x48;
+            static const uint8_t RA8875_CURV1 = 0x49;
+            static const uint8_t RA8875_MRWC = 0x02;
+            static const uint8_t RA8875_MWCR0 = 0x40;
+            static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
+            static const uint8_t RA8875_MWCR0_LRTD = 0x00;
+            if(!initialize()) return gfx::gfx_result::device_error;
+            gfx::gfx_result rr = commit_batch();
+            if(gfx::gfx_result::success!=rr) {
+                return rr;
+            }
+            gfx::rect16 srcr = src_rect.normalize().crop(src.bounds());
+            gfx::rect16 dstr(location,src_rect.dimensions());
+            dstr=dstr.crop(bounds());
+            if(srcr.width()>dstr.width()) {
+                srcr.x2=srcr.x1+dstr.width()-1;
+            }
+            if(srcr.height()>dstr.height()) {
+                srcr.y2=srcr.y1+dstr.height()-1;
+            }
+            uint16_t w = dstr.dimensions().width;
+            uint16_t h = dstr.dimensions().height;
+            set_active_window(dstr);
+            digitalWrite(pin_cs, HIGH);
+            reg(RA8875_CURH0, dstr.x1);
+            reg(RA8875_CURH1, dstr.x1>>8);
+            reg(RA8875_CURV0, dstr.y1);
+            reg(RA8875_CURV1, dstr.y1>>8);
+            reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | RA8875_MWCR0_LRTD);
+            send_command(RA8875_MRWC);
+            digitalWrite(pin_cs, LOW);
+            m_spi.transfer(RA8875_DATAWRITE);
+            
+            for(uint16_t y=0;y<h;++y) {
+                for(uint16_t x=0;x<w;++x) {
+                    typename Source::pixel_type pp;
+                    rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
+                    if(rr!=gfx::gfx_result::success) {
+                        digitalWrite(pin_cs, HIGH);
+                        set_active_window(bounds());
+                        return rr;
+                    }
+                    pixel_type p;
+                    rr=gfx::convert_palette_to(src,pp,&p);
+                    if(gfx::gfx_result::success!=rr) {
+                        digitalWrite(pin_cs, HIGH);
+                        set_active_window(bounds());
+                        return rr;
+                    }
+                    uint16_t v = p.channel_unchecked<2>() | (p.channel_unchecked<1>()<<5) | (p.channel_unchecked<0>()<<11);
+                    m_spi.transfer16(v);
+                }
+            }
+            digitalWrite(pin_cs, HIGH);
+            set_active_window(bounds());
             return gfx::gfx_result::success;
         }
     };

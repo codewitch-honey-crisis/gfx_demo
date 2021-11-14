@@ -19,6 +19,44 @@ namespace arduino {
         constexpr static const uint32_t clock_speed = ClockSpeed;
         constexpr static const uint32_t init_clock_speed = InitClockSpeed;
     private:
+        template<typename Source, bool Blt> struct draw_helper {
+            static gfx::gfx_result do_draw(SPIClass& s, const Source& src, const gfx::rect16& srcr,const gfx::rect16& dstr) {
+                uint16_t w = dstr.dimensions().width;
+                uint16_t h = dstr.dimensions().height;
+                for(uint16_t y=0;y<h;++y) {
+                    for(uint16_t x=0;x<w;++x) {
+                        typename Source::pixel_type pp;
+                        gfx::gfx_result rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
+                        if(rr!=gfx::gfx_result::success) {
+                            return rr;
+                        }
+                        pixel_type p;
+                        rr=gfx::convert_palette_to(src,pp,&p);
+                        if(gfx::gfx_result::success!=rr) {
+                            return rr;
+                        }
+                        uint16_t v = p.channel_unchecked<2>() | (p.channel_unchecked<1>()<<5) | (p.channel_unchecked<0>()<<11);
+                        s.transfer16(v);
+                    }
+                }
+                return gfx::gfx_result::success;
+            }
+        };
+        template<typename Source> struct draw_helper<Source, true> {
+            static gfx::gfx_result do_draw(SPIClass& s, const Source& src, const gfx::rect16& srcr,const gfx::rect16& dstr) {
+                uint16_t w = dstr.dimensions().width;
+                
+                if(srcr.x1==0 && w == src.dimensions().width && w == srcr.width()) {
+                    const uint8_t* p = src.begin()+(w*srcr.y1);
+                    size_t len = w*srcr.height()*2;
+                    s.writeBytes( p, (uint32_t)len);
+                    return gfx::gfx_result::success;
+                }
+                return draw_helper<Source, false>::do_draw(s,src,srcr,dstr);
+                
+                
+            }
+        };
         bool m_initialized;
         uint8_t m_voffset;
         bool m_in_batch;
@@ -527,8 +565,6 @@ namespace arduino {
             if(srcr.height()>dstr.height()) {
                 srcr.y2=srcr.y1+dstr.height()-1;
             }
-            uint16_t w = dstr.dimensions().width;
-            uint16_t h = dstr.dimensions().height;
             set_active_window(dstr);
             digitalWrite(pin_cs, HIGH);
             reg(RA8875_CURH0, dstr.x1);
@@ -539,30 +575,10 @@ namespace arduino {
             send_command(RA8875_MRWC);
             digitalWrite(pin_cs, LOW);
             m_spi.transfer(RA8875_DATAWRITE);
-            
-            for(uint16_t y=0;y<h;++y) {
-                for(uint16_t x=0;x<w;++x) {
-                    typename Source::pixel_type pp;
-                    rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
-                    if(rr!=gfx::gfx_result::success) {
-                        digitalWrite(pin_cs, HIGH);
-                        set_active_window(bounds());
-                        return rr;
-                    }
-                    pixel_type p;
-                    rr=gfx::convert_palette_to(src,pp,&p);
-                    if(gfx::gfx_result::success!=rr) {
-                        digitalWrite(pin_cs, HIGH);
-                        set_active_window(bounds());
-                        return rr;
-                    }
-                    uint16_t v = p.channel_unchecked<2>() | (p.channel_unchecked<1>()<<5) | (p.channel_unchecked<0>()<<11);
-                    m_spi.transfer16(v);
-                }
-            }
+            rr=draw_helper<Source,Source::caps::blt && Source::pixel_type::template equals_exact<gfx::rgb_pixel<16>>::value>::do_draw(m_spi,src,srcr,dstr);
             digitalWrite(pin_cs, HIGH);
             set_active_window(bounds());
-            return gfx::gfx_result::success;
+            return rr;
         }
     };
 }

@@ -19,6 +19,8 @@ namespace arduino {
         constexpr static const uint32_t clock_speed = ClockSpeed;
         constexpr static const uint32_t init_clock_speed = InitClockSpeed;
     private:
+        constexpr static const uint16_t voffset = (height == 80) * 192;
+
         template<typename Source, bool Blt> struct draw_helper {
             static gfx::gfx_result do_draw(SPIClass& s, const Source& src, const gfx::rect16& srcr,const gfx::rect16& dstr) {
                 uint16_t w = dstr.dimensions().width;
@@ -58,7 +60,6 @@ namespace arduino {
             }
         };
         bool m_initialized;
-        uint8_t m_voffset;
         bool m_in_batch;
         size_t m_batch_offset;
         gfx::rect16 m_batch_bounds;
@@ -160,14 +161,6 @@ namespace arduino {
             static const uint8_t RA8875_VSTR1 = 0x1E;
             static const uint8_t RA8875_VPWR = 0x1F;
             static const uint8_t RA8875_VPWR_LOW = 0x00;
-            static const uint8_t RA8875_HSAW0 = 0x30;
-            static const uint8_t RA8875_HSAW1 = 0x31;
-            static const uint8_t RA8875_VSAW0 = 0x32;
-            static const uint8_t RA8875_VSAW1 = 0x33;
-            static const uint8_t RA8875_HEAW0 = 0x34;
-            static const uint8_t RA8875_HEAW1 = 0x35;
-            static const uint8_t RA8875_VEAW0 = 0x36;
-            static const uint8_t RA8875_VEAW1 = 0x37;
             static const uint8_t RA8875_MCLR = 0x8E;         
             static const uint8_t RA8875_MCLR_START = 0x80;
             static const uint8_t RA8875_MCLR_FULL = 0x00;
@@ -192,7 +185,7 @@ namespace arduino {
                 vsync_nondisp = 3;
                 vsync_start = 8;
                 vsync_pw = 10;
-                m_voffset = 192; // This uses the bottom 80 pixels of a 272 pixel controller
+                // This uses the bottom 80 pixels of a 272 pixel controller
             } else if (width == 480 && (height == 128 || height == 272)) {
                 pixclk = RA8875_PCSR_PDATL | RA8875_PCSR_4CLK;
                 hsync_nondisp = 10;
@@ -202,7 +195,6 @@ namespace arduino {
                 vsync_nondisp = 3;
                 vsync_start = 8;
                 vsync_pw = 10;
-                m_voffset = 0;
             } else if (width == 800 && height == 480) {
                 pixclk = RA8875_PCSR_PDATL | RA8875_PCSR_2CLK;
                 hsync_nondisp = 26;
@@ -212,7 +204,6 @@ namespace arduino {
                 vsync_nondisp = 32;
                 vsync_start = 23;
                 vsync_pw = 2;
-                m_voffset = 0;
             } else {
                 return false;
             }
@@ -230,8 +221,8 @@ namespace arduino {
                     RA8875_HPWR_LOW +
                         (hsync_pw / 8 - 1)); // HSync pulse width = (HPWR+1) * 8
 
-            reg(RA8875_VDHR0, (uint16_t)(height - 1 + m_voffset) & 0xFF);
-            reg(RA8875_VDHR1, (uint16_t)(height - 1 + m_voffset) >> 8);
+            reg(RA8875_VDHR0, (uint16_t)(height - 1 + voffset) & 0xFF);
+            reg(RA8875_VDHR1, (uint16_t)(height - 1 + voffset) >> 8);
             reg(RA8875_VNDR0, vsync_nondisp - 1); // V non-display period = VNDR + 1
             reg(RA8875_VNDR1, vsync_nondisp >> 8);
             reg(RA8875_VSTR0, vsync_start - 1); // Vsync start position = VSTR + 1
@@ -239,19 +230,7 @@ namespace arduino {
             reg(RA8875_VPWR,
                     RA8875_VPWR_LOW + vsync_pw - 1); // Vsync pulse width = VPWR + 1
 
-            /* Set active window X */
-            reg(RA8875_HSAW0, 0); // horizontal start point
-            reg(RA8875_HSAW1, 0);
-            reg(RA8875_HEAW0, (uint16_t)(width - 1) & 0xFF); // horizontal end point
-            reg(RA8875_HEAW1, (uint16_t)(width - 1) >> 8);
-
-            /* Set active window Y */
-            reg(RA8875_VSAW0, 0 + m_voffset); // vertical start point
-            reg(RA8875_VSAW1, 0 + m_voffset);
-            reg(RA8875_VEAW0,
-                    (uint16_t)(height - 1 + m_voffset) & 0xFF); // vertical end point
-            reg(RA8875_VEAW1, (uint16_t)(height - 1 + m_voffset) >> 8);
-
+            set_active_window(bounds());
             /* ToDo: Setup touch panel? */
 
             /* Clear the entire window */
@@ -276,11 +255,11 @@ namespace arduino {
             reg(RA8875_HEAW1, r.x2 >> 8);
 
             /* Set active window Y */
-            reg(RA8875_VSAW0, (uint16_t)(r.y1 + m_voffset) & 0xFF); // vertical start point
-            reg(RA8875_VSAW1, (uint16_t)(r.y1 + m_voffset)>>8);
+            reg(RA8875_VSAW0, (uint16_t)(r.y1 + voffset) & 0xFF); // vertical start point
+            reg(RA8875_VSAW1, (uint16_t)(r.y1 + voffset)>>8);
             reg(RA8875_VEAW0,
-                    (uint16_t)(r.y2 + m_voffset) & 0xFF); // vertical end point
-            reg(RA8875_VEAW1, (uint16_t)(r.y2 + m_voffset) >> 8);
+                    (uint16_t)(r.y2 + voffset) & 0xFF); // vertical end point
+            reg(RA8875_VEAW1, (uint16_t)(r.y2 + voffset) >> 8);
         }
     public:
         // indicates the type, itself
@@ -290,10 +269,9 @@ namespace arduino {
         // indicates the capabilities of the driver
         using caps = gfx::gfx_caps<false,false,true,true,false,false,false>;
 
-        ra8875(SPIClass& spi) : m_initialized(false), m_voffset(0),m_in_batch(false),m_batch_offset(0), m_batch_bounds(0,0,0,0),m_spi(spi),m_spi_settings(init_clock_speed,MSBFIRST,0) {
+        ra8875(SPIClass& spi) : m_initialized(false), m_in_batch(false),m_batch_offset(0), m_batch_bounds(0,0,0,0),m_spi(spi),m_spi_settings(init_clock_speed,MSBFIRST,0) {
 
         }
-        
         bool initialize() {
             static const uint8_t RA8875_PWRR = 0x01;
             static const uint8_t RA8875_PWRR_DISPON = 0x80;
@@ -486,6 +464,7 @@ namespace arduino {
             if(gfx::gfx_result::success != rr) {
                 return rr;
             }
+            set_active_window(r);
             reg(RA8875_CURH0, r.x1);
             reg(RA8875_CURH1, r.x1 >> 8);
             reg(RA8875_CURV0, r.y1);
@@ -503,32 +482,10 @@ namespace arduino {
         // writes a pixel to a pending batch
         gfx::gfx_result write_batch(pixel_type color) {
             if(!m_in_batch) return gfx::gfx_result::invalid_state;
-            static const uint8_t RA8875_DATAWRITE = 0x00;
-            static const uint8_t RA8875_CURH0 = 0x46;
-            static const uint8_t RA8875_CURH1 = 0x47;
-            static const uint8_t RA8875_CURV0 = 0x48;
-            static const uint8_t RA8875_CURV1 = 0x49;
-            static const uint8_t RA8875_MRWC = 0x02;
-            static const uint8_t RA8875_MWCR0 = 0x40;
-            static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
-            static const uint8_t RA8875_MWCR0_LRTD = 0x00;
             //static const uint8_t RA8875_MWCR0_TDLR = 0x08;
             uint16_t v = color.channel_unchecked<2>() | (color.channel_unchecked<1>()<<5) | (color.channel_unchecked<0>()<<11);
             m_spi.transfer16(v);
             ++m_batch_offset;
-
-            gfx::point16 pt(m_batch_offset%m_batch_bounds.width()+m_batch_bounds.x1, m_batch_offset/m_batch_bounds.width()+m_batch_bounds.y1);
-            if( pt.x==m_batch_bounds.x1) {
-                digitalWrite(pin_cs, HIGH);
-                reg(RA8875_CURH0, m_batch_bounds.x1);
-                reg(RA8875_CURH1, m_batch_bounds.x1 >> 8);
-                reg(RA8875_CURV0, pt.y);
-                reg(RA8875_CURV1, pt.y >> 8);
-                reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | RA8875_MWCR0_LRTD);
-                send_command(RA8875_MRWC);
-                digitalWrite(pin_cs, LOW);
-                m_spi.transfer(RA8875_DATAWRITE);
-            }
             return gfx::gfx_result::success;
         }
         // commits a pending batch
@@ -537,6 +494,7 @@ namespace arduino {
                 return gfx::gfx_result::success;
             }
             digitalWrite(pin_cs, HIGH);
+            set_active_window(bounds());
             m_in_batch = false;
             return gfx::gfx_result::success;
         }

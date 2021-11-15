@@ -10,12 +10,14 @@ namespace arduino {
             uint16_t Height,
             int8_t PinCS,
             int8_t PinRst,
+            int8_t PinInt,
             uint32_t ClockSpeed = 20*1000*1000, uint32_t InitClockSpeed = 1*1000*1000> 
     struct ra8875 final {
         constexpr static const uint16_t width = Width;
         constexpr static const uint16_t height = Height;
         constexpr static const int8_t pin_cs = PinCS;
         constexpr static const int8_t pin_rst = PinRst;
+        constexpr static const int8_t pin_int = PinInt;
         constexpr static const uint32_t clock_speed = ClockSpeed;
         constexpr static const uint32_t init_clock_speed = InitClockSpeed;
     private:
@@ -239,6 +241,40 @@ namespace arduino {
             
             return true;
         }
+        bool initialize_touch() {
+            static const uint8_t RA8875_TPCR0 = 0x70;
+            static const uint8_t RA8875_TPCR0_ENABLE = 0x80;
+            static const uint8_t RA8875_TPCR0_WAIT_4096CLK = 0x30;
+            static const uint8_t RA8875_TPCR0_ADCCLK_DIV4 = 0x02;
+            static const uint8_t RA8875_TPCR0_WAKEENABLE = 0x08;
+            static const uint8_t RA8875_TPCR1 = 0x71;
+            static const uint8_t RA8875_TPCR1_AUTO = 0x00;
+            static const uint8_t RA8875_TPCR1_DEBOUNCE = 0x04;
+            static const uint8_t RA8875_INTC1 = 0xF0;
+            static const uint8_t RA8875_INTC1_TP = 0x04;
+            static const uint8_t RA8875_TPCR0_ADCCLK_DIV16 = 0x04;
+            if(pin_int!=-1) {
+                pinMode(pin_int, INPUT);
+                digitalWrite(pin_int, HIGH);
+            }
+            uint8_t adcClk = (uint8_t)RA8875_TPCR0_ADCCLK_DIV4;
+
+            if (width==800) // match up touch size with LCD size
+                adcClk = (uint8_t)RA8875_TPCR0_ADCCLK_DIV16;
+
+            
+            // Enable Touch Panel (Reg 0x70) 
+            reg(RA8875_TPCR0, RA8875_TPCR0_ENABLE | RA8875_TPCR0_WAIT_4096CLK |
+                                    RA8875_TPCR0_WAKEENABLE | adcClk); // 10mhz max!
+            // Set Auto Mode      (Reg 0x71)
+            reg(RA8875_TPCR1, RA8875_TPCR1_AUTO |
+                                    RA8875_TPCR1_DEBOUNCE);
+            // Enable TP INT
+            reg(RA8875_INTC1, reg(RA8875_INTC1) | RA8875_INTC1_TP);
+
+            return true;
+        
+        }
         void set_active_window(const gfx::rect16& rect) {
             static const uint8_t RA8875_HSAW0 = 0x30;
             static const uint8_t RA8875_HSAW1 = 0x31;
@@ -260,6 +296,27 @@ namespace arduino {
             reg(RA8875_VEAW0,
                     (uint16_t)(r.y2 + voffset) & 0xFF); // vertical end point
             reg(RA8875_VEAW1, (uint16_t)(r.y2 + voffset) >> 8);
+        }
+        bool recv_touch(gfx::point16* out_point) {
+            static const uint8_t RA8875_INTC2 = 0xF1;
+            static const uint8_t RA8875_INTC2_TP = 0x04;
+            static const uint8_t RA8875_TPXH = 0x72;
+            static const uint8_t RA8875_TPYH = 0x73;
+            static const uint8_t RA8875_TPXYL = 0x74;
+            uint16_t tx, ty;
+            uint8_t temp;
+
+            tx = reg(RA8875_TPXH);
+            ty = reg(RA8875_TPYH);
+            temp = reg(RA8875_TPXYL);
+            tx <<= 2;
+            ty <<= 2;
+            tx |= temp & 0x03;        // get the bottom x bits
+            ty |= (temp >> 2) & 0x03; // get the bottom y bits
+            *out_point = {tx,ty};
+            // Clear TP INT Status
+            reg(RA8875_INTC2, RA8875_INTC2_TP);
+            return true;
         }
     public:
         // indicates the type, itself
@@ -313,12 +370,39 @@ namespace arduino {
                 // enable backlight
                 reg(RA8875_P1CR, RA8875_P1CR_ENABLE | (RA8875_PWM_CLK_DIV1024 & 0xF));
                 reg(RA8875_P1DCR, 0xFF);
+
+                if(!initialize_touch()) {
+                    return false;
+                }
+
                 m_spi_settings._clock = clock_speed;
+
                 m_initialized = true;
             
             }
             return true;
         }
+
+        bool touched(gfx::point16* out_point) {
+            static const uint8_t RA8875_INTC2 = 0xF1;
+            static const uint8_t RA8875_INTC2_TP = 0x04;
+            if(pin_int == -1 || !digitalRead(pin_int)) {
+                if(clock_speed>10*1000*1000) {
+                    m_spi_settings._clock = 10*1000*1000;
+                }
+                m_spi_settings._clock = init_clock_speed;
+                //Serial.println("Passed INT pin check");
+                if(reg(RA8875_INTC2) & RA8875_INTC2_TP) {
+                    Serial.println("Passed touched reg check");
+                    return recv_touch(out_point);
+                }
+                if(clock_speed>10*1000*1000) {
+                    m_spi_settings._clock = clock_speed;
+                }
+            }
+            return false;
+        }
+        
         // retrieves the dimensions of the screen
         constexpr inline gfx::size16 dimensions() const {
             return gfx::size16(width,height);
@@ -537,6 +621,74 @@ namespace arduino {
             digitalWrite(pin_cs, HIGH);
             set_active_window(bounds());
             return rr;
+        }
+        gfx::gfx_result scroll_window(const gfx::rect16& rect, uint8_t mode) {
+            static const uint8_t RA8875_HSBE0 = 0x38;
+            static const uint8_t RA8875_HSBE1 = 0x39;
+            static const uint8_t RA8875_VSBE0 = 0x3a;
+            static const uint8_t RA8875_VSBE1 = 0x3b;
+            static const uint8_t RA8875_HDBE0 = 0x3c;
+            static const uint8_t RA8875_HDBE1 = 0x3d;
+            static const uint8_t RA8875_VDBE0 = 0x3e;
+            static const uint8_t RA8875_VDBE1 = 0x3f;
+            static const uint8_t RA8875_LTPR0 = 0x52;
+            if(!initialize()) {
+                return gfx::gfx_result::device_error;
+            }
+            const gfx::rect16 r = rect.normalize();
+            // Horizontal Start point of Scroll Window
+            send_command(RA8875_HSBE0);
+            send_data(r.x1);
+            send_command(RA8875_HSBE1);
+            send_data(r.x1 >> 8);
+
+            // Vertical Start Point of Scroll Window
+            send_command(RA8875_VSBE0);
+            send_data(r.y1);
+            send_command(RA8875_VSBE1);
+            send_data(r.y1 >> 8);
+
+            // Horizontal End Point of Scroll Window
+            send_command(RA8875_HDBE0);
+            send_data(r.x2);
+            send_command(RA8875_HDBE1);
+            send_data(r.x2 >> 8);
+
+            // Vertical End Point of Scroll Window
+            send_command(RA8875_VDBE0);
+            send_data(r.y2);
+            send_command(RA8875_VDBE1);
+            send_data(r.y2 >> 8);
+
+            // Scroll function setting
+            send_command(RA8875_LTPR0);
+            send_data(mode);
+            return gfx::gfx_result::success;
+        }
+
+        gfx::gfx_result scroll_x(int16_t dist) {
+            static const uint8_t RA8875_HOFS0 = 0x24;
+            static const uint8_t RA8875_HOFS1 = 0x25;
+            if(!initialize()) {
+                return gfx::gfx_result::device_error;
+            }
+            send_command(RA8875_HOFS0);
+            send_data(dist);
+            send_command(RA8875_HOFS1);
+            send_data(dist >> 8);
+            return gfx::gfx_result::success;
+        }
+        gfx::gfx_result scroll_y(int16_t dist) {
+            static const uint8_t RA8875_VOFS0 = 0x26;
+            static const uint8_t RA8875_VOFS1 = 0x27;
+            if(!initialize()) {
+                return gfx::gfx_result::device_error;
+            }
+            send_command(RA8875_VOFS0);
+            send_data(dist);
+            send_command(RA8875_VOFS1);
+            send_data(dist >> 8);
+            return gfx::gfx_result::success;
         }
     };
 }

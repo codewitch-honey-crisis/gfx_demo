@@ -38,7 +38,8 @@ using namespace gfx;
 #define LCD_HEIGHT 480
 #define PIN_CS 5
 #define PIN_RST 15
-using lcd_type = ra8875<LCD_WIDTH,LCD_HEIGHT,PIN_CS,PIN_RST>;
+#define PIN_INT 2
+using lcd_type = ra8875<LCD_WIDTH,LCD_HEIGHT,PIN_CS,PIN_RST, PIN_INT>;
             
 SPIClass spi(LCD_HOST);
 lcd_type lcd(spi);

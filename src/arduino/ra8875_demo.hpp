@@ -1,3 +1,13 @@
+#include <Arduino.h>
+#include <stdio.h>
+#include <SPIFFS.h>
+#include <SPI.h>
+#include "drivers/ra8875.hpp"
+#include "gfx_cpp14.hpp"
+#include "pretty_effect.hpp"
+#include "../fonts/Bm437_ATI_9x16.h"
+#include "../fonts/Bm437_Verite_9x16.h"
+
 #if defined(ESP_WROVER_KIT)
 #define LCD_HOST    HSPI
 #define PIN_NUM_MISO 25
@@ -19,16 +29,6 @@
 #define PIN_NUM_RST  4
 #define PIN_NUM_BCKL 15
 #endif
-#include <Arduino.h>
-#include <stdio.h>
-#include <SPIFFS.h>
-#include <SPI.h>
-#include "drivers/ra8875.hpp"
-#include "gfx_cpp14.hpp"
-#include "pretty_effect.hpp"
-#include "../fonts/Bm437_ATI_9x16.h"
-#include "../fonts/Bm437_Verite_9x16.h"
-//#include "../fonts/Maziro.h"
 using namespace arduino;
 using namespace gfx;
 
@@ -211,7 +211,6 @@ void lines_demo() {
         draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
         
     }
-    
 }
 
 //Simple routine to generate some patterns and send them to the LCD. Don't expect anything too

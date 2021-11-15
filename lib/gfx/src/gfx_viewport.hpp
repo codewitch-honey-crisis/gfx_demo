@@ -51,7 +51,8 @@ namespace gfx {
         }
         constexpr void rotation(float value) {
             m_rotation = value;
-            double rads = m_rotation * (PI / 180.0);
+            // PI is inconsistently declared!
+            double rads = m_rotation * (3.1415926535 / 180.0);
             m_ctheta = cos(rads);
             m_stheta = sin(rads);
         }
@@ -107,7 +108,7 @@ namespace gfx {
             return m_destination.point(location,out_pixel);
         }
         gfx_result fill(const rect16& dst,pixel_type pixel) {
-            if((rotation==0 && center.x==0 && center.y==0) || (dst.x1==dst.x2&&dst.y1==dst.y2)) {
+            if((rotation==0 && m_center.x==0 && m_center.y==0) || (dst.x1==dst.x2&&dst.y1==dst.y2)) {
                 return m_destination.fill(dst,pixel);
             }
             spoint16 points[4];

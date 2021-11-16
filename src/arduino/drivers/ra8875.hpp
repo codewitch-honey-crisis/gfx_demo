@@ -606,9 +606,9 @@ namespace arduino {
             }
             gfx::rect16 r = apply_rotation(rect.normalize(),false).crop({0,0,actual_width-1,actual_height-1});
             set_active_window(r);
-            Serial.printf("window: (%d, %d)-(%d, %d)\r\n",(int)r.x1,(int)r.y1,(int)r.x2,(int)r.y2);
+            //Serial.printf("window: (%d, %d)-(%d, %d)\r\n",(int)r.x1,(int)r.y1,(int)r.x2,(int)r.y2);
             r=apply_rotation(rect,true);
-            Serial.printf("translated: (%d, %d)-(%d, %d)\r\n",(int)r.x1,(int)r.y1,(int)r.x2,(int)r.y2);
+            //Serial.printf("translated: (%d, %d)-(%d, %d)\r\n",(int)r.x1,(int)r.y1,(int)r.x2,(int)r.y2);
             reg(RA8875_CURH0, r.x1);
             reg(RA8875_CURH1, r.x1 >> 8);
             reg(RA8875_CURV0, r.y1);

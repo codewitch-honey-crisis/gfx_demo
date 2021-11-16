@@ -10,7 +10,9 @@ namespace arduino {
             uint16_t Height,
             int8_t PinCS,
             int8_t PinRst,
-            int8_t PinInt,
+            int8_t PinInt = -1,
+            bool FlipX = false,
+            bool FlipY = false,
             uint32_t ClockSpeed = 20*1000*1000, uint32_t InitClockSpeed = 1*1000*1000> 
     struct ra8875 final {
         constexpr static const uint16_t width = Width;
@@ -20,9 +22,36 @@ namespace arduino {
         constexpr static const int8_t pin_int = PinInt;
         constexpr static const uint32_t clock_speed = ClockSpeed;
         constexpr static const uint32_t init_clock_speed = InitClockSpeed;
+        constexpr static const bool flip_x = FlipX;
+        constexpr static const bool flip_y = FlipY;
     private:
-        constexpr static const uint16_t voffset = (height == 80) * 192;
-
+        constexpr static const uint16_t actual_width = (width>height)?width:height;
+        constexpr static const uint16_t actual_height = (width>height)?height:width;
+        constexpr static const uint16_t voffset = (actual_height == 80) * 192;
+        constexpr static const uint8_t RA8875_MWCR0_LRTD = 0x00;
+        constexpr static const uint8_t RA8875_MWCR0_RLTD = 0x04;
+        constexpr static const uint8_t RA8875_MWCR0_TDLR = 0x08;
+        constexpr static const uint8_t RA8875_MWCR0_DTLR = 0x0C;
+        
+        constexpr static uint8_t get_write_orientation() {
+            if(height>width) {
+                return RA8875_MWCR0_TDLR;
+            } else {
+               return RA8875_MWCR0_LRTD;
+            }
+        }
+        constexpr static gfx::point16 apply_rotation(gfx::point16 pt, bool translate) {
+            switch(write_orientation) {
+                case RA8875_MWCR0_TDLR:
+                    return {pt.y,pt.x};
+                default:
+                    return pt;
+            }
+        }
+        constexpr inline static gfx::rect16 apply_rotation(const gfx::rect16& r,bool translate) {
+            return gfx::rect16(apply_rotation(r.point1(),translate),apply_rotation(r.point2(),translate));
+        }
+        constexpr static const uint8_t write_orientation = get_write_orientation();
         template<typename Source, bool Blt> struct draw_helper {
             static gfx::gfx_result do_draw(SPIClass& s, const Source& src, const gfx::rect16& srcr,const gfx::rect16& dstr) {
                 uint16_t w = dstr.dimensions().width;
@@ -122,7 +151,7 @@ namespace arduino {
             static const uint8_t  RA8875_PLLC1_PLLDIV1 = 0x00;
             static const uint8_t  RA8875_PLLC2 = 0x89;
             static const uint8_t  RA8875_PLLC2_DIV4 = 0x02;
-            if ((width == 480 && height == 80) || (width==480 && height==128) || (width==480 && height==272))
+            if ((actual_width == 480 && actual_height == 80) || (actual_width==480 && actual_height==128) || (actual_width==480 && actual_height==272))
             {
                 reg(RA8875_PLLC1, RA8875_PLLC1_PLLDIV1 + 10);
                 delay(1);
@@ -130,7 +159,7 @@ namespace arduino {
                 delay(1);
                 return true;
             }
-            else if(width==800 && height==480)
+            else if(actual_width==800 && actual_height==480)
             {
                 reg(RA8875_PLLC1, RA8875_PLLC1_PLLDIV1 + 11);
                 delay(1);
@@ -166,7 +195,9 @@ namespace arduino {
             static const uint8_t RA8875_MCLR = 0x8E;         
             static const uint8_t RA8875_MCLR_START = 0x80;
             static const uint8_t RA8875_MCLR_FULL = 0x00;
-            
+            static const uint8_t RA8875_DPCR = 0x20;
+            static const uint8_t RA8875_VDIR = 0x04;
+            static const uint8_t RA8875_HDIR = 0x08;
             reg(RA8875_SYSR, RA8875_SYSR_16BPP | RA8875_SYSR_MCU8);
 
             uint8_t pixclk;
@@ -178,7 +209,7 @@ namespace arduino {
             uint16_t vsync_nondisp;
             uint16_t vsync_start;
 
-            if (width == 480 && height == 80) {
+            if (actual_width == 480 && actual_height == 80) {
                 pixclk = RA8875_PCSR_PDATL | RA8875_PCSR_4CLK;
                 hsync_nondisp = 10;
                 hsync_start = 8;
@@ -188,7 +219,7 @@ namespace arduino {
                 vsync_start = 8;
                 vsync_pw = 10;
                 // This uses the bottom 80 pixels of a 272 pixel controller
-            } else if (width == 480 && (height == 128 || height == 272)) {
+            } else if (actual_width == 480 && (actual_height == 128 || actual_height == 272)) {
                 pixclk = RA8875_PCSR_PDATL | RA8875_PCSR_4CLK;
                 hsync_nondisp = 10;
                 hsync_start = 8;
@@ -197,7 +228,7 @@ namespace arduino {
                 vsync_nondisp = 3;
                 vsync_start = 8;
                 vsync_pw = 10;
-            } else if (width == 800 && height == 480) {
+            } else if (actual_width == 800 && actual_height == 480) {
                 pixclk = RA8875_PCSR_PDATL | RA8875_PCSR_2CLK;
                 hsync_nondisp = 26;
                 hsync_start = 32;
@@ -209,12 +240,26 @@ namespace arduino {
             } else {
                 return false;
             }
-
+            
+            if(flip_x) {
+                uint8_t x = reg(RA8875_DPCR);
+                x=x&~(RA8875_HDIR | RA8875_VDIR);
+                x|=RA8875_HDIR;
+                if(flip_y) {
+                    x|=RA8875_VDIR;
+                }
+                reg(RA8875_DPCR,x);
+            } else if(flip_y) {
+                uint8_t x = reg(RA8875_DPCR);
+                x=x&~(RA8875_HDIR | RA8875_VDIR);
+                x|=RA8875_VDIR;
+                reg(RA8875_DPCR,x);
+            }
             reg(RA8875_PCSR, pixclk);
             delay(1);
 
 
-            reg(RA8875_HDWR, (width / 8) - 1); // H width: (HDWR + 1) * 8 = 480
+            reg(RA8875_HDWR, (actual_width / 8) - 1); // H width: (HDWR + 1) * 8 = 480
             reg(RA8875_HNDFTR, RA8875_HNDFTR_DE_HIGH + hsync_finetune);
             reg(RA8875_HNDR, (hsync_nondisp - hsync_finetune - 2) /
                                     8); // H non-display: HNDR * 8 + HNDFTR + 2 = 10
@@ -223,8 +268,8 @@ namespace arduino {
                     RA8875_HPWR_LOW +
                         (hsync_pw / 8 - 1)); // HSync pulse width = (HPWR+1) * 8
 
-            reg(RA8875_VDHR0, (uint16_t)(height - 1 + voffset) & 0xFF);
-            reg(RA8875_VDHR1, (uint16_t)(height - 1 + voffset) >> 8);
+            reg(RA8875_VDHR0, (uint16_t)(actual_height - 1 + voffset) & 0xFF);
+            reg(RA8875_VDHR1, (uint16_t)(actual_height - 1 + voffset) >> 8);
             reg(RA8875_VNDR0, vsync_nondisp - 1); // V non-display period = VNDR + 1
             reg(RA8875_VNDR1, vsync_nondisp >> 8);
             reg(RA8875_VSTR0, vsync_start - 1); // Vsync start position = VSTR + 1
@@ -232,7 +277,7 @@ namespace arduino {
             reg(RA8875_VPWR,
                     RA8875_VPWR_LOW + vsync_pw - 1); // Vsync pulse width = VPWR + 1
 
-            set_active_window(bounds());
+            set_active_window({0,0,actual_width-1,actual_height-1});
             /* ToDo: Setup touch panel? */
 
             /* Clear the entire window */
@@ -259,7 +304,7 @@ namespace arduino {
             }
             uint8_t adcClk = (uint8_t)RA8875_TPCR0_ADCCLK_DIV4;
 
-            if (width==800) // match up touch size with LCD size
+            if (actual_width==800) // match up touch size with LCD size
                 adcClk = (uint8_t)RA8875_TPCR0_ADCCLK_DIV16;
 
             
@@ -275,7 +320,7 @@ namespace arduino {
             return true;
         
         }
-        void set_active_window(const gfx::rect16& rect) {
+        bool set_active_window(const gfx::rect16& rect) {
             static const uint8_t RA8875_HSAW0 = 0x30;
             static const uint8_t RA8875_HSAW1 = 0x31;
             static const uint8_t RA8875_VSAW0 = 0x32;
@@ -284,7 +329,9 @@ namespace arduino {
             static const uint8_t RA8875_HEAW1 = 0x35;
             static const uint8_t RA8875_VEAW0 = 0x36;
             static const uint8_t RA8875_VEAW1 = 0x37;
-            gfx::rect16 r = rect.crop(bounds()).normalize();
+            
+            gfx::rect16 r=rect.normalize();
+            //r= apply_rotation(rect);
             reg(RA8875_HSAW0, r.x1); // horizontal start point
             reg(RA8875_HSAW1, r.x1 >> 8);
             reg(RA8875_HEAW0, r.x2); // horizontal end point
@@ -296,6 +343,7 @@ namespace arduino {
             reg(RA8875_VEAW0,
                     (uint16_t)(r.y2 + voffset) & 0xFF); // vertical end point
             reg(RA8875_VEAW1, (uint16_t)(r.y2 + voffset) >> 8);
+            return true;
         }
         bool recv_touch(gfx::point16* out_point) {
             static const uint8_t RA8875_INTC2 = 0xF1;
@@ -313,7 +361,7 @@ namespace arduino {
             ty <<= 2;
             tx |= temp & 0x03;        // get the bottom x bits
             ty |= (temp >> 2) & 0x03; // get the bottom y bits
-            *out_point = {tx,ty};
+            *out_point = type::apply_rotation(gfx::point16(tx,ty),true);
             // Clear TP INT Status
             reg(RA8875_INTC2, RA8875_INTC2_TP);
             return true;
@@ -338,7 +386,9 @@ namespace arduino {
             static const uint8_t RA8875_P1CR = 0x8A;
             static const uint8_t RA8875_P1CR_ENABLE = 0x80;
             static const uint8_t RA8875_P1DCR = 0x8B;
-
+            static const uint8_t RA8875_MRWC = 0x02;
+            static const uint8_t RA8875_MWCR0 = 0x40;
+            static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
             if(!m_initialized) {
 
                 pinMode(pin_cs, OUTPUT);
@@ -371,6 +421,10 @@ namespace arduino {
                 reg(RA8875_P1CR, RA8875_P1CR_ENABLE | (RA8875_PWM_CLK_DIV1024 & 0xF));
                 reg(RA8875_P1DCR, 0xFF);
 
+                // set rotation
+                reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | write_orientation);
+                send_command(RA8875_MRWC);
+                
                 if(!initialize_touch()) {
                     return false;
                 }
@@ -426,6 +480,7 @@ namespace arduino {
                 if(!initialize())
                     return gfx::gfx_result::device_error;
             }
+            location = apply_rotation(location,true);
             reg(RA8875_CURH0, location.x);
             reg(RA8875_CURH1, location.x >> 8);
             reg(RA8875_CURV0, location.y);
@@ -448,11 +503,13 @@ namespace arduino {
                 return point(rect.point1(),pixel);
             }
             if(!rect.intersects(bounds())) return gfx::gfx_result::success;
-            gfx::rect16 r = rect.crop(bounds()).normalize();
+            
             if(!m_initialized) {
                 if(!initialize())
                     return gfx::gfx_result::device_error;
             }
+            
+            gfx::rect16 r = apply_rotation(rect,false).crop({0,0,actual_width-1,actual_height-1});
             // it's a line
             if(r.x1==r.x2 || r.y1==r.y2) {    
                 send_command(0x91);
@@ -541,19 +598,23 @@ namespace arduino {
             static const uint8_t RA8875_MRWC = 0x02;
             static const uint8_t RA8875_MWCR0 = 0x40;
             static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
-            static const uint8_t RA8875_MWCR0_LRTD = 0x00;
+            
             //static const uint8_t RA8875_MWCR0_TDLR = 0x08;
-            gfx::rect16 r = rect.normalize();
             gfx::gfx_result rr = commit_batch();
             if(gfx::gfx_result::success != rr) {
                 return rr;
             }
+            gfx::rect16 r = apply_rotation(rect.normalize(),false).crop({0,0,actual_width-1,actual_height-1});
             set_active_window(r);
+            Serial.printf("window: (%d, %d)-(%d, %d)\r\n",(int)r.x1,(int)r.y1,(int)r.x2,(int)r.y2);
+            r=apply_rotation(rect,true);
+            Serial.printf("translated: (%d, %d)-(%d, %d)\r\n",(int)r.x1,(int)r.y1,(int)r.x2,(int)r.y2);
             reg(RA8875_CURH0, r.x1);
             reg(RA8875_CURH1, r.x1 >> 8);
             reg(RA8875_CURV0, r.y1);
             reg(RA8875_CURV1, r.y1 >> 8);
-            reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | RA8875_MWCR0_LRTD);
+        
+            reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | write_orientation);
             send_command(RA8875_MRWC);
             digitalWrite(pin_cs, LOW);
             m_spi.transfer(RA8875_DATAWRITE);
@@ -566,7 +627,6 @@ namespace arduino {
         // writes a pixel to a pending batch
         gfx::gfx_result write_batch(pixel_type color) {
             if(!m_in_batch) return gfx::gfx_result::invalid_state;
-            //static const uint8_t RA8875_MWCR0_TDLR = 0x08;
             uint16_t v = color.channel_unchecked<2>() | (color.channel_unchecked<1>()<<5) | (color.channel_unchecked<0>()<<11);
             m_spi.transfer16(v);
             ++m_batch_offset;
@@ -578,7 +638,7 @@ namespace arduino {
                 return gfx::gfx_result::success;
             }
             digitalWrite(pin_cs, HIGH);
-            set_active_window(bounds());
+            set_active_window({0,0,actual_width-1,actual_height-1});
             m_in_batch = false;
             return gfx::gfx_result::success;
         }
@@ -592,7 +652,7 @@ namespace arduino {
             static const uint8_t RA8875_MRWC = 0x02;
             static const uint8_t RA8875_MWCR0 = 0x40;
             static const uint8_t RA8875_MWCR0_DIRMASK = 0x0C;
-            static const uint8_t RA8875_MWCR0_LRTD = 0x00;
+            
             if(!initialize()) return gfx::gfx_result::device_error;
             gfx::gfx_result rr = commit_batch();
             if(gfx::gfx_result::success!=rr) {
@@ -607,19 +667,24 @@ namespace arduino {
             if(srcr.height()>dstr.height()) {
                 srcr.y2=srcr.y1+dstr.height()-1;
             }
-            set_active_window(dstr);
+            set_active_window(apply_rotation(dstr,false));
+            const gfx::rect16 rot = apply_rotation(dstr,true);
+            
             digitalWrite(pin_cs, HIGH);
-            reg(RA8875_CURH0, dstr.x1);
-            reg(RA8875_CURH1, dstr.x1>>8);
-            reg(RA8875_CURV0, dstr.y1);
-            reg(RA8875_CURV1, dstr.y1>>8);
-            reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | RA8875_MWCR0_LRTD);
+            //const gfx::rect16 rot2 = rot.normalize();
+            
+            reg(RA8875_CURH0, rot.x1);
+            reg(RA8875_CURH1, rot.x1>>8);
+            reg(RA8875_CURV0, rot.y1);
+            reg(RA8875_CURV1, rot.y1>>8);
+        
+            reg(RA8875_MWCR0, (reg(RA8875_MWCR0) & ~RA8875_MWCR0_DIRMASK) | write_orientation);
             send_command(RA8875_MRWC);
             digitalWrite(pin_cs, LOW);
             m_spi.transfer(RA8875_DATAWRITE);
             rr=draw_helper<Source,Source::caps::blt && Source::pixel_type::template equals_exact<gfx::rgb_pixel<16>>::value>::do_draw(m_spi,src,srcr,dstr);
             digitalWrite(pin_cs, HIGH);
-            set_active_window(bounds());
+            set_active_window({0,0,actual_width-1,actual_height-1});
             return rr;
         }
         gfx::gfx_result scroll_window(const gfx::rect16& rect, uint8_t mode) {
@@ -635,7 +700,8 @@ namespace arduino {
             if(!initialize()) {
                 return gfx::gfx_result::device_error;
             }
-            const gfx::rect16 r = rect.normalize();
+            const gfx::rect16 r = rect.crop(bounds()).normalize();
+            r=apply_rotation(r,true).normalize();
             // Horizontal Start point of Scroll Window
             send_command(RA8875_HSBE0);
             send_data(r.x1);
@@ -669,25 +735,43 @@ namespace arduino {
         gfx::gfx_result scroll_x(int16_t dist) {
             static const uint8_t RA8875_HOFS0 = 0x24;
             static const uint8_t RA8875_HOFS1 = 0x25;
-            if(!initialize()) {
-                return gfx::gfx_result::device_error;
-            }
-            send_command(RA8875_HOFS0);
-            send_data(dist);
-            send_command(RA8875_HOFS1);
-            send_data(dist >> 8);
-            return gfx::gfx_result::success;
-        }
-        gfx::gfx_result scroll_y(int16_t dist) {
             static const uint8_t RA8875_VOFS0 = 0x26;
             static const uint8_t RA8875_VOFS1 = 0x27;
             if(!initialize()) {
                 return gfx::gfx_result::device_error;
             }
-            send_command(RA8875_VOFS0);
-            send_data(dist);
-            send_command(RA8875_VOFS1);
-            send_data(dist >> 8);
+            if(write_orientation==RA8875_MWCR0_TDLR || write_orientation == RA8875_MWCR0_DTLR) {
+                send_command(RA8875_VOFS0);
+                send_data(dist);
+                send_command(RA8875_VOFS1);
+                send_data(dist >> 8);
+            } else {
+                send_command(RA8875_HOFS0);
+                send_data(dist);
+                send_command(RA8875_HOFS1);
+                send_data(dist >> 8);
+            }
+            return gfx::gfx_result::success;
+        }
+        gfx::gfx_result scroll_y(int16_t dist) {
+            static const uint8_t RA8875_HOFS0 = 0x24;
+            static const uint8_t RA8875_HOFS1 = 0x25;
+            static const uint8_t RA8875_VOFS0 = 0x26;
+            static const uint8_t RA8875_VOFS1 = 0x27;
+            if(!initialize()) {
+                return gfx::gfx_result::device_error;
+            }
+            if(write_orientation==RA8875_MWCR0_TDLR || write_orientation == RA8875_MWCR0_DTLR) {
+                send_command(RA8875_HOFS0);
+                send_data(dist);
+                send_command(RA8875_HOFS1);
+                send_data(dist >> 8);
+            } else {
+                send_command(RA8875_VOFS0);
+                send_data(dist);
+                send_command(RA8875_VOFS1);
+                send_data(dist >> 8);
+            }
             return gfx::gfx_result::success;
         }
     };

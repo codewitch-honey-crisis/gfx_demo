@@ -15,7 +15,8 @@ namespace espidf {
         out_of_memory=4,
         no_more_cs_slots=5,
         previous_transactions_pending=6,
-        timeout=7
+        timeout=7,
+        unknown=8
     };
     class spi_master final {
         bool m_initialized;
@@ -142,6 +143,37 @@ namespace espidf {
             if(nullptr!=m_handle) {
                 spi_bus_remove_device(m_handle);
             }
+        }
+        
+        spi_result reconfigure(spi_host_device_t hostid,const spi_device_interface_config_t& config) {
+            spi_transaction_t* ptrans;
+            while(ESP_OK==spi_device_get_trans_result(m_handle,&ptrans,portMAX_DELAY));
+            spi_device_release_bus(m_handle);
+            esp_err_t res =spi_bus_remove_device(m_handle);
+            if(ESP_OK!=res) {
+                switch(res) {
+                case ESP_ERR_INVALID_ARG:
+                    return spi_result::invalid_argument;
+                case ESP_ERR_NOT_FOUND:
+                    return spi_result::no_more_cs_slots;
+                default:
+                    return spi_result::out_of_memory;
+                }
+                return spi_result::unknown;
+            }
+            res=spi_bus_add_device(hostid,&config,&m_handle);
+            if(ESP_OK!=res) {
+                switch(res) {
+                case ESP_ERR_INVALID_ARG:
+                    return spi_result::invalid_argument;
+                case ESP_ERR_NOT_FOUND:
+                    return spi_result::no_more_cs_slots;
+                default:
+                    return spi_result::out_of_memory;
+                }
+                return spi_result::unknown;
+            }
+            return spi_result::success;
         }
         inline spi_device_handle_t handle() const {
             return m_handle;

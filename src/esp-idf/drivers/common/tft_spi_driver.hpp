@@ -270,6 +270,14 @@ namespace espidf {
             if(clock_speed>26*1000*1000) {
                 flags = SPI_DEVICE_NO_DUMMY;
             }
+            void(*cbfn)(spi_transaction_t*) = NULL;
+            if(pin_dc!=GPIO_NUM_NC) {
+                //Specify pre-transfer callback to handle D/C line
+                cbfn = [](spi_transaction_t*t){
+                    int dc=(int)t->user;
+                    gpio_set_level(pin_dc, dc!=0);
+                };
+            }
             spi_device_interface_config_t devcfg={
                 .command_bits=0,
                 .address_bits=0,
@@ -278,16 +286,12 @@ namespace espidf {
                 .duty_cycle_pos=0,
                 .cs_ena_pretrans=0,
                 .cs_ena_posttrans=0,
-                .clock_speed_hz=clock_speed,           //Clock out at 26 MHz
+                .clock_speed_hz=clock_speed,
                 .input_delay_ns = 0,
-                .spics_io_num=pin_cs,               //CS pin
-                
+                .spics_io_num=pin_cs,
                 .flags =flags,
-                .queue_size=max_transactions,                          //We want to be able to queue 7 transactions at a time
-                .pre_cb=[](spi_transaction_t*t){
-                    int dc=(int)t->user;
-                    gpio_set_level(pin_dc, dc!=0);
-                },  //Specify pre-transfer callback to handle D/C line
+                .queue_size=max_transactions,
+                .pre_cb=cbfn,
                 .post_cb=NULL
             };
             return devcfg;

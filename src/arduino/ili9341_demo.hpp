@@ -191,7 +191,7 @@ void lines_demo() {
             {0,0},
             text,
             f,scale,
-            lcd_color::dark_blue);
+            lcd_color::dark_blue,lcd_color::white,false);
     // free the font
     file.close();
     for(int i = 1;i<100;i+=2) {

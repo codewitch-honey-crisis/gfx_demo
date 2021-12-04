@@ -2,10 +2,9 @@
 #define HTCW_GFX_POSITIONING_HPP
 #include "bits.hpp"
 namespace gfx {
-    PACK
     // represents a pointx with 16-bit integer coordinates
     template <typename T>
-    struct PACKED pointx final {
+    struct pointx final {
         using type = pointx;
         using value_type = T;
         // the x coordinate
@@ -38,7 +37,7 @@ namespace gfx {
     struct rectx;
     // represents a size with 16-bit integer coordinates
     template <typename T>
-    struct PACKED sizex final {
+    struct sizex final {
         using type = sizex;
         using value_type = T;
         // the width
@@ -74,7 +73,7 @@ namespace gfx {
     };
     // represents a rectangle with 16-bit integer coordinates
     template <typename T>
-    struct PACKED rectx final
+    struct rectx final
     {
         using type =rectx;
         using value_type = T;
@@ -394,7 +393,7 @@ namespace gfx {
         return rectx<T>(pointx<T>(0,0),*this);
     }
     template <typename T>
-    struct PACKED pathx final
+    struct pathx final
     {
         using type = pathx<T>;
         using value_type = T;
@@ -499,7 +498,6 @@ namespace gfx {
         }
 
     };
-    RESTORE_PACK
     
     using spoint16 = pointx<int16_t>;
     using ssize16 = sizex<int16_t>;

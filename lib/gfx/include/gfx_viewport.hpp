@@ -10,7 +10,7 @@
 namespace gfx {
     template<typename Destination> class viewport final {
         Destination& m_destination;
-        constexpr bool clip(spoint16 point, point16* out_result) {
+        constexpr bool clip(spoint16 point, point16* out_result) const {
             srect16 b = (srect16)m_destination.bounds();
             if(!b.intersects(point))
                 return false;
@@ -18,7 +18,7 @@ namespace gfx {
             out_result->y = (typename point16::value_type)point.y;
             return true;
         }
-        constexpr bool clip(srect16 rect, rect16* out_result) {
+        constexpr bool clip(srect16 rect, rect16* out_result) const {
             srect16 b = (srect16)m_destination.bounds();
             if(!b.intersects(rect))
                 return false;
@@ -75,19 +75,19 @@ namespace gfx {
             y = (float)ry;
         }
         
-        constexpr void translate_inplace(spoint16& point) {
+        constexpr void translate_inplace(spoint16& point) const {
             float x = point.x;
             float y = point.y;
             translater(x,y);
             point.x = (typename spoint16::value_type)x;
             point.y = (typename spoint16::value_type)y;
         }
-        constexpr spoint16 translate(spoint16 point) {
+        constexpr spoint16 translate(spoint16 point) const {
             translate_inplace(point);
             return point;
         }
         
-        constexpr inline srect16 translate(const srect16& rect) {
+        constexpr inline srect16 translate(const srect16& rect) const {
             return srect16(translate(rect.point1()),translate(rect.point2()));
         }
         gfx_result point(point16 location,pixel_type rhs) {
@@ -98,7 +98,7 @@ namespace gfx {
             }
             return m_destination.point(location,rhs);
         }
-        gfx_result point(point16 location, pixel_type* out_pixel) {
+        gfx_result point(point16 location, pixel_type* out_pixel) const {
             spoint16 loc = (spoint16)location;
             translate_inplace(loc);
             if(!clip(loc, &location)) {
@@ -108,7 +108,7 @@ namespace gfx {
             return m_destination.point(location,out_pixel);
         }
         gfx_result fill(const rect16& dst,pixel_type pixel) {
-            if((rotation==0 && m_center.x==0 && m_center.y==0) || (dst.x1==dst.x2&&dst.y1==dst.y2)) {
+            if((m_rotation==0 && m_center.x==0 && m_center.y==0) || (dst.x1==dst.x2&&dst.y1==dst.y2)) {
                 return m_destination.fill(dst,pixel);
             }
             spoint16 points[4];

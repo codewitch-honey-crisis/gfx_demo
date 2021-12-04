@@ -250,7 +250,7 @@ namespace arduino {
                 if(use_fast) {
                     for(int y = 0; y < height; ++y) {
                         for(int x = 0; x<width; ++x) {
-                            double map_value = gfx::helpers::dither_threshhold_map_fast[(x & 7) + ((y & 7) << 3)];
+                            double map_value = gfx::helpers::threshold_map_fast[(x & 7) + ((y & 7) << 3)];
                             pixel_type px;
                             typename palette_type::mapped_pixel_type mpx;
                             gfx::gfx_result r = m_frame_buffer.point(gfx::point16(x,y),&px);
@@ -261,7 +261,7 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return epaper_spi_driver_result::not_supported;
                             }
-                            gfx::helpers::dither_mixing_plan_data_fast plan;
+                            gfx::helpers::mixing_plan_data_fast plan;
                             gfx::helpers::dither_mixing_plan_fast(&m_native_palette,mpx,&plan);
                             epaper_spi_driver_result rr=epaper_spi_driver_helpers::write_pixel_helper<epaper_spi_driver,dithered,true>::write_pixel(this,plan.colors[map_value<plan.ratio?1:0]);
                             if(epaper_spi_driver_result::success!=rr) {
@@ -285,7 +285,7 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return epaper_spi_driver_result::not_supported;
                             }
-                            unsigned map_value = gfx::helpers::dither_threshold_map[(x & 7) + ((y & 7) << 3)];
+                            unsigned map_value = gfx::helpers::threshold_map[(x & 7) + ((y & 7) << 3)];
                             r=gfx::helpers::dither_mixing_plan(&m_native_palette,mpx,plan);
                             if(gfx::gfx_result::success!=r) {
                                 return epaper_spi_driver_result::not_supported;
@@ -297,7 +297,7 @@ namespace arduino {
                             }
                         }
                     }
-                    r=gfx::helpers::dither_unprepare();
+                    r=gfx::helpers::unprepare();
                     if(gfx::gfx_result::success!=r) {
                         return epaper_spi_driver_result::out_of_memory;
                     }

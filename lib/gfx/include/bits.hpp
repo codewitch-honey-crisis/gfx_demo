@@ -20,7 +20,7 @@ namespace bits {
     {
 #ifdef HTCW_BIG_ENDIAN
         return endian_mode::big_endian;
-#elif defined(HTCW_LITTLE_ENDIAN) || defined(ESP_PLATFORM)
+#elif defined(HTCW_LITTLE_ENDIAN)
         return endian_mode::little_endian;
 #else
         return endian_mode::none;
@@ -406,40 +406,40 @@ namespace bits {
         
         }
     }
-constexpr inline static void set_bits(size_t offset_bits,size_t size_bits,void* dst,const void* src) {
-    const size_t offset_bytes = offset_bits / 8;
-    const size_t offset = offset_bits % 8;
-    const size_t total_size_bytes = (offset_bits+size_bits+7)/8;
-    const size_t overhang = (offset_bits+size_bits) % 8;
-    uint8_t* pbegin = ((uint8_t*)dst)+offset_bytes;
-    uint8_t* psbegin = ((uint8_t*)src)+offset_bytes;
-    uint8_t* pend = ((uint8_t*)dst)+total_size_bytes;
-    uint8_t* plast = pend-(pbegin!=pend);
+    constexpr inline static void set_bits(size_t offset_bits,size_t size_bits,void* dst,const void* src) {
+        const size_t offset_bytes = offset_bits / 8;
+        const size_t offset = offset_bits % 8;
+        const size_t total_size_bytes = (offset_bits+size_bits+7)/8;
+        const size_t overhang = (offset_bits+size_bits) % 8;
+        uint8_t* pbegin = ((uint8_t*)dst)+offset_bytes;
+        uint8_t* psbegin = ((uint8_t*)src)+offset_bytes;
+        uint8_t* pend = ((uint8_t*)dst)+total_size_bytes;
+        uint8_t* plast = pend-(pbegin!=pend);
 
-    const uint8_t maskL = 0!=offset?
-                                (uint8_t)((uint8_t(0xFF>>offset))):
-                                uint8_t(0xff);
-    const uint8_t maskR = 0!=overhang?
-                            (uint8_t)~((uint8_t(0xFF>>overhang))):
-                            uint8_t(0xFF);
-    if(pbegin==plast) {
-        uint8_t v = *psbegin;
-        const uint8_t mask = maskL & maskR;
-        v&=mask;
-        *pbegin&=~mask;
-        *pbegin|=v;
-        return;
+        const uint8_t maskL = 0!=offset?
+                                    (uint8_t)((uint8_t(0xFF>>offset))):
+                                    uint8_t(0xff);
+        const uint8_t maskR = 0!=overhang?
+                                (uint8_t)~((uint8_t(0xFF>>overhang))):
+                                uint8_t(0xFF);
+        if(pbegin==plast) {
+            uint8_t v = *psbegin;
+            const uint8_t mask = maskL & maskR;
+            v&=mask;
+            *pbegin&=~mask;
+            *pbegin|=v;
+            return;
+        }
+        *pbegin&=~maskL;
+        *pbegin|=((*psbegin)&maskL);
+        *plast&=~maskR;
+        *plast|=((*(psbegin+total_size_bytes-1))&maskR);
+        if(pbegin+1<plast) {
+            const size_t len = plast-(pbegin+1);
+            if(0!=len&&len<=total_size_bytes) 
+                memcpy(pbegin+1,psbegin+1,len);
+        }
     }
-    *pbegin&=~maskL;
-    *pbegin|=((*psbegin)&maskL);
-    *plast&=~maskR;
-    *plast|=((*(psbegin+total_size_bytes-1))&maskR);
-    if(pbegin+1<plast) {
-        const size_t len = plast-(pbegin+1);
-        if(0!=len&&len<=total_size_bytes) 
-            memcpy(pbegin+1,psbegin+1,len);
-    }
-}
     template<size_t OffsetBits,size_t SizeBits> constexpr inline static void set_bits(void* dst,const void* src) {
         const size_t offset_bytes = OffsetBits / 8;
         const size_t offset = OffsetBits % 8;

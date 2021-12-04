@@ -234,14 +234,14 @@ namespace arduino {
             if(dithered) {
                 const bool use_fast = true;
 
-                gfx::gfx_result r=gfx::helpers::dither_prepare(&m_palette);
+                gfx::gfx_result r=gfx::helpers::dither_color::prepare(&m_palette);
                 if(gfx::gfx_result::success!=r) {
                     return;
                 }
                 if(use_fast) {
                     for(int y = 0; y < height; ++y) {
                         for(int x = 0; x<width; ++x) {
-                            double map_value = gfx::helpers::dither_threshhold_map_fast[(x & 7) + ((y & 7) << 3)];
+                            double map_value = gfx::helpers::dither_color::threshold_map_fast[(x & 7) + ((y & 7) << 3)];
                             pixel_type px;
                             typename palette_type::mapped_pixel_type mpx;
                             gfx::gfx_result r = m_frame_buffer.point(gfx::point16(x,y),&px);
@@ -252,8 +252,8 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return;
                             }
-                            gfx::helpers::dither_mixing_plan_data_fast plan;
-                            gfx::helpers::dither_mixing_plan_fast(&m_palette,mpx,&plan);
+                            gfx::helpers::dither_color::mixing_plan_data_fast plan;
+                            gfx::helpers::dither_color::mixing_plan_fast(&m_palette,mpx,&plan);
                             gdeh0154z90_helpers::write_pixel_helper<gdeh0154z90,dithered,true>::write_pixel(this,plan.colors[map_value<plan.ratio?0:1]);
                         }
                     }
@@ -273,15 +273,15 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return;
                             }
-                            unsigned map_value = gfx::helpers::dither_threshold_map[(x & 7) + ((y & 7) << 3)];
-                            r=gfx::helpers::dither_mixing_plan(&m_palette,mpx,plan);
+                            unsigned map_value = gfx::helpers::dither_color::threshold_map[(x & 7) + ((y & 7) << 3)];
+                            r=gfx::helpers::dither_color::mixing_plan(&m_palette,mpx,plan);
                             if(gfx::gfx_result::success!=r) {
                                 return;;
                             }
                             gdeh0154z90_helpers::write_pixel_helper<gdeh0154z90,dithered,true>::write_pixel(this,plan[map_value]);
                         }
                     }
-                    r=gfx::helpers::dither_unprepare();
+                    r=gfx::helpers::dither_color::unprepare();
                     if(gfx::gfx_result::success!=r) {
                         return;
                     }

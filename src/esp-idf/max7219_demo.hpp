@@ -7,8 +7,8 @@ extern "C" { void app_main(); }
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_spiffs.h"
-#include "drivers/max7219.hpp"
 #include "gfx_cpp14.hpp"
+#include "drivers/max7219.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace espidf;
 using namespace gfx;

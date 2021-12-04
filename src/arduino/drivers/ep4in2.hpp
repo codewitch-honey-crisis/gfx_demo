@@ -384,7 +384,7 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return r;
                             }
-                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither_bayer_16[col][row]);
+                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither::bayer_16[col+row*16]);
                         }
                         base_type::send_data(m_spi,~data);
                     }
@@ -402,7 +402,7 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return r;
                             }
-                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither_bayer_16[col][row]);
+                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither::bayer_16[col+row*16]);
                         }
                         base_type::send_data(m_spi,data);
                     }
@@ -487,7 +487,7 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return r;
                             }
-                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither_bayer_16[col][row]);
+                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither::bayer_16[col+row*16]);
                         }
                         base_type::send_data(m_spi, data);
                     }
@@ -506,7 +506,7 @@ namespace arduino {
                             if(gfx::gfx_result::success!=r) {
                                 return r;
                             }
-                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither_bayer_16[col][row]);
+                            data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither::bayer_16[col+row*16]);
                         }
                         base_type::send_data(m_spi, ~data);
                     }

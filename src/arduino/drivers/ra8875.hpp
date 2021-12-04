@@ -13,7 +13,8 @@ namespace arduino {
             int8_t PinInt = -1,
             bool FlipX = false,
             bool FlipY = false,
-            uint32_t ClockSpeed = 20*1000*1000, uint32_t InitClockSpeed = 1*1000*1000> 
+            uint32_t ClockSpeed = 20*1000*1000, 
+            uint32_t InitClockSpeed = 1*1000*1000> 
     struct ra8875 final {
         constexpr static const uint16_t width = Width;
         constexpr static const uint16_t height = Height;

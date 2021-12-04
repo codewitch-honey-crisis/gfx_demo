@@ -168,7 +168,7 @@ namespace arduino {
                                 if(gfx::gfx_result::success!=r) {
                                     return;
                                 }
-                                data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither_bayer_16[col][row]);
+                                data |= (1<<(7-i))* (255.0*px.template channelr<gfx::channel_name::L>()>=gfx::helpers::dither::bayer_16[col+row*16]);
                             }
                             send_data(data);
                         }

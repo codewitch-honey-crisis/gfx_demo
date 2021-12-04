@@ -1,6 +1,5 @@
 #ifndef HTCW_GFX_DRAWING_HPP
 #define HTCW_GFX_DRAWING_HPP
-#include "bits.hpp"
 #include <math.h>
 #include "gfx_core.hpp"
 #include "gfx_pixel.hpp"
@@ -30,34 +29,10 @@ namespace gfx {
         // t is a value that goes from 0 to 1 to interpolate in a C1 continuous way across uniformly sampled data points.
         // when t is 0, this will return B.  When t is 1, this will return C.  Inbetween values will return an interpolation
         // between B and C.  A and B are used to calculate slopes at the edges.
-        double cubic_hermite (double A, double B, double C, double D, double t)
-        {
-            double a = -A / 2.0f + (3.0f*B) / 2.0f - (3.0f*C) / 2.0f + D / 2.0f;
-            double b = A - (5.0f*B) / 2.0f + 2.0f*C - D / 2.0f;
-            double c = -A / 2.0f + C / 2.0f;
-            double d = B;
+        double cubic_hermite (double A, double B, double C, double D, double t);
         
-            return a*t*t*t + b*t*t + c*t + d;
-        }
+        bool clamp_point16(point16& pt,const rect16& bounds);
 
-        bool clamp_point16(point16& pt,const rect16& bounds) {
-            bool result=false;
-            if(pt.x<bounds.x1) {
-                result = true;
-                pt.x = bounds.x1;
-            } else if(pt.x>bounds.x2) {
-                result = true;
-                pt.x = bounds.x2;
-            }
-            if(pt.y<bounds.y1) {
-                result = true;
-                pt.y = bounds.y1;
-            } else if(pt.y>bounds.y2) {
-                result = true;
-                pt.y = bounds.y2;
-            }
-            return result;
-        }
         template<typename Source>
         gfx_result sample_nearest (const Source& source, const rect16& src_rect, float u, float v,typename Source::pixel_type* out_pixel) {
             // calculate coordinates
@@ -1937,21 +1912,16 @@ namespace gfx {
                 if(c!=0) {
                     point16 pt(uint16_t(x+pst->off_x),uint16_t(y+pst->off_y));
                     if(nullptr==pst->clip||pst->clip->intersects((spoint16)pt)) {
-                        if(Destination::pixel_type::bit_depth==1 || pst->transparent_background) {
-                            return (int)pst->destination->point(pt,pst->color);
+                        if(pst->transparent_background) {
+                            return (int)draw::point(*pst->destination,(spoint16)pt,pst->color);
                         } else {
-                            const double d = c/255.0;
-                            auto px = pst->backcolor;
-                            gfx_result r=pst->color.blend(px,d,&px);
+                            PixelType px;
+                            double d = c/255.0;
+                            gfx_result r=pst->color.blend(pst->backcolor,d,&px);
+                            return (int)draw::point(*pst->destination,(spoint16)pt,px);
                             if(gfx_result::success!=r) {
                                 return (int)r;
                             }
-                            typename Destination::pixel_type dpx;
-                            r= convert_palette_from(*pst->destination,px,&dpx);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            return (int)pst->destination->point(pt,dpx); 
                         }
                     }
                 }
@@ -1961,45 +1931,32 @@ namespace gfx {
         template<typename Destination,typename PixelType> struct draw_open_font_helper_impl<Destination,PixelType,true> {
             static int render_callback(int x, int y, int c, void* state) {
                 open_font_render_state<Destination,PixelType>* pst=(open_font_render_state<Destination,PixelType>*)state;
-                const double d = c/255.0;
+                double d = c/255.0;
                 if(d>0.0) {
                     point16 pt = {uint16_t(x+pst->off_x),uint16_t(y+pst->off_y)};
                     if(nullptr==pst->clip||pst->clip->intersects((spoint16)pt)) {
-                        if(pst->transparent_background) {
-                            typename Destination::pixel_type bpx;
-                            gfx_result r=pst->destination->point(pt,&bpx);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            PixelType bppx;
-                            r=convert_palette_to(*pst->destination,bpx,&bppx);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            PixelType px;
-                            r = pst->color.blend(bppx,d,&px);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            //return (int)draw::point(*pst->destination,(spoint16)pt,px);
-                            r= convert_palette_from(*pst->destination,px,&bpx);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            return (int)pst->destination->point(pt,bpx);
-                        } else {
-                            auto px = pst->backcolor;
-                            gfx_result r=pst->color.blend(px,d,&px);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            typename Destination::pixel_type dpx;
-                            r= convert_palette_from(*pst->destination,px,&dpx);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                            return (int)pst->destination->point(pt,dpx);
+                        gfx_result r;
+                        PixelType px;
+                        typename Destination::pixel_type bpx;
+                        PixelType bppx;
+                        r=pst->destination->point(pt,&bpx);
+                        if(gfx_result::success!=r) {
+                            return (int)r;
                         }
+                        r=convert_palette_to(*pst->destination,bpx,&bppx);
+                        if(gfx_result::success!=r) {
+                            return (int)r;
+                        }
+                        r = pst->color.blend(bppx,d,&px);
+                        if(gfx_result::success!=r) {
+                            return (int)r;
+                        }
+                    
+                        r= convert_palette_from(*pst->destination,px,&bpx);
+                        if(gfx_result::success!=r) {
+                            return (int)r;
+                        }
+                        return (int)pst->destination->point(pt,bpx);
                     }
                 }
                 return 0;
@@ -2008,13 +1965,13 @@ namespace gfx {
         // this doesn't need to be a template struct but it is because we may add batching and such later
         template<typename Destination,typename PixelType>
         struct draw_open_font_helper {
-            static gfx_result do_draw(Destination& destination,const open_font& font,float scale,float shift_x,float shift_y, int glyph,const srect16& chr,PixelType color,PixelType backcolor,bool transparent_background,const srect16* clip,bool async) {
+            static gfx_result do_draw(Destination& destination,const open_font& font,float scale,float shift_x,float shift_y, int glyph,const srect16& chr,PixelType color, PixelType backcolor, bool transparent_background, const srect16* clip,bool async) {
                 gfx_result r = gfx_result::success;
                 // suspend if we can
                 helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(destination,async);
                 
                 int(*render_cb)(int x,int y,int c,void* state) = draw_open_font_helper_impl<Destination,PixelType,Destination::pixel_type::bit_depth!=1&&Destination::caps::read>::render_callback;
-                
+            
                 open_font_render_state<Destination,PixelType> state;
                 state.off_x = chr.left();
                 state.off_y = chr.top();
@@ -2027,7 +1984,7 @@ namespace gfx {
                     return r;
                 }
                 state.async = async;
-                stbtt::stbtt_MakeGlyphBitmapSubpixel(&font.m_info,render_cb,&state, chr.width(),chr.height(),0,scale,scale,shift_x,shift_y,glyph);
+                font.draw(render_cb,&state, chr.width(),chr.height(),0,scale,scale,shift_x,shift_y,glyph);
                 return gfx_result::success;
             }
         };
@@ -2542,17 +2499,17 @@ namespace gfx {
             }
             int asc,dsc,lgap;
             float height;
-            stbtt::stbtt_GetFontVMetrics(&font.m_info,&asc,&dsc,&lgap);
+            font.font_vmetrics(&asc,&dsc,&lgap);
             float baseline = asc*scale;
             int x1,y1,x2,y2;
-            stbtt::stbtt_GetFontBoundingBox(&font.m_info,&x1,&y1,&x2,&y2);
+            font.bounding_box(&x1,&y1,&x2,&y2);
             if(scaled_tab_width<=0.0) {
                 scaled_tab_width = (x2-x1+1)*scale*4;
             }
            
             height = baseline;
             int advw;
-            int gi= stbtt::stbtt_FindGlyphIndex(&font.m_info,*sz);
+            int gi= font.glyph_index(sz);
             float xpos=offset.x,ypos=baseline+offset.y;
             float x_extent=0,y_extent=0;
             bool adv_line = false;
@@ -2585,17 +2542,16 @@ namespace gfx {
                         ypos+=lgap*scale;
                     }
                     ++sz;
-                    gi=stbtt::stbtt_FindGlyphIndex(&font.m_info,*sz);
+                    gi=font.glyph_index(sz);
                     continue;
                 }
-                stbtt::stbtt_GetGlyphHMetrics(&font.m_info,gi,&advw,nullptr);
-                stbtt::stbtt_GetGlyphBitmapBoxSubpixel(&font.m_info,gi,scale,scale,xpos-floor(xpos),ypos-floor(ypos),&x1,&y1,&x2,&y2);
-
+                font.glyph_hmetrics(gi,&advw,nullptr);
+                font.glyph_bitmap_bounding_box(gi,scale,scale,xpos-floor(xpos),ypos-floor(ypos),&x1,&y1,&x2,&y2);
                 srect16 chr(x1+xpos,y1+ypos,x2+xpos,y2+ypos);
                 chr.offset_inplace(dest_rect.left(),dest_rect.top());
                 if(nullptr==clip || clip->intersects(chr)) {
                     
-                    r=draw_open_font_helper<Destination,PixelType>::do_draw(destination,font,scale,xpos-floor(xpos),ypos-floor(ypos),gi,chr,color,backcolor,transparent_background,clip,async);
+                    r=draw_open_font_helper<Destination,PixelType>::do_draw(destination,font,scale,xpos-floor(xpos),ypos-floor(ypos),gi,chr,color,backcolor,transparent_background, clip,async);
                     if(gfx_result::success!=r) {
                         return r;
                     }
@@ -2618,8 +2574,8 @@ namespace gfx {
                 }
                 xpos+=(advw*scale);    
                 if(*(sz+1)) {
-                    int gi2=stbtt::stbtt_FindGlyphIndex(&font.m_info,*(sz+1));
-                    xpos+=(stbtt::stbtt_GetGlyphKernAdvance(&font.m_info,gi,gi2)*scale);
+                    int gi2=font.glyph_index(sz+1);
+                    xpos+=font.kern_advance_width(gi,gi2)*scale;
                     gi=gi2;
                 }
                 if(adv_line) {

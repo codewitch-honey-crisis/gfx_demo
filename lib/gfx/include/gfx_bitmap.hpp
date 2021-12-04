@@ -1,5 +1,6 @@
 #ifndef HTCW_GFX_BITMAP
 #define HTCW_GFX_BITMAP
+#include <string.h>
 #include "gfx_core.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_positioning.hpp"
@@ -16,7 +17,7 @@ namespace gfx {
         };
         template<typename Source, typename Destination> struct BlendHelper<Source,Destination,true> {
             static constexpr gfx_result DoBlend(const Source& src, typename Source::pixel_type spx,Destination& dst, point16 dstpnt,typename Destination::pixel_type* out_px) {
-                gfx_result r;
+                gfx_result r=gfx_result::success;
                 typename Destination::pixel_type bgpx;
                 r=dst.point(point16(dstpnt),&bgpx);
                 if(gfx_result::success!=r) {
@@ -613,10 +614,7 @@ namespace gfx {
         constexpr inline static size_t sizeof_buffer(uint16_t width,uint16_t height) {
             return sizeof_buffer(size16(width,height));
         }
-    };
-    
-
-    
+    };    
 }
 
 #endif

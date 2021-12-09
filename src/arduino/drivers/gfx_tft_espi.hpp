@@ -1,11 +1,13 @@
 #pragma once
+// enable this once TFT_eSPI is updated to support it
+// #define HTCW_TFT_ESPI_ASYNC
 #include <gfx_core.hpp>
 #include <gfx_positioning.hpp>
 #include <gfx_pixel.hpp>
 #include <TFT_eSPI.h>
 namespace arduino {
     template<bool CanRead=false, bool Async=
-#if (defined(ESP32_DMA) || defined(RP2040_DMA) || defined(STM32_DMA)) && !defined(TFT_PARALLEL_8_BIT)
+#if (defined(ESP32_DMA) || defined(RP2040_DMA) || defined(STM32_DMA)) && defined(HTCW_TFT_ESPI_ASYNC) && !defined(TFT_PARALLEL_8_BIT)
         true
 #else
         false
@@ -16,7 +18,7 @@ namespace arduino {
         bool m_batch;
     public:
         gfx_tft_espi() : m_batch(false) {
-
+            
         }
         using type = gfx_tft_espi;
         using pixel_type = gfx::rgb_pixel<16>;
@@ -82,11 +84,11 @@ namespace arduino {
                 if(src.bounds().width()==srcr.width() && srcr.x1==0) {
                     if(Async) {
                         // TODO: wait for Bodmer to update TFT_eSPI to fix pushImageDMA so it can be used here
-                        //if(!async) {
+                        if(!async) {
                             this_->m_tft_espi.pushImage(dstr.x1,dstr.y1,dstr.x2-dstr.x1+1,dstr.y2-dstr.y1+1,(const uint16_t*)(src.begin()+(srcr.y1*src.dimensions().width*2)));
-                        //} else {
-                            //this_->m_tft_espi.pushImageDMA(dstr.x1,dstr.y1,dstr.x2-dstr.x1+1,dstr.y2-dstr.y1+1,(const uint16_t*)(src.begin()+(srcr.y1*src.dimensions().width*2)));      
-                        //}
+                        } else {
+                            this_->m_tft_espi.pushImageDMA(dstr.x1,dstr.y1,dstr.x2-dstr.x1+1,dstr.y2-dstr.y1+1,(const uint16_t*)(src.begin()+(srcr.y1*src.dimensions().width*2)));
+                        }
                     } else {
                         this_->m_tft_espi.pushImage(dstr.x1,dstr.y1,dstr.x2-dstr.x1+1,dstr.y2-dstr.y1+1,(const uint16_t*)(src.begin()+(srcr.y1*src.dimensions().width*2)));
                     }
@@ -100,11 +102,11 @@ namespace arduino {
                     gfx::rect16 dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
                     if(Async) {
                         // TODO: wait for Bodmer to update TFT_eSPI to fix pushImageDMA so it can be used here
-                        //if(!async) {
+                        if(!async) {
                             this_->m_tft_espi.pushImage(dr.x1,dr.y1,dr.x2-dr.x1+1,dr.y2-dr.y1+1,(const uint16_t*)(src.begin()+(ww*(srcr.y1+yy)+srcr.x1)));
-                        //} else {
-                        //    this_->m_tft_espi.pushImageDMA(dr.x1,dr.y1,dr.x2-dr.x1+1,dr.y2-dr.y1+1,(const uint16_t*)(src.begin()+(ww*(srcr.y1+yy)+srcr.x1)));
-                        //}
+                        } else {
+                            this_->m_tft_espi.pushImageDMA(dr.x1,dr.y1,dr.x2-dr.x1+1,dr.y2-dr.y1+1,(const uint16_t*)(src.begin()+(ww*(srcr.y1+yy)+srcr.x1)));
+                        }
                     } else {
                         this_->m_tft_espi.pushImage(dr.x1,dr.y1,dr.x2-dr.x1+1,dr.y2-dr.y1+1,(const uint16_t*)(src.begin()+(ww*(srcr.y1+yy)+srcr.x1)));
                     }

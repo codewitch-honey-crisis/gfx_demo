@@ -1913,7 +1913,13 @@ namespace gfx {
                 if(c!=0) {
                     point16 pt(uint16_t(x+pst->off_x),uint16_t(y+pst->off_y));
                     if(nullptr==pst->clip||pst->clip->intersects((spoint16)pt)) {
-                        return (int)draw::point(*pst->destination,(spoint16)pt,pst->color);
+                        if(pst->transparent_background) {
+                            return (int)draw::point(*pst->destination,(spoint16)pt,pst->color);
+                        } else {
+                            auto px = pst->color;
+                            px.blend(pst->backcolor,(c/255.0),&px);
+                            return (int)draw::point(*pst->destination,(spoint16)pt,px);
+                        }
                     }
                 }
                 return 0;
@@ -1961,7 +1967,8 @@ namespace gfx {
                 // suspend if we can
                 helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(destination,async);
                 
-                int(*render_cb)(int x,int y,int c,void* state) = draw_open_font_helper_impl<Destination,PixelType,Destination::pixel_type::bit_depth!=1&&Destination::caps::read>::render_callback;
+                int(*render_cb)(int x,int y,int c,void* state) = (transparent_background)?draw_open_font_helper_impl<Destination,PixelType,Destination::pixel_type::bit_depth!=1&&Destination::caps::read>::render_callback:
+                    draw_open_font_helper_impl<Destination,PixelType,false>::render_callback;
             
                 open_font_render_state<Destination,PixelType> state;
                 state.off_x = chr.left();

@@ -1,6 +1,6 @@
 #pragma once
 // CHANGE THIS TO YOUR PATH
-#define FONT_PATH "D:\\Users\\gazto\\Documents\\gfx_windows\\Maziro.ttf"
+#define FONT_PATH "Maziro.ttf"
 // WIN32 boilerplate
 #include <windows.h>
 #include <commctrl.h>

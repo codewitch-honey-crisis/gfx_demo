@@ -1122,7 +1122,7 @@ bmp.clear(bmp.bounds()); // zero the bmp memory
 Now you can call `draw` methods passing `bmp` as the destination:
 
 C++
-```
+``` C++
 // draw a happy face
  // bounding info for the face
 // change the line below if you want a subregion

@@ -1912,17 +1912,7 @@ namespace gfx {
                 if(c!=0) {
                     point16 pt(uint16_t(x+pst->off_x),uint16_t(y+pst->off_y));
                     if(nullptr==pst->clip||pst->clip->intersects((spoint16)pt)) {
-                        if(pst->transparent_background) {
-                            return (int)draw::point(*pst->destination,(spoint16)pt,pst->color);
-                        } else {
-                            PixelType px;
-                            double d = c/255.0;
-                            gfx_result r=pst->color.blend(pst->backcolor,d,&px);
-                            return (int)draw::point(*pst->destination,(spoint16)pt,px);
-                            if(gfx_result::success!=r) {
-                                return (int)r;
-                            }
-                        }
+                        return (int)draw::point(*pst->destination,(spoint16)pt,pst->color);
                     }
                 }
                 return 0;
@@ -1935,23 +1925,23 @@ namespace gfx {
                 if(d>0.0) {
                     point16 pt = {uint16_t(x+pst->off_x),uint16_t(y+pst->off_y)};
                     if(nullptr==pst->clip||pst->clip->intersects((spoint16)pt)) {
-                        gfx_result r;
-                        PixelType px;
+                    
                         typename Destination::pixel_type bpx;
-                        PixelType bppx;
-                        r=pst->destination->point(pt,&bpx);
+                        gfx_result r=pst->destination->point(pt,&bpx);
                         if(gfx_result::success!=r) {
                             return (int)r;
                         }
+                        PixelType bppx;
                         r=convert_palette_to(*pst->destination,bpx,&bppx);
                         if(gfx_result::success!=r) {
                             return (int)r;
                         }
+                        PixelType px;
                         r = pst->color.blend(bppx,d,&px);
                         if(gfx_result::success!=r) {
                             return (int)r;
                         }
-                    
+                        //return (int)draw::point(*pst->destination,(spoint16)pt,px);
                         r= convert_palette_from(*pst->destination,px,&bpx);
                         if(gfx_result::success!=r) {
                             return (int)r;
@@ -2547,6 +2537,7 @@ namespace gfx {
                 }
                 font.glyph_hmetrics(gi,&advw,nullptr);
                 font.glyph_bitmap_bounding_box(gi,scale,scale,xpos-floor(xpos),ypos-floor(ypos),&x1,&y1,&x2,&y2);
+
                 srect16 chr(x1+xpos,y1+ypos,x2+xpos,y2+ypos);
                 chr.offset_inplace(dest_rect.left(),dest_rect.top());
                 if(nullptr==clip || clip->intersects(chr)) {
@@ -2575,7 +2566,7 @@ namespace gfx {
                 xpos+=(advw*scale);    
                 if(*(sz+1)) {
                     int gi2=font.glyph_index(sz+1);
-                    xpos+=font.kern_advance_width(gi,gi2)*scale;
+                    xpos+=(font.kern_advance_width(gi,gi2)*scale);
                     gi=gi2;
                 }
                 if(adv_line) {

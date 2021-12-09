@@ -33,11 +33,10 @@ using namespace arduino;
 using namespace gfx;
 
 #define PARALLEL_LINES 16
-
 using lcd_type = ili9341<PIN_NUM_CS,PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL>;
-
 SPIClass spi(LCD_HOST);
 lcd_type lcd(spi);
+
 using lcd_color = color<typename lcd_type::pixel_type>;
 using frame_buffer_type = large_bitmap<rgb_pixel<16>>;
 using fb_color = color<typename frame_buffer_type::pixel_type>;
@@ -302,7 +301,15 @@ static void display_pretty_colors()
 void setup() {
     Serial.begin(115200);
     SPIFFS.begin(false);
+#ifndef PARALLEL8
     spi.begin(PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI,PIN_NUM_CS);
+#else
+    // don't need to do this but this driver is new and I want to make sure it's not failing
+    if(!lcd.initialize()) {
+        Serial.println("LCD not initialized");
+    }
+#endif
+    
     pretty_effect_init("/image.jpg",336,256,320,240);
     
     display_pretty_colors();

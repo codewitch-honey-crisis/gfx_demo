@@ -1440,22 +1440,10 @@ Shell
 
 or
 
-<div id="premain797165" class="pre-lang">
-
-<div>
-
-</div>
-
-<div class="pre-action-link">
-
-<span id="copycode797165" class="copy-code" data-index="797165" style="visibility:hidden">Copy
-Code</span>
-
-</div>
-
-</div>
-
+Shell
+``` Shell
     C:\> fontgen myfont.ttf > myfont.hpp
+```
 
 Note with Windows, it might try to spit it out in UTF-16 which will
 mangle your header file to death. If that happens, open the header in

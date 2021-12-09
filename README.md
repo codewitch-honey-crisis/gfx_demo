@@ -99,6 +99,9 @@ conflicts under certain build environments. Furthermore I've added
 TFT\_eSPI bindings/drivers for superior performance and additional
 device support.
 
+**Update 24:** Added Windows DirectX support for rapid prototyping.
+Fixed compile errors under certain environmen
+
 ### Building this Mess
 
 You'll need Visual Studio Code with the Platform IO extension installed.
@@ -175,7 +178,8 @@ that you want to use before building:
   - arduino-ST7735
   - arduino-RA8875
   - arduino-TFT\_eSPI
-
+  - windows-DirectX
+  
 The MAX7219 CS pin is 15, not 5. Driver is experimental and multiple
 rows of segments does not work, but multiple segments in a single row
 works.
@@ -207,6 +211,69 @@ Here's the process:
   - Switch your configuration to arduino-TFT\_eSPI
   - Configure the TFT\_eSPI library by setting your display and pins in
     User\_Setup.h under his library's folder.
+
+#### Building with Windows and DirectX
+
+First go to PlatformIO/Quick Access/Miscellaneous/PlatformIO Core
+CLI, open a new console and type:
+
+BAT
+``` lang-bat
+pio platform install "windows_x86"
+```
+
+Go to your project, and open */src/windows/directx\_demo.hpp.* Once
+there, change `#define FONT_PATH "Maziro.ttf"` so that the path matches
+the full path to that font file, which will be under the */fonts*
+folder.
+
+Next, this is a little tricky, due to an inconsistency between
+Microsoft's C++ compiler, and GCC. You must patch a system header, or
+your programs will crash. The patch won't hurt other programs, in fact,
+the other programs will still crash on the patched header if compiled
+with GCC. This is because you have to
+define `WIDL_EXPLICIT_AGGREGATE_RETURNS` in order for the patched code
+to take effect.
+
+Now you need to build the Windows configuration to ensure PlatformIO has
+all of the files it needs.
+
+Next you need to locate PlatformIO's copy of the system header *d2d1.h*.
+You can do so by opening *windows/drivers/dxd2d.hpp* and finding
+`#include <d2d1.h>` and then right clicking on the filename and
+selecting "Go to Definition." One there, right click on it's tab to copy
+the full path.
+
+Next use the Windows search bar to search for Notepad, right click on
+the result, and click "Run as Administrator."
+
+Once it's open, go to open a file, and paste the path into the dialog
+box, and hit enter.
+
+Go to VS Code, and copy the contents of *d2d1\_patched\_minigw.h* and
+paste them into your Notepad instance. Finally, save.
+
+Now go to PlatformIO and Clean your project. This must be done.
+
+Now you can build a working application. Keep in mind Windows works
+dramatically different in terms of flow than an IoT application. You
+must render each frame on the `WM_PAINT` event, so the structure of the
+demo is far different than the others, employing a state machine to make
+a coroutine out of the lines demo.
+
+In order to run the application, open a console again. Then you need to
+type the following command:
+
+BAT
+``` lang-bat
+.pio\build\windows-DirectX\program.exe
+```
+
+The driver is not very fast, due to the "polarity mismatch" between
+DirectX and GFX. DirectX works far differently than GFX and bridging the
+gap is not efficient. This driver is meant for prototyping screens, and
+for that it is effective, since it shortens build times and eliminates
+upload times.
 
 #### E-Paper Display Support
 

@@ -1,5 +1,6 @@
 #ifndef HTCW_GFX_DRAWING_HPP
 #define HTCW_GFX_DRAWING_HPP
+#include <cmath>
 #include <math.h>
 #include "gfx_core.hpp"
 #include "gfx_pixel.hpp"

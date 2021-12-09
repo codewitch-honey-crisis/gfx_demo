@@ -44,4 +44,6 @@
         // not working yet
         #include "esp-idf/ra8875_demo.hpp"
     #endif
+#elif defined(DIRECTX)
+    #include "windows/directx_demo.hpp"
 #endif

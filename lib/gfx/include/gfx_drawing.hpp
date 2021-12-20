@@ -2482,6 +2482,7 @@ namespace gfx {
             PixelType backcolor,
             bool transparent_background,
             float scaled_tab_width,
+            gfx_encoding encoding,
             srect16* clip,
             bool async) {
             if(nullptr==text) return gfx_result::invalid_argument;
@@ -2507,7 +2508,8 @@ namespace gfx {
            
             height = baseline;
             int advw;
-            int gi= font.glyph_index(sz);
+            size_t advsz;
+            int gi= font.glyph_index(sz,&advsz,encoding);
             float xpos=offset.x,ypos=baseline+offset.y;
             float x_extent=0,y_extent=0;
             bool adv_line = false;
@@ -2539,8 +2541,8 @@ namespace gfx {
                         xpos = 0;
                         ypos+=lgap*scale;
                     }
-                    ++sz;
-                    gi=font.glyph_index(sz);
+                    sz+=advsz;
+                    gi=font.glyph_index(sz,&advsz,encoding);
                     continue;
                 }
                 font.glyph_hmetrics(gi,&advw,nullptr);
@@ -2572,8 +2574,8 @@ namespace gfx {
                     y_extent=ypos+height;
                 }
                 xpos+=(advw*scale);    
-                if(*(sz+1)) {
-                    int gi2=font.glyph_index(sz+1);
+                if(*(sz+advsz)) {
+                    int gi2=font.glyph_index(sz+advsz,&advsz,encoding);
                     xpos+=(font.kern_advance_width(gi,gi2)*scale);
                     gi=gi2;
                 }
@@ -2759,8 +2761,9 @@ namespace gfx {
             PixelType backcolor=convert<::gfx::rgb_pixel<3>,PixelType>(::gfx::rgb_pixel<3>(0,0,0)),
             bool transparent_background = true,
             float scaled_tab_width=0,
+            gfx_encoding encoding=gfx_encoding::utf8,
             srect16* clip=nullptr) {
-            return text_impl(destination,dest_rect,offset,text,font,scale,color,backcolor,transparent_background,scaled_tab_width,clip,false);
+            return text_impl(destination,dest_rect,offset,text,font,scale,color,backcolor,transparent_background,scaled_tab_width,encoding,clip,false);
         }
         // asynchronously draws text to the specified destination rectangle with the specified font and colors and optional clipping rectangle
         template<typename Destination,typename PixelType>

@@ -66,7 +66,7 @@ using namespace gfx;
 #define LCD_ILI9341
 #define PARALLEL_LINES 16
 #define LCD_HOST    SPI2_HOST
-#define DMA_CHAN    LCD_HOST
+#define DMA_CHAN    1
 
 #define PIN_NUM_MISO GPIO_NUM_37
 #define PIN_NUM_MOSI GPIO_NUM_35
@@ -80,7 +80,7 @@ using namespace gfx;
 #define LCD_ILI9341
 #define PARALLEL_LINES 16
 #define LCD_HOST    SPI2_HOST
-#define DMA_CHAN    LCD_HOST
+#define DMA_CHAN    1
 
 #define PIN_NUM_MISO GPIO_NUM_2
 #define PIN_NUM_MOSI GPIO_NUM_7

@@ -2831,6 +2831,7 @@ namespace gfx {
             return helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async>::resume_async(destination);
         }  
     };
+    // provides an RAII token that can be used to suspend drawing during its scope
     template<typename Destination>
     struct suspend_token final {
         Destination* destination;

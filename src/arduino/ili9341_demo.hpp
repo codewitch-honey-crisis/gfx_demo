@@ -23,6 +23,11 @@
 #include <stdio.h>
 #include <SPIFFS.h>
 #include <SPI.h>
+#ifdef PARALLEL8
+#include "drivers/common/tft_parallel8.hpp"
+#else
+#include "drivers/common/tft_spi.hpp"
+#endif
 #include "drivers/ili9341.hpp"
 #include "gfx_cpp14.hpp"
 #include "pretty_effect.hpp"
@@ -33,9 +38,34 @@ using namespace arduino;
 using namespace gfx;
 
 #define PARALLEL_LINES 16
-using lcd_type = ili9341<PIN_NUM_CS,PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL>;
-SPIClass spi(LCD_HOST);
-lcd_type lcd(spi);
+#ifdef PARALLEL8
+using bus_type = tft_p8<PIN_NUM_CS,PIN_NUM_WR,PIN_NUM_RD,PIN_NUM_D0,PIN_NUM_D1,PIN_NUM_D2,PIN_NUM_D3,PIN_NUM_D4,PIN_NUM_D5,PIN_NUM_D6,PIN_NUM_D7>;
+#else
+using bus_type = tft_spi<
+#ifdef ESP_WROVER_KIT
+HSPI
+#else
+VSPI
+#endif
+,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
+#if defined(ESP_WROVER_KI)
+40*1000*1000
+#else
+20*1000*1000
+#endif
+,20*1000*1000,true
+#ifdef OPTIMIZE_DMA
+,320*240*2+8
+#endif
+>;
+#endif
+using lcd_type = ili9341<PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL,bus_type,3
+#ifndef ESP_WROVER_KIT
+,true
+#endif
+>;
+
+lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;
 using frame_buffer_type = large_bitmap<rgb_pixel<16>>;
@@ -195,15 +225,15 @@ void lines_demo() {
     file.close();
     for(int i = 1;i<100;i+=2) {
         // calculate our extents
-        srect16 r(i*(lcd_type::width/100.0),
-                i*(lcd_type::height/100.0),
-                lcd_type::width-i*(lcd_type::width/100.0)-1,
-                lcd_type::height-i*(lcd_type::height/100.0)-1);
+        srect16 r(i*(lcd.dimensions().width/100.0),
+                i*(lcd.dimensions().height/100.0),
+                lcd.dimensions().width-i*(lcd.dimensions().width/100.0)-1,
+                lcd.dimensions().height-i*(lcd.dimensions().height/100.0)-1);
         // draw the four lines
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::light_blue);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::hot_pink);
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd.dimensions().height-1),lcd_color::light_blue);
+        draw::line(lcd,srect16(r.x2,0,lcd.dimensions().width-1,r.y2),lcd_color::hot_pink);
         draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::pale_green);
-        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
+        draw::line(lcd,srect16(lcd.dimensions().width-1,r.y1,r.x2,lcd.dimensions().height-1),lcd_color::yellow);
         
     }
     
@@ -252,7 +282,7 @@ static void display_pretty_colors()
                 print_source(sending_bmp);
             }
 #endif
-            draw::bitmap(lcd,(srect16)src_bounds.offset(0,y),sending_bmp,src_bounds);
+            draw::bitmap_async(lcd,(srect16)src_bounds.offset(0,y),sending_bmp,src_bounds);
             
         }
         if(0==frame%50) {
@@ -261,12 +291,12 @@ static void display_pretty_colors()
             
             if(pid==1) {
                 for(int i=0;i<60;++i) {
-                    srect16 sr(spoint16(rand()%lcd_type::width,rand()%lcd_type::height),rand()%(lcd_type::width/4));
+                    srect16 sr(spoint16(rand()%lcd.dimensions().width,rand()%lcd.dimensions().height),rand()%(lcd.dimensions().width/4));
                     draw::filled_ellipse(lcd, sr,rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                 }
             } else if(pid==2) {
                 for(int i=0;i<90;++i) {
-                    srect16 sr(spoint16(rand()%lcd_type::width,rand()%lcd_type::height),rand()%(lcd_type::width/4));
+                    srect16 sr(spoint16(rand()%lcd.dimensions().width,rand()%lcd.dimensions().height),rand()%(lcd.dimensions().width/4));
                     if(0!=(rand()%2)) {
                         draw::filled_rectangle(lcd, sr,rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                     } else {
@@ -275,16 +305,16 @@ static void display_pretty_colors()
                 }
             } else {
                 for(int i = 1;i<120;++i) {
-                    draw::line(lcd,srect16(0,i*(lcd_type::height/240.0),lcd_type::width-1,i*(lcd_type::height/240.0)),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(i*(lcd_type::width/240.0),0,i*(lcd_type::width/240.0),lcd_type::height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/240.0)-1,0,lcd_type::width-i*(lcd_type::width/240.0)-1,lcd_type::height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/240.0)-1,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/240.0)-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(0,i*(lcd.dimensions().height/240.0),lcd.dimensions().width-1,i*(lcd.dimensions().height/240.0)),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(i*(lcd.dimensions().width/240.0),0,i*(lcd.dimensions().width/240.0),lcd.dimensions().height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,0,lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,lcd.dimensions().height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                 }
                 for(int i = 1;i<120;++i) {
-                    draw::line(lcd,srect16(0,i*(lcd_type::height/240.0),lcd_type::width-1,i*(lcd_type::height/240.0)),lcd_color::black);
-                    draw::line(lcd,srect16(i*(lcd_type::width/240.0),0,i*(lcd_type::width/240.0),lcd_type::height-1),lcd_color::black);
-                    draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/240.0)-1,0,lcd_type::width-i*(lcd_type::width/240.0)-1,lcd_type::height-1),lcd_color::black);
-                    draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/240.0)-1,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/240.0)-1),lcd_color::black);
+                    draw::line(lcd,srect16(0,i*(lcd.dimensions().height/240.0),lcd.dimensions().width-1,i*(lcd.dimensions().height/240.0)),lcd_color::black);
+                    draw::line(lcd,srect16(i*(lcd.dimensions().width/240.0),0,i*(lcd.dimensions().width/240.0),lcd.dimensions().height-1),lcd_color::black);
+                    draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,0,lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,lcd.dimensions().height-1),lcd_color::black);
+                    draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1),lcd_color::black);
                 }
             }
             
@@ -301,14 +331,10 @@ static void display_pretty_colors()
 void setup() {
     Serial.begin(115200);
     SPIFFS.begin(false);
-#ifndef PARALLEL8
-    spi.begin(PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI,PIN_NUM_CS);
-#else
     // don't need to do this but this driver is new and I want to make sure it's not failing
     if(!lcd.initialize()) {
         Serial.println("LCD not initialized");
     }
-#endif
     
     pretty_effect_init("/image.jpg",336,256,320,240);
     

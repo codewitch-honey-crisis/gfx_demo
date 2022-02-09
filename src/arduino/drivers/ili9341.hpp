@@ -1,238 +1,386 @@
-#pragma once
-#define HTCW_ILI9341_OVERCLOCK
-#include "common/tft_spi_driver.hpp"
-#include "gfx_core.hpp"
-#include "gfx_positioning.hpp"
-#include "gfx_pixel.hpp"
-#include "gfx_palette.hpp"
-
+#include <Arduino.h>
+#include "common/tft_driver.hpp"
+#include <gfx_core.hpp>
+#include <gfx_pixel.hpp>
+#include <gfx_palette.hpp>
+#include <gfx_positioning.hpp>
 namespace arduino {
-    namespace ili9341_helpers {
-    struct init_cmd {
-            uint8_t cmd;
-            uint8_t data[16];
-            uint8_t databytes; //No of data in data; bit 7 = delay after set; 0xFF = end of cmds.
-        };
-    const init_cmd s_init_cmds[]={
-            /* Power contorl B, power control = 0, DC_ENA = 1 */
-            {0xCF, {0x00, 0x83, 0X30}, 3},
-            /* Power on sequence control,
-            * cp1 keeps 1 frame, 1st frame enable
-            * vcl = 0, ddvdh=3, vgh=1, vgl=2
-            * DDVDH_ENH=1
-            */
-            {0xED, {0x64, 0x03, 0X12, 0X81}, 4},
-            /* Driver timing control A,
-            * non-overlap=default +1
-            * EQ=default - 1, CR=default
-            * pre-charge=default - 1
-            */
-            {0xE8, {0x85, 0x01, 0x79}, 3},
-            /* Power control A, Vcore=1.6V, DDVDH=5.6V */
-            {0xCB, {0x39, 0x2C, 0x00, 0x34, 0x02}, 5},
-            /* Pump ratio control, DDVDH=2xVCl */
-            {0xF7, {0x20}, 1},
-            /* Driver timing control, all=0 unit */
-            {0xEA, {0x00, 0x00}, 2},
-            /* Power control 1, GVDD=4.75V */
-            {0xC0, {0x26}, 1},
-            /* Power control 2, DDVDH=VCl*2, VGH=VCl*7, VGL=-VCl*3 */
-            {0xC1, {0x11}, 1},
-            /* VCOM control 1, VCOMH=4.025V, VCOML=-0.950V */
-            {0xC5, {0x35, 0x3E}, 2},
-            /* VCOM control 2, VCOMH=VMH-2, VCOML=VML-2 */
-            {0xC7, {0xBE}, 1},
-            /* Memory access contorl, MX=MY=0, MV=1, ML=0, BGR=1, MH=0 */
-            {0x36, {0x28}, 1},
-            /* Pixel format, 16bits/pixel for RGB/MCU interface */
-            {0x3A, {0x55}, 1},
-            /* Frame rate control, f=fosc, 70Hz fps */
-            {0xB1, {0x00, 0x1B}, 2},
-            /* Enable 3G, disabled */
-            {0xF2, {0x08}, 1},
-            /* Gamma set, curve 1 */
-            {0x26, {0x01}, 1},
-            /* Positive gamma correction */
-            {0xE0, {0x1F, 0x1A, 0x18, 0x0A, 0x0F, 0x06, 0x45, 0X87, 0x32, 0x0A, 0x07, 0x02, 0x07, 0x05, 0x00}, 15},
-            /* Negative gamma correction */
-            {0XE1, {0x00, 0x25, 0x27, 0x05, 0x10, 0x09, 0x3A, 0x78, 0x4D, 0x05, 0x18, 0x0D, 0x38, 0x3A, 0x1F}, 15},
-            /* Column address set, SC=0, EC=0xEF */
-            {0x2A, {0x00, 0x00, 0x00, 0xEF}, 4},
-            /* Page address set, SP=0, EP=0x013F */
-            {0x2B, {0x00, 0x00, 0x01, 0x3f}, 4},
-            /* Memory write */
-            {0x2C, {0}, 0},
-            /* Entry mode set, Low vol detect disabled, normal display */
-            {0xB7, {0x07}, 1},
-            /* Display function control */
-            {0xB6, {0x0A, 0x82, 0x27, 0x00}, 4},
-            /* Sleep out */
-            {0x11, {0}, 0x80},
-            /* Display on */
-            {0x29, {0}, 0x80},
-            {0, {0}, 0xff},
-        };
-    }
-    // the driver for an ILI9341 display
-    template<int8_t PinCS,
-            int8_t PinDC,
-            int8_t PinRst,
-            int8_t PinBacklight,
-            size_t BatchBufferSize=64
-            >
-    struct ili9341 final : 
-            public tft_spi_driver<320,
-                            240,
-                            PinCS,
-                            PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
-                            40*1000*1000,
-#else
-                            10*1000*1000,
-#endif
-                            BatchBufferSize> {
-        using base_type = tft_spi_driver<320,
-                            240,
-                            PinCS,
-                            PinDC,
-#ifdef HTCW_ILI9341_OVERCLOCK
-                            40*1000*1000,
-#else
-                            10*1000*1000,
-#endif
-                            BatchBufferSize>;
-        // the RST pin
+    template<int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus, uint8_t Rotation = 0, bool BacklightHigh=false>
+    struct ili9341 final {
+        constexpr static const int8_t pin_dc = PinDC;
         constexpr static const int8_t pin_rst = PinRst;
-        // the BL pin
-        constexpr static const int8_t pin_backlight = PinBacklight;
-        
-    private:
-    protected:
-        virtual void initialize_impl() {
-            if(pin_rst>=0) {
-                pinMode(pin_rst,OUTPUT);
-            }
-            if(pin_backlight>=0) {
-                pinMode(pin_backlight,OUTPUT);
-                digitalWrite(pin_backlight,HIGH);
-            }
-            reset();
-            //Send all the commands
-            int cmd=0;
-            while (ili9341_helpers::s_init_cmds[cmd].databytes!=0xff) {
-                this->send_command_init(ili9341_helpers::s_init_cmds[cmd].cmd);
-                this->send_data_init(ili9341_helpers::s_init_cmds[cmd].data,ili9341_helpers::s_init_cmds[cmd].databytes&0x1F);
-                if (ili9341_helpers::s_init_cmds[cmd].databytes&0x80) {
-                    delay(100);
-                }
-                ++cmd;
-            }
-            //Enable backlight
-            if(pin_backlight>=0) {
-                digitalWrite(pin_backlight, LOW);
-            }
-        
-        }
-        virtual void write_window(const tft_spi_driver_rect& bounds, tft_spi_driver_set_window_flags flags) {
-            uint8_t tx_data[4];
-            //Column Address Set
-            this->send_next_command(0x2A);
-            if(flags.x1 || flags.x2) {
-                tx_data[0]=bounds.x1>>8;             //Start Col High
-                tx_data[1]=bounds.x1&0xFF;           //Start Col Low
-                tx_data[2]=bounds.x2>>8;             //End Col High
-                tx_data[3]=bounds.x2&0xff;           //End Col Low
-                this->send_next_data(tx_data,4,true);
-            }
-            if(flags.y1 || flags.y2 || !(flags.x1 || flags.x2)) {
-                //Page address set
-                this->send_next_command(0x2B,true);
-                tx_data[0]=bounds.y1>>8;        //Start page high
-                tx_data[1]=bounds.y1&0xff;      //start page low
-                tx_data[2]=bounds.y2>>8;        //end page high
-                tx_data[3]=bounds.y2&0xff;      //end page low
-                this->send_next_data(tx_data,4,true);
-            }
-            // Memory write
-            this->send_next_command(0x2C,true);
-        }
-    public:
-        ili9341(SPIClass& spi) : base_type(spi) {
-
-        }
-        void reset() {
-            if (pin_rst >= 0)
-            {
-                if(!this->initialized()) {
-                    pinMode(pin_rst,OUTPUT);
-                }
-                delay(20);
-                digitalWrite(pin_rst, LOW);
-                delay(20);
-                digitalWrite(pin_rst, HIGH);
-                delay(200);
-            }
-        }
-        // GFX bindings
- public:
-        // indicates the type, itself
+        constexpr static const int8_t pin_bl = PinBL;
+        constexpr static const uint8_t rotation = Rotation & 3;
+        constexpr static const size_t max_dma_size = 320*240*2;
+        constexpr static const bool backlight_high = BacklightHigh;
         using type = ili9341;
-        // indicates the pixel type
+        using driver = tft_driver<PinDC, PinRst, PinBL, Bus>;
+        using bus = Bus;
         using pixel_type = gfx::rgb_pixel<16>;
-        // indicates the capabilities of the driver
-        using caps = gfx::gfx_caps<false,false,true,true,false,false,false>;
- 
- private:
+        using caps = gfx::gfx_caps<false,(bus::dma_size>0),true,true,false,bus::readable,false>;
+        ili9341() : m_initialized(false), m_dma_initialized(false), m_in_batch(false) {
+        }
+        ~ili9341() {
+            if(m_dma_initialized) {
+                bus::deinitialize_dma();
+            }
+            if(m_initialized) {
+                driver::deinitialize();
+            }
+        }
+        bool initialize() {
+            if(!m_initialized) {
+                if(driver::initialize()) {
+                    bus::begin_write();
+                    bus::start_transaction();
+                    driver::send_command(0xEF);
+                    driver::send_data8(0x03);
+                    driver::send_data8(0x80);
+                    driver::send_data8(0x02);
+
+                    driver::send_command(0xCF);
+                    driver::send_data8(0x00);
+                    driver::send_data8(0XC1);
+                    driver::send_data8(0X30);
+
+                    driver::send_command(0xED);
+                    driver::send_data8(0x64);
+                    driver::send_data8(0x03);
+                    driver::send_data8(0X12);
+                    driver::send_data8(0X81);
+
+                    driver::send_command(0xE8);
+                    driver::send_data8(0x85);
+                    driver::send_data8(0x00);
+                    driver::send_data8(0x78);
+
+                    driver::send_command(0xCB);
+                    driver::send_data8(0x39);
+                    driver::send_data8(0x2C);
+                    driver::send_data8(0x00);
+                    driver::send_data8(0x34);
+                    driver::send_data8(0x02);
+
+                    driver::send_command(0xF7);
+                    driver::send_data8(0x20);
+
+                    driver::send_command(0xEA);
+                    driver::send_data8(0x00);
+                    driver::send_data8(0x00);
+                    driver::send_command(0xC0);    //Power control
+                    driver::send_data8(0x23);   //VRH[5:0]
+
+                    driver::send_command(0xC1);    //Power control
+                    driver::send_data8(0x10);   //SAP[2:0];BT[3:0]
+
+                    driver::send_command(0xC5);    //VCM control
+                    driver::send_data8(0x3e);
+                    driver::send_data8(0x28);
+
+                    driver::send_command(0xC7);    //VCM control2
+                    driver::send_data8(0x86);  //--
+
+                    driver::send_command(0x36);    // Memory Access Control
+                    driver::send_data8(0x40 | 0x08); // Rotation 0 (portrait mode)
+
+                    driver::send_command(0x3A);
+                    driver::send_data8(0x55);
+
+                    driver::send_command(0xB1);
+                    driver::send_data8(0x00);
+                    driver::send_data8(0x13); // 0x18 79Hz, 0x1B default 70Hz, 0x13 100Hz
+
+                    driver::send_command(0xB6);    // Display Function Control
+                    driver::send_data8(0x08);
+                    driver::send_data8(0x82);
+                    driver::send_data8(0x27);
+
+                    driver::send_command(0xF2);    // 3Gamma Function Disable
+                    driver::send_data8(0x00);
+
+                    driver::send_command(0x26);    //Gamma curve selected
+                    driver::send_data8(0x01);
+
+                    driver::send_command(0xE0);    //Set Gamma
+                    driver::send_data8(0x0F);
+                    driver::send_data8(0x31);
+                    driver::send_data8(0x2B);
+                    driver::send_data8(0x0C);
+                    driver::send_data8(0x0E);
+                    driver::send_data8(0x08);
+                    driver::send_data8(0x4E);
+                    driver::send_data8(0xF1);
+                    driver::send_data8(0x37);
+                    driver::send_data8(0x07);
+                    driver::send_data8(0x10);
+                    driver::send_data8(0x03);
+                    driver::send_data8(0x0E);
+                    driver::send_data8(0x09);
+                    driver::send_data8(0x00);
+
+                    driver::send_command(0xE1);    //Set Gamma
+                    driver::send_data8(0x00);
+                    driver::send_data8(0x0E);
+                    driver::send_data8(0x14);
+                    driver::send_data8(0x03);
+                    driver::send_data8(0x11);
+                    driver::send_data8(0x07);
+                    driver::send_data8(0x31);
+                    driver::send_data8(0xC1);
+                    driver::send_data8(0x48);
+                    driver::send_data8(0x08);
+                    driver::send_data8(0x0F);
+                    driver::send_data8(0x0C);
+                    driver::send_data8(0x31);
+                    driver::send_data8(0x36);
+                    driver::send_data8(0x0F);
+
+                    driver::send_command(0x11);    //Exit Sleep
+                    bus::end_transaction();
+                    bus::end_write();
+                    delay(120);
+                    bus::begin_write();
+                    bus::start_transaction();
+                    driver::send_command(0x29);    //Display on
+                    bus::end_transaction();
+                    bus::end_write();
+                    bus::begin_write();
+                    bus::start_transaction();
+                    apply_rotation();
+                    bus::end_transaction();
+                    bus::end_write();
+                    if(pin_bl>-1) {
+                        pinMode(pin_bl,OUTPUT);
+                        digitalWrite(pin_bl,backlight_high);
+                    }
+                    
+                    m_initialized = true;
+                    
+                }
+            }
+            return m_initialized;
+        }
+        
+        inline gfx::size16 dimensions() const {
+            return rotation&1?gfx::size16(320, 240):gfx::size16(240, 320);
+        }
+        inline gfx::rect16 bounds() const {
+            return dimensions().bounds();
+        }
+        
+        inline gfx::gfx_result point(gfx::point16 location, pixel_type color) {
+            return fill({location.x,location.y,location.x,location.y},color);
+        }
+        inline gfx::gfx_result point_async(gfx::point16 location, pixel_type color) {
+            return point(location,color);
+        }
+        gfx::gfx_result point(gfx::point16 location, pixel_type* out_color) const {
+            if(out_color==nullptr) return gfx::gfx_result::invalid_argument;
+            if(!m_initialized || m_in_batch) return gfx::gfx_result::invalid_state;
+            if(!bounds().intersects(location)) {
+                *out_color = pixel_type();
+                return gfx::gfx_result::success;
+            }
+            bus::dma_wait();
+            bus::cs_low();
+            set_window({location.x,location.y,location.x,location.y},true);
+            bus::direction(INPUT);
+            bus::read_raw8(); // throw away
+            out_color->native_value = ((bus::read_raw8() & 0xF8) << 8) | ((bus::read_raw8() & 0xFC) << 3) | (bus::read_raw8() >> 3);
+            bus::cs_high();
+            bus::direction(OUTPUT);
+            return gfx::gfx_result::success;
+        }
+        gfx::gfx_result fill(const gfx::rect16& bounds, pixel_type color) {
+            if(!initialize()) return gfx::gfx_result::device_error;
+            else bus::dma_wait();
+            gfx::gfx_result rr = commit_batch();
+
+            if(rr!=gfx::gfx_result::success) {
+                return rr;
+            }
+            if(!bounds.intersects(this->bounds())) return gfx::gfx_result::success;
+            const gfx::rect16 r = bounds.normalize().crop(this->bounds());
+            bus::begin_write();
+            bus::start_transaction();
+            set_window(r);
+            bus::write_raw16_repeat(color.native_value,(r.x2-r.x1+1)*(r.y2-r.y1+1));
+            bus::end_transaction();
+            bus::end_write();
+            return gfx::gfx_result::success;
+        }
+        inline gfx::gfx_result fill_async(const gfx::rect16& bounds, pixel_type color) {
+            return fill(bounds,color);
+        }
+        inline gfx::gfx_result clear(const gfx::rect16& bounds) {
+            return fill(bounds,pixel_type());
+        }
+        inline gfx::gfx_result clear_async(const gfx::rect16& bounds) {
+            return clear(bounds);
+        }
+        template<typename Source>
+        inline gfx::gfx_result copy_from(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
+            if(!initialize()) return gfx::gfx_result::device_error;
+            gfx::gfx_result rr = commit_batch();
+            if(rr != gfx::gfx_result::success) {
+                return rr;
+            }
+            return copy_from_impl(src_rect,src,location,false);
+        }
+        template<typename Source>
+        inline gfx::gfx_result copy_from_async(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
+            if(!initialize()) return gfx::gfx_result::device_error;
+            gfx::gfx_result rr = commit_batch();
+            if(rr != gfx::gfx_result::success) {
+                return rr;
+            }
+            if(!m_dma_initialized) {
+                if(!bus::initialize_dma()) return gfx::gfx_result::device_error;
+                m_dma_initialized = true;
+            }
+            return copy_from_impl(src_rect,src,location,true);
+        }
+        gfx::gfx_result commit_batch() {
+            if(m_in_batch) {
+                bus::end_transaction();
+                bus::end_write();
+                m_in_batch = false;
+            }
+            return gfx::gfx_result::success;
+        }
+        inline gfx::gfx_result commit_batch_async() {
+            return commit_batch();
+        }
+        gfx::gfx_result begin_batch(const gfx::rect16& bounds) {
+            if(!initialize()) return gfx::gfx_result::device_error;
+            gfx::gfx_result rr = commit_batch();
+            if(rr!=gfx::gfx_result::success) {
+                return rr;
+            }
+            const gfx::rect16 r = bounds.normalize();
+            bus::begin_write();
+            bus::start_transaction();
+            set_window(r);
+            m_in_batch = true;
+            return gfx::gfx_result::success;
+        }
+        inline gfx::gfx_result begin_batch_async(const gfx::rect16& bounds) {
+            return begin_batch(bounds);
+        }
+        gfx::gfx_result write_batch(pixel_type color) {
+            bus::write_raw16(color.native_value);
+            return gfx::gfx_result::success;
+        }
+        inline gfx::gfx_result write_batch_async(pixel_type color) {
+            return write_batch(color);
+        }
+        inline gfx::gfx_result wait_all_async() {
+            bus::dma_wait();
+            return gfx::gfx_result::success;
+        }
+    private:
+        bool m_initialized;
+        bool m_dma_initialized;
+        bool m_in_batch;
+        static void set_window(const gfx::rect16& bounds, bool read=false) {
+            bus::busy_check();
+            driver::dc_command();
+            bus::write_raw8(0x2A);
+            driver::dc_data();
+            bus::write_raw16(bounds.x1);
+            bus::write_raw16(bounds.x2);
+            driver::dc_command();
+            bus::write_raw8(0x2B);
+            driver::dc_data();
+            bus::write_raw16(bounds.y1);
+            bus::write_raw16(bounds.y2);
+            driver::dc_command();
+            bus::write_raw8(read?0x2E:0x2C);
+            driver::dc_data();
+            
+        }
         template<typename Source,bool Blt> 
         struct copy_from_helper {
-            static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr)  {
+            static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr,bool async)  {
                 uint16_t w = dstr.dimensions().width;
                 uint16_t h = dstr.dimensions().height;
-                tft_spi_driver_rect drr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
-                this_->batch_write_begin(drr);
+                gfx::gfx_result rr;
+               
+                rr=this_->begin_batch(dstr);
+                
+                if(gfx::gfx_result::success!=rr) {
+                    return rr;
+                }
                 for(uint16_t y=0;y<h;++y) {
                     for(uint16_t x=0;x<w;++x) {
                         typename Source::pixel_type pp;
-                        gfx::gfx_result rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
+                        rr=src.point(gfx::point16(x+srcr.x1,y+srcr.y1), &pp);
                         if(rr!=gfx::gfx_result::success)
                             return rr;
                         pixel_type p;
-                        rr=gfx::convert_palette_to(src,pp,&p);
+                        rr=gfx::convert_palette_to(src,pp,&p,nullptr);
                         if(gfx::gfx_result::success!=rr) {
                             return rr;
                         }
-                        uint16_t pv = p.value();
-                        this_->batch_write(&pv,1);
+                       
+                        rr = this_->write_batch(p);
+                        
+                        if(gfx::gfx_result::success!=rr) {
+                            return rr;
+                        }
                     }
                 }
-                this_->batch_write_commit();
-                return gfx::gfx_result::success;
+                
+                rr=this_->batch_commit();
+                
+                return rr;
             }
         };
         
         template<typename Source> 
         struct copy_from_helper<Source,true> {
-            static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr) {
+            static gfx::gfx_result do_draw(type* this_, const gfx::rect16& dstr,const Source& src,gfx::rect16 srcr,bool async) {
+                if(async) {
+                    bus::dma_wait();
+                }
                 // direct blt
                 if(src.bounds().width()==srcr.width() && srcr.x1==0) {
-                    tft_spi_driver_rect dr = {dstr.x1,dstr.y1,dstr.x2,dstr.y2};
-                    this_->frame_write(dr,src.begin()+(srcr.y1*src.dimensions().width*2));
+                    bus::begin_write();
+                    set_window(dstr);
+                    if(async) {
+                        bus::write_raw_dma(src.begin()+(srcr.y1*src.dimensions().width*2),(srcr.y2-srcr.y1+1)*src.dimensions().width*2);
+                    } else {
+                        bus::write_raw(src.begin()+(srcr.y1*src.dimensions().width*2),(srcr.y2-srcr.y1+1)*src.dimensions().width*2);
+                    }
+
+                    bus::end_write();
                     return gfx::gfx_result::success;
                 }
                 // line by line blt
                 uint16_t yy=0;
                 uint16_t hh=srcr.height();
                 uint16_t ww = src.dimensions().width;
-                while(yy<hh) {
-                    tft_spi_driver_rect dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.x2+yy)};
-                    this_->frame_write(dr,src.begin()+(ww*(srcr.y1+yy)+srcr.x1));
+                uint16_t pitch = (srcr.x2 - srcr.x1+1)*2;
+                bus::begin_write();
+                bus::start_transaction();
+                while(yy<hh-!!async) {
+                    gfx::rect16 dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.y1+yy)};
+                    set_window(dr);
+                    bus::write_raw(src.begin()+2*(ww*(srcr.y1+yy)+srcr.x1),pitch);
                     ++yy;
                 }
+                if(async) {
+                    gfx::rect16 dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.y1+yy)};
+                    set_window(dr);
+                    bus::write_raw_dma(src.begin()+2*(ww*(srcr.y1+yy)+srcr.x1),pitch);
+                }
+                bus::end_transaction();
+                bus::end_write();
                 return gfx::gfx_result::success;
             }
         };
         template<typename Source>
-        gfx::gfx_result copy_from_impl(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
+        gfx::gfx_result copy_from_impl(const gfx::rect16& src_rect,const Source& src,gfx::point16 location,bool async) {
             gfx::rect16 srcr = src_rect.normalize().crop(src.bounds());
             gfx::rect16 dstr(location,src_rect.dimensions());
             dstr=dstr.crop(bounds());
@@ -243,66 +391,33 @@ namespace arduino {
                 srcr.y2=srcr.y1+dstr.height()-1;
             }
             return copy_from_helper<Source,gfx::helpers::is_same<pixel_type,typename Source::pixel_type>::value && Source::caps::blt>
-            ::do_draw(this,dstr,src,srcr);
+            ::do_draw(this,dstr,src,srcr,async);
         }
- public:
-        // retrieves the dimensions of the screen
-        constexpr inline gfx::size16 dimensions() const {
-            return gfx::size16(base_type::width,base_type::height);
-        }
-        // retrieves the bounds of the screen
-        constexpr inline gfx::rect16 bounds() const {
-            return gfx::rect16(gfx::point16(0,0),dimensions());
-        }
-        // sets a point to the specified pixel
-        gfx::gfx_result point(gfx::point16 location,pixel_type pixel) {
-            this->pixel_write(location.x,location.y,pixel.value());
-            return gfx::gfx_result::success;
-        }
-        /*
-        // gets a pixel from the specified point
-        gfx::gfx_result point(gfx::point16 location,pixel_type* pixel) {
-            if(nullptr==pixel)
-                return gfx::gfx_result::invalid_argument;
-            uint16_t pv;
-            tft_spi_driver_result r = this->pixel_read(location.x,location.y,&pv);
-            if(tft_spi_driver_result::success!=r)
-                return xlt_err(r);
-            pixel->value(pv);
-            return gfx::gfx_result::success;
-        }
-        */
-        // fills the specified rectangle with the specified pixel
-        gfx::gfx_result fill(const gfx::rect16& bounds,pixel_type color) {
-            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
-            this->frame_fill(b,color.value());
-            return gfx::gfx_result::success;
-        }
-        // clears the specified rectangle
-        inline gfx::gfx_result clear(const gfx::rect16& bounds) {
-            pixel_type p;
-            return fill(bounds,p);
-        }
-        // begins a batch operation for the specified rectangle
-        inline gfx::gfx_result begin_batch(const gfx::rect16& bounds) {
-            tft_spi_driver_rect b = {bounds.x1,bounds.y1,bounds.x2,bounds.y2};
-            this->batch_write_begin(b);
-            return gfx::gfx_result::success;
-        }
-        // writes a pixel to a pending batch
-        gfx::gfx_result write_batch(pixel_type color) {
-            uint16_t p = color.value();
-            this->batch_write(&p,1);
-            return gfx::gfx_result::success;
-        }
-        // commits a pending batch
-        inline gfx::gfx_result commit_batch() {
-            this->batch_write_commit();
-            return gfx::gfx_result::success;
-        }
-        // copies source data to a frame
-        template<typename Source> inline gfx::gfx_result copy_from(const gfx::rect16& src_rect,const Source& src,gfx::point16 location) {
-            return copy_from_impl(src_rect,src,location);
+        static void apply_rotation() {   
+            bus::begin_write();       
+            driver::send_command(0x36);
+            switch (rotation) {
+                case 0:
+                // portrait
+                driver::send_data8(0x40 | 0x08);
+                break;
+                case 1:
+                // landscape
+                driver::send_data8(0x20 | 0x08);
+                break;
+                case 2:
+                // portrait
+                driver::send_data8(0x80 | 0x08);
+                break;
+                case 3:
+                // landscape
+                driver::send_data8(0x20 | 0x40 | 0x80 | 0x08);
+                break;
+
+            }
+            delayMicroseconds(10);
+
+            bus::end_write();
         }
         
     };

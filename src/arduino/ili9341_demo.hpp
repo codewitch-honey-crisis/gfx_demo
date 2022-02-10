@@ -1,5 +1,5 @@
 #if defined(ESP_WROVER_KIT)
-#define LCD_HOST    HSPI
+#define LCD_HOST    VSPI
 #define PIN_NUM_MISO 25
 #define PIN_NUM_MOSI 23
 #define PIN_NUM_CLK  19
@@ -41,13 +41,7 @@ using namespace gfx;
 #ifdef PARALLEL8
 using bus_type = tft_p8<PIN_NUM_CS,PIN_NUM_WR,PIN_NUM_RD,PIN_NUM_D0,PIN_NUM_D1,PIN_NUM_D2,PIN_NUM_D3,PIN_NUM_D4,PIN_NUM_D5,PIN_NUM_D6,PIN_NUM_D7>;
 #else
-using bus_type = tft_spi<
-#ifdef ESP_WROVER_KIT
-VSPI
-#else
-VSPI
-#endif
-,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
+using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
 #if defined(ESP_WROVER_KIT)
 40*1000*1000
 #else
@@ -59,7 +53,7 @@ VSPI
 #endif
 >;
 #endif
-using lcd_type = ili9341<PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL,bus_type,3
+using lcd_type = ili9341<PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL,bus_type,1
 #ifndef ESP_WROVER_KIT
 ,true
 #endif

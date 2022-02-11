@@ -210,7 +210,6 @@ void scroll_text_demo() {
         
         if(!first && text_rect.x1>=text_start)
             break;
-        vTaskDelay(1);
     }
 }
 void lines_demo() {
@@ -274,7 +273,6 @@ static void display_pretty_colors()
         }
         ++frame;
         if(0!=(frame%10))
-            vTaskDelay(1);
         for (int y=0; y<240; y+=PARALLEL_LINES) {
             //Calculate a line.
             pretty_effect_calc_lines(320,240, line_bmps[calc_line], y, frame, PARALLEL_LINES);

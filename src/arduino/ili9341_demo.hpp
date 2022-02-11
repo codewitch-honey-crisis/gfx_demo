@@ -8,6 +8,21 @@
 #define PIN_NUM_DC   21
 #define PIN_NUM_RST  18
 #define PIN_NUM_BCKL 5
+#elif defined(PARALLEL8)
+#define PIN_NUM_BCKL -1
+#define PIN_NUM_CS   33  // Chip select control pin (library pulls permanently low
+#define PIN_NUM_DC   22  // (RS) Data Command control pin - must use a pin in the range 0-31
+#define PIN_NUM_RST  32  // Reset pin, toggles on startup
+#define PIN_NUM_WR    21  // Write strobe control pin - must use a pin in the range 0-31
+#define PIN_NUM_RD    15  // Read strobe control pin
+#define PIN_NUM_D0   2  // Must use pins in the range 0-31 for the data bus
+#define PIN_NUM_D1   13  // so a single register write sets/clears all bits.
+#define PIN_NUM_D2   26  // Pins can be randomly assigned, this does not affect
+#define PIN_NUM_D3   25  // TFT screen update performance.
+#define PIN_NUM_D4   27
+#define PIN_NUM_D5   12
+#define PIN_NUM_D6   14
+#define PIN_NUM_D7   4
 #else
 #define LCD_HOST    VSPI
 #define PIN_NUM_MISO 19

@@ -12,3 +12,21 @@ BUSY 15 (e-paper devices)
 I2C Displays:
 SCL 22
 SDA 21
+
+Parallel Displays:
+Must use pins in the range 0-31 for the data bus so a single register write sets/clears all bits.
+
+BKL -1 N/C
+CS 33 Chip select control pin (library pulls permanently low
+DC/RS 22 (RS) Data Command control pin - must use a pin in the range 0-31
+RST 32 Reset pin, toggles on startup
+WR 21 Write strobe control pin - must use a pin in the range 0-31
+RD 15 Read strobe control pin
+D0 2
+D1 13
+D2 26
+D3 25
+D4 27
+D5 12
+D6 14
+D7 4

@@ -1,80 +1,26 @@
-#include <Arduino.h>
-#include <Wire.h>
+#include "common/tft_driver.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_positioning.hpp"
-#define SSD1306_MEMORYMODE 0x20          ///< See datasheet
-#define SSD1306_COLUMNADDR 0x21          ///< See datasheet
-#define SSD1306_PAGEADDR 0x22            ///< See datasheet
-#define SSD1306_SETCONTRAST 0x81         ///< See datasheet
-#define SSD1306_CHARGEPUMP 0x8D          ///< See datasheet
-#define SSD1306_SEGREMAP 0xA0            ///< See datasheet
-#define SSD1306_DISPLAYALLON_RESUME 0xA4 ///< See datasheet
-#define SSD1306_DISPLAYALLON 0xA5        ///< Not currently used
-#define SSD1306_NORMALDISPLAY 0xA6       ///< See datasheet
-#define SSD1306_INVERTDISPLAY 0xA7       ///< See datasheet
-#define SSD1306_SETMULTIPLEX 0xA8        ///< See datasheet
-#define SSD1306_DISPLAYOFF 0xAE          ///< See datasheet
-#define SSD1306_DISPLAYON 0xAF           ///< See datasheet
-#define SSD1306_COMSCANINC 0xC0          ///< Not currently used
-#define SSD1306_COMSCANDEC 0xC8          ///< See datasheet
-#define SSD1306_SETDISPLAYOFFSET 0xD3    ///< See datasheet
-#define SSD1306_SETDISPLAYCLOCKDIV 0xD5  ///< See datasheet
-#define SSD1306_SETPRECHARGE 0xD9        ///< See datasheet
-#define SSD1306_SETCOMPINS 0xDA          ///< See datasheet
-#define SSD1306_SETVCOMDETECT 0xDB       ///< See datasheet
-
-#define SSD1306_SETLOWCOLUMN 0x00  ///< Not currently used
-#define SSD1306_SETHIGHCOLUMN 0x10 ///< Not currently used
-#define SSD1306_SETSTARTLINE 0x40  ///< See datasheet
-
-#define SSD1306_EXTERNALVCC 0x01  ///< External display voltage source
-#define SSD1306_SWITCHCAPVCC 0x02 ///< Gen. display voltage from 3.3V
-
-#define SSD1306_RIGHT_HORIZONTAL_SCROLL 0x26              ///< Init rt scroll
-#define SSD1306_LEFT_HORIZONTAL_SCROLL 0x27               ///< Init left scroll
-#define SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL 0x29 ///< Init diag scroll
-#define SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL 0x2A  ///< Init diag scroll
-#define SSD1306_DEACTIVATE_SCROLL 0x2E                    ///< Stop scroll
-#define SSD1306_ACTIVATE_SCROLL 0x2F                      ///< Start scroll
-#define SSD1306_SET_VERTICAL_SCROLL_AREA 0xA3             ///< Set scroll range
-#if defined(I2C_BUFFER_LENGTH)
-#define SSD1306_WIRE_MAX min(256, I2C_BUFFER_LENGTH) ///< Particle or similar Wire lib
-#elif defined(BUFFER_LENGTH)
-#define SSD1306_WIRE_MAX min(256, BUFFER_LENGTH) ///< AVR or similar Wire lib
-#elif defined(SERIAL_BUFFER_SIZE)
-#define SSD1306_WIRE_MAX                                                               \
-  min(255, SERIAL_BUFFER_SIZE - 1) ///< Newer Wire uses RingBuffer
-#else
-#define SSD1306_WIRE_MAX 32 ///< Use common Arduino core default
-#endif
 
 namespace arduino {
     template<uint16_t Width,
             uint16_t Height,
-            uint8_t Address=0x3C,
+            typename Bus,
             bool Vdc3_3=true,
+            int8_t PinDC=-1,
             int8_t PinRst=-1,
             bool ResetBeforeInit=false>
-    struct ssd1306_i2c final {
-        enum struct result {
-            success = 0,
-            invalid_argument = 1,
-            io_error = 2,
-            out_of_memory = 3,
-            timeout = 4,
-            not_supported=5,
-            i2c_not_initalized=6,
-            invalid_state=7
-        };
+    struct ssd1306 final {
+        
         constexpr static const uint16_t width=Width;
         constexpr static const uint16_t height=Height;
-        constexpr static const uint8_t address = Address;
         constexpr static const bool vdc_3_3 = Vdc3_3;
         constexpr static const int8_t pin_rst = PinRst;
         constexpr static const bool reset_before_init = ResetBeforeInit;
 private:
+        using bus = Bus;
+        using driver = tft_driver<PinDC,PinRst,-1,Bus,-1>;
         unsigned int m_initialized;
-        TwoWire& m_i2c;
         unsigned int m_suspend_x1;
         unsigned int m_suspend_y1;
         unsigned int m_suspend_x2;
@@ -90,46 +36,20 @@ private:
         };
         uint8_t m_contrast;
         uint8_t m_frame_buffer[width*height/8];
-        void start_trans(uint8_t payload) {
-            m_i2c.beginTransmission(address);
-            m_i2c.write(payload);
-        }
-        void write_bytes(const uint8_t* data,size_t size,bool is_data) {
-            if(0==size) return;
-            const uint8_t trans_code = 0x40*is_data;
-            start_trans(trans_code);
-            int buf_count = 1;
-            while (size--) {
-                if (buf_count >= SSD1306_WIRE_MAX) {
-                    m_i2c.endTransmission(true);
-                    start_trans(trans_code);
-                    buf_count = 1;
-                }
-
-                m_i2c.write(*data);
-                ++data;
-                ++buf_count;
+        
+        inline void write_bytes(const uint8_t* data,size_t size,bool is_data) {
+            if(is_data) {
+                driver::send_data(data,size);
+            } else {
+                driver::send_command(data,size);
             }
-            m_i2c.endTransmission(true);
         }
-        void write_pgm_bytes(const uint8_t* data,size_t size,bool is_data) {
-            if(0==size) return;
-            const uint8_t trans_code = 0x40*is_data;
-            
-            start_trans(trans_code);
-            int buf_count = 1;
-            while (size--) {
-                if (buf_count >= SSD1306_WIRE_MAX) {
-                    m_i2c.endTransmission(true);
-                    start_trans(trans_code);
-                    buf_count = 1;
-                }
-
-                m_i2c.write(pgm_read_byte(data));
-                ++data;
-                ++buf_count;
+        inline void write_pgm_bytes(const uint8_t* data,size_t size,bool is_data) {
+            if(is_data) {
+                driver::send_data_pgm(data,size);
+            } else {
+                driver::send_command_pgm(data,size);
             }
-            m_i2c.endTransmission(true);
         }
         static bool normalize_values(rect& r,bool check_bounds=true) {
             // normalize values
@@ -201,7 +121,6 @@ private:
                     uint8_t* p = m_frame_buffer+(y/8*width)+x;
                     *p&=set_mask;
                     *p|=value_mask;
-                    //++p;
                 }
                 
                 y=r.y1+(8-m);
@@ -215,7 +134,6 @@ private:
                 const int w = r.x2-r.x1+1;    
                 uint8_t* p = m_frame_buffer+(b*width)+r.x1;
                 memset(p,0xFF*color,w);
-                
                 ++b;
             }
             // now do the trailing rows
@@ -241,10 +159,10 @@ private:
             // don't draw if we're suspended
             if(0==m_suspend_count) {    
                 uint8_t dlist1[] = {
-                    SSD1306_PAGEADDR,
+                    0x22,
                     uint8_t(b.y1/8),                   // Page start address
                     uint8_t(0xFF),                   // Page end (not really, but works here)
-                    SSD1306_COLUMNADDR, uint8_t(b.x1)};// Column start address
+                    0x21, uint8_t(b.x1)};// Column start address
                 write_bytes(dlist1, sizeof(dlist1),false);
                 uint8_t cmd = b.x2;
                 write_bytes(&cmd,1,false); // Column end address
@@ -260,10 +178,45 @@ private:
                 }
             }
         }
+        bool pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
+            if(nullptr==out_color)
+                return false;
+            if(x>=width || y>=height) {
+                *out_color = false;
+                return true;
+            }
+            const uint8_t* p = m_frame_buffer+(y/8*width)+x;
+            *out_color = 0!=(*p & (1<<(y&7)));
+            return true;
+        }
+        bool frame_fill(const rect& bounds,bool color) {
+            if(!initialize()) {
+                return false;
+            }
+            buffer_fill(bounds,color);
+            display_update(bounds);
+            return true;
+        }
+        bool frame_suspend() {
+            m_suspend_first=(m_suspend_count==0);
+            ++m_suspend_count;
+            return true;
+        }
+        bool frame_resume(bool force=false) {
+            if(0!=m_suspend_count) {
+                --m_suspend_count;
+                if(force)
+                    m_suspend_count = 0;
+                if(0==m_suspend_count) {
+                    display_update({m_suspend_x1,m_suspend_y1,m_suspend_x2,m_suspend_y2});
+                }
+                
+            } 
+            return true;
+        }
 public:
-        ssd1306_i2c(TwoWire& i2c) : 
+        ssd1306() : 
                     m_initialized(false),
-                    m_i2c(i2c),
                     m_suspend_count(0),
                     m_suspend_first(0) {
             
@@ -280,35 +233,38 @@ public:
                 digitalWrite(pin_rst,HIGH);
             }
         }
-        void initialize() {
+        bool initialize() {
             if(!m_initialized) {
+                if(!driver::initialize()) {
+                    return false;
+                }
                 if(reset_before_init) {
                     reset();
                 }
                 uint8_t cmd;
                 // Init sequence
-                static const uint8_t init1[] PROGMEM = {SSD1306_DISPLAYOFF,         // 0xAE
-                                                        SSD1306_SETDISPLAYCLOCKDIV, // 0xD5
+                static const uint8_t init1[] PROGMEM = {0xAE,
+                                                        0xD5,
                                                         0x80, // the suggested ratio 0x80
-                                                        SSD1306_SETMULTIPLEX}; // 0xA8
+                                                        0xA8};
                 write_pgm_bytes(init1, sizeof(init1),false);
 
                 cmd=height-1;
                 write_bytes(&cmd,1,false);
                 
-                static const uint8_t init2[] PROGMEM = {SSD1306_SETDISPLAYOFFSET, // 0xD3
-                                                        0x0,                      // no offset
-                                                        SSD1306_SETSTARTLINE | 0x0, // line #0
-                                                        SSD1306_CHARGEPUMP};        // 0x8D
+                static const uint8_t init2[] PROGMEM = {0xD3,
+                                                        0x00,                      // no offset
+                                                        0x40 | 0x00, // line #0
+                                                        0x8D};
                 write_pgm_bytes(init2, sizeof(init2),false);
                 
                 cmd=!vdc_3_3 ? 0x10 : 0x14;
                 write_bytes(&cmd,1,false);
 
-                static const uint8_t init3[] PROGMEM = {SSD1306_MEMORYMODE, // 0x20
-                                                        0x00, // 0x0 act like ks0108, but we want mode 1?
-                                                        SSD1306_SEGREMAP | 0x1,
-                                                        SSD1306_COMSCANDEC};
+                static const uint8_t init3[] PROGMEM = { 0x20,
+                                                        0x00, // 0x0 act like ks0108
+                                                        0xA0 | 0x1,
+                                                        0xC8};
                 write_pgm_bytes(init3, sizeof(init3),false);
                 uint8_t com_pins = 0x02;
                 m_contrast = 0x8F;
@@ -322,113 +278,61 @@ public:
                     com_pins = 0x2; // ada x12
                     m_contrast = !vdc_3_3 ? 0x10:0xAF;
                 } else
-                    return;
-                cmd=SSD1306_SETCOMPINS;
+                    return false;
+                cmd=0xDA;
                 write_bytes(&cmd,1,false);
                 write_bytes(&com_pins,1,false);
-                cmd=SSD1306_SETCONTRAST;
+                cmd=0x81;
                 write_bytes(&cmd,1,false);
                 write_bytes(&m_contrast,1,false);
-                cmd=SSD1306_SETPRECHARGE; // 0xd9
+                cmd=0xD9;
                 write_bytes(&cmd,1,false);
                 cmd=!vdc_3_3 ? 0x22:0xF1;
                 write_bytes(&cmd,1,false);
                 static const uint8_t init5[] PROGMEM = {
-                    SSD1306_SETVCOMDETECT, // 0xDB
+                    0xDB,
                     0x40,
-                    SSD1306_DISPLAYALLON_RESUME, // 0xA4
-                    SSD1306_NORMALDISPLAY,       // 0xA6
-                    SSD1306_DEACTIVATE_SCROLL,
-                    SSD1306_DISPLAYON}; // Main screen turn on
+                    0xA4,
+                    0xA6,
+                    0x2E,
+                    0xAF}; // Main screen turn on
                 write_pgm_bytes(init5, sizeof(init5),false);
                 m_initialized = true;
             }
+            return true;
         }
         const uint8_t* frame_buffer() const {
             return m_frame_buffer;
         }
         
-        result pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
-            if(nullptr==out_color)
-                return result::invalid_argument;
-            if(x>=width || y>=height) {
-                *out_color = false;
-                return result::success;
-            }
-            const uint8_t* p = m_frame_buffer+(y/8*width)+x;
-            *out_color = 0!=(*p & (1<<(y&7)));
-            return result::success;
-        }
-        result frame_fill(const rect& bounds,bool color) {
-            initialize();
-            buffer_fill(bounds,color);
-            display_update(bounds);
-            return result::success;
-        }
-        result frame_suspend() {
-            m_suspend_first=(m_suspend_count==0);
-            ++m_suspend_count;
-            return result::success;
-        }
-        result frame_resume(bool force=false) {
-            if(0!=m_suspend_count) {
-                --m_suspend_count;
-                if(force)
-                    m_suspend_count = 0;
-                if(0==m_suspend_count) {
-                    display_update({m_suspend_x1,m_suspend_y1,m_suspend_x2,m_suspend_y2});
-                }
-                
-            } 
-            return result::success;
-        }
+        
         // GFX Bindings
-        using type = ssd1306_i2c;
+        using type = ssd1306;
         using pixel_type = gfx::gsc_pixel<1>;
         using caps = gfx::gfx_caps<false,false,false,false,true,true,false>;
-    private:
-        static gfx::gfx_result xlt_err(result r) {
-            switch(r) {
-                case result::io_error:
-                case result::i2c_not_initalized:
-                    return gfx::gfx_result::device_error;
-                case result::out_of_memory:
-                    return gfx::gfx_result::out_of_memory;
-                case result::success:
-                    return gfx::gfx_result::success;
-                case result::not_supported:
-                    return gfx::gfx_result::not_supported;
-                case result::invalid_argument:
-                    return gfx::gfx_result::invalid_argument;
-                default:
-                    return gfx::gfx_result::unknown_error;
-            }
-        }
- public:
         constexpr inline gfx::size16 dimensions() const {return gfx::size16(width,height);}
         constexpr inline gfx::rect16 bounds() const { return dimensions().bounds(); }
         // gets a point 
         gfx::gfx_result point(gfx::point16 location,pixel_type* out_color) const {
             bool col=false;
-            result r = pixel_read(location.x,location.y,&col);
-            if(result::success!=r)
-                return xlt_err(r);
+            if(!pixel_read(location.x,location.y,&col)) {
+                return gfx::gfx_result::io_error;
+            }
             pixel_type p(!!col);
             *out_color=p;
             return gfx::gfx_result::success;
        }
         // sets a point to the specified pixel
-        gfx::gfx_result point(gfx::point16 location,pixel_type color) {
-            result r = frame_fill({location.x,location.y,location.x,location.y},color.native_value!=0);
-            if(result::success!=r)
-                return xlt_err(r);
+        inline gfx::gfx_result point(gfx::point16 location,pixel_type color) {
+            if(!frame_fill({location.x,location.y,location.x,location.y},color.native_value!=0)) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
-        gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
-            
-            result r = frame_fill({rect.x1,rect.y1,rect.x2,rect.y2},color.native_value!=0);
-            if(result::success!=r)
-                return xlt_err(r);
+        inline gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
+            if(!frame_fill({rect.x1,rect.y1,rect.x2,rect.y2},color.native_value!=0)) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
         
@@ -438,15 +342,15 @@ public:
             return fill(rect,p);
         }
         inline gfx::gfx_result suspend() {
-            result r =frame_suspend();
-            if(result::success!=r)
-                return xlt_err(r);
+            if(!frame_suspend()) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
         inline gfx::gfx_result resume(bool force=false) {
-            result r =frame_resume(force);
-            if(result::success!=r)
-                return xlt_err(r);
+            if(!frame_resume(force)) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
     };

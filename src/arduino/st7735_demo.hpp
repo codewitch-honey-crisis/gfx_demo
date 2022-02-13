@@ -25,21 +25,23 @@ using namespace gfx;
 // enable this to dump the jpeg images as ascii upon load
 //#define ASCII_JPEGS
 // To speed up transfers, every SPI transfer sends as much data as possible. 
+#ifdef PARALLEL8
+using bus_type = tft_p8<PIN_NUM_CS,PIN_NUM_WR,PIN_NUM_RD,PIN_NUM_D0,PIN_NUM_D1,PIN_NUM_D2,PIN_NUM_D3,PIN_NUM_D4,PIN_NUM_D5,PIN_NUM_D6,PIN_NUM_D7>;
+#else
+using bus_type = tft_spi<VSPI,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
+20*1000*1000,20*1000*1000,true
+#ifdef OPTIMIZE_DMA
+,LCD_WIDTH*LCD_HEIGHT*2+8
+#endif
+>;
+#endif
 
-// configure the spi bus. Must be done before the driver
-SPIClass spi(LCD_HOST);
-// we use the default, modest buffer - it makes things slower but uses less
-// memory. it usually works fine at default but you can change it for performance 
-// tuning. It's the final parameter: Note that it shouldn't be any bigger than 
-// the DMA size
-using lcd_type = st7735<LCD_WIDTH,
-                        LCD_HEIGHT,
-                        PIN_NUM_CS,
-                        PIN_NUM_DC,
+using lcd_type = st7735<PIN_NUM_DC,
                         PIN_NUM_RST,
-                        PIN_NUM_BCKL>;
+                        PIN_NUM_BCKL,
+                        bus_type,st7735_flags::green_144,3>;
 
-lcd_type lcd(spi);
+lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;
 
@@ -102,7 +104,7 @@ void scroll_text_demo() {
     const font& f = Bm437_Acer_VGA_8x8_FON;
     const char* text = "(C) 2021\r\nby HTCW";
     ssize16 text_size = f.measure_text((ssize16)lcd.dimensions(),text);
-    srect16 text_rect = srect16(spoint16((lcd_type::width-text_size.width)/2,(lcd_type::height-text_size.height)/2),text_size);
+    srect16 text_rect = srect16(spoint16((lcd.dimensions().width-text_size.width)/2,(lcd.dimensions().height-text_size.height)/2),text_size);
     int16_t text_start = text_rect.x1;
     bool first=true;
     print_source(bmp);
@@ -143,15 +145,15 @@ void lines_demo() {
 
     for(int i = 1;i<100;i+=2) {
         // calculate our extents
-        srect16 r(i*(lcd_type::width/100.0),
-                i*(lcd_type::height/100.0),
-                lcd_type::width-i*(lcd_type::width/100.0)-1,
-                lcd_type::height-i*(lcd_type::height/100.0)-1);
+        srect16 r(i*(lcd.dimensions().width/100.0),
+                i*(lcd.dimensions().height/100.0),
+                lcd.dimensions().width-i*(lcd.dimensions().width/100.0)-1,
+                lcd.dimensions().height-i*(lcd.dimensions().height/100.0)-1);
         // draw the four lines
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::light_blue);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::hot_pink);
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd.dimensions().height-1),lcd_color::light_blue);
+        draw::line(lcd,srect16(r.x2,0,lcd.dimensions().width-1,r.y2),lcd_color::hot_pink);
         draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::pale_green);
-        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
+        draw::line(lcd,srect16(lcd.dimensions().width-1,r.y1,r.x2,lcd.dimensions().height-1),lcd_color::yellow);
         // the ESP32 wdt will get tickled
         // unless we do this:
         vTaskDelay(1);
@@ -240,18 +242,18 @@ static void display_pretty_colors()
                 }
             } else {
                 for(int i = 1;i<120;++i) {
-                    draw::line(lcd,srect16(0,i*(lcd_type::height/240.0),lcd_type::width-1,i*(lcd_type::height/240.0)),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(i*(lcd_type::width/240.0),0,i*(lcd_type::width/240.0),lcd_type::height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/240.0)-1,0,lcd_type::width-i*(lcd_type::width/240.0)-1,lcd_type::height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/240.0)-1,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/240.0)-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(0,i*(lcd.dimensions().height/240.0),lcd.dimensions().width-1,i*(lcd.dimensions().height/240.0)),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(i*(lcd.dimensions().width/240.0),0,i*(lcd.dimensions().width/240.0),lcd.dimensions().height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,0,lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,lcd.dimensions().height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                     if(0==(i%12))
                         vTaskDelay(1);
                 }
                 for(int i = 1;i<120;++i) {
-                    draw::line(lcd,srect16(0,i*(lcd_type::height/240.0),lcd_type::width-1,i*(lcd_type::height/240.0)),lcd_color::black);
-                    draw::line(lcd,srect16(i*(lcd_type::width/240.0),0,i*(lcd_type::width/240.0),lcd_type::height-1),lcd_color::black);
-                    draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/240.0)-1,0,lcd_type::width-i*(lcd_type::width/240.0)-1,lcd_type::height-1),lcd_color::black);
-                    draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/240.0)-1,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/240.0)-1),lcd_color::black);
+                    draw::line(lcd,srect16(0,i*(lcd.dimensions().height/240.0),lcd.dimensions().width-1,i*(lcd.dimensions().height/240.0)),lcd_color::black);
+                    draw::line(lcd,srect16(i*(lcd.dimensions().width/240.0),0,i*(lcd.dimensions().width/240.0),lcd.dimensions().height-1),lcd_color::black);
+                    draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,0,lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,lcd.dimensions().height-1),lcd_color::black);
+                    draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1),lcd_color::black);
                     if(0==(i%12))
                         vTaskDelay(1);
                 }
@@ -273,7 +275,6 @@ static void display_pretty_colors()
 void setup() {
     Serial.begin(115200);
     SPIFFS.begin(false);
-    spi.begin(PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI,PIN_NUM_CS);
     pretty_effect_init(
     "/image_128.jpg",
     144,

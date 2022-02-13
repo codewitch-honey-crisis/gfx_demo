@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <SPI.h>
-#include "tft_io.hpp"
+#include "tft_core.hpp"
 #ifdef ESP32
     #include "soc/spi_reg.h"
     #include "driver/spi_master.h"
@@ -127,6 +127,13 @@ constexpr static const uint8_t dma_channel =
             }
 #endif // defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
             return true;
+        
+        }
+        static inline void set_command() FORCE_INLINE {
+
+        }
+        static inline void set_data() FORCE_INLINE {
+
         }
         static void deinitialize_dma() {
 #if defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
@@ -151,6 +158,11 @@ constexpr static const uint8_t dma_channel =
         static void write_raw(const uint8_t* data, size_t length) {
             while(length--) {
                 write_raw8(*data++);
+            }
+        }
+        static void write_raw_pgm(const uint8_t* data, size_t length) {
+            while(length--) {
+                write_raw8(pgm_read_byte(data++));
             }
         }
         static void write_raw_dma(const uint8_t* data,size_t length) {

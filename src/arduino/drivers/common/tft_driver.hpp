@@ -2,12 +2,12 @@
 #include <Arduino.h>
 #include "tft_io.hpp"
 namespace arduino {
-    template<int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus, uint8_t SoftResetCommand = 0x01>
+    template<int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus, int16_t SoftResetCommand = 0x01>
     struct tft_driver {
         constexpr static const int8_t pin_dc = PinDC;
         constexpr static const int8_t pin_rst = PinRst;
         constexpr static const int8_t pin_bl = PinBL;
-        constexpr static const uint8_t swrst_command = SoftResetCommand;
+        constexpr static const int16_t swrst_command = SoftResetCommand;
         using bus = Bus;
         static bool initialize() {
             if(bus::initialize()) {
@@ -37,7 +37,9 @@ namespace arduino {
                 delay(20);
                 digitalWrite(pin_rst, HIGH);
             } else {
-                send_command(swrst_command);
+                if(swrst_command!=-1) {
+                    send_command(swrst_command&0xFF);
+                }
             }
             // wait for reset to complete
             delay(150);
@@ -50,10 +52,49 @@ namespace arduino {
             dc_data();
             bus::end_write();
         }
+        static void send_command(const uint8_t *data, size_t length) {
+            bus::begin_write();
+            dc_command();
+            bus::write_raw(data,length);
+            dc_data();
+            bus::end_write();
+        }
+        static void send_command_pgm(const uint8_t *data,size_t length) {
+            bus::begin_write();
+            dc_command();
+            bus::write_raw_pgm(data,length);
+            dc_data();
+            bus::end_write();
+        }
+        static void send_data_pgm(const uint8_t *data,size_t length) {
+            bus::begin_write();
+            dc_data();
+            bus::write_raw_pgm(data,length);
+            dc_data();
+            bus::cs_low(); // allow more hold time for low VDI rail
+            bus::end_write();
+        }
         static void send_data8(uint8_t data) {
             bus::begin_write();
             dc_data();
             bus::write_raw8(data);
+            dc_data();
+            bus::cs_low(); // allow more hold time for low VDI rail
+            bus::end_write();
+        }
+        static void send_data16(uint16_t data) {
+            bus::begin_write();
+            dc_data();
+            bus::write_raw16(data);
+            dc_data();
+            bus::cs_low(); // allow more hold time for low VDI rail
+            bus::end_write();
+        }
+        static void send_data(const uint8_t *data,size_t length) {
+            bus::begin_write();
+            dc_data();
+            bus::write_raw(data,length);
+            dc_data();
             bus::cs_low(); // allow more hold time for low VDI rail
             bus::end_write();
         }
@@ -80,26 +121,32 @@ namespace arduino {
             return result;
         }
         inline static void dc_command() FORCE_INLINE {
-#if defined(OPTIMIZE_ESP32) && 0
-            if(pin_dc>31) {
-                GPIO.out1_w1tc.val = (1 << ((pin_dc - 32)&31));
-            } else if(pin_dc>-1) {
-                GPIO.out_w1tc = (1 << (pin_dc&31));
-            }
+            bus::set_command();
+            if(pin_dc>-1) {
+#if defined(OPTIMIZE_ESP32) 
+                if(pin_dc>31) {
+                    GPIO.out1_w1tc.val = (1 << ((pin_dc - 32)&31));
+                } else if(pin_dc>-1) {
+                    GPIO.out_w1tc = (1 << (pin_dc&31));
+                }
 #else // !OPTIMIZE_ESP32
-            digitalWrite(pin_dc,LOW);
+                digitalWrite(pin_dc,LOW);
 #endif // !OPTIMIZE_ESP32
+            }
         }
         inline static void dc_data() FORCE_INLINE {
-#if defined(OPTIMIZE_ESP32) && 0
-            if(pin_dc>31) {
-                GPIO.out1_w1ts.val = (1 << ((pin_dc - 32)&31));
-            } else if(pin_dc>-1) {
-                GPIO.out_w1ts = (1 << (pin_dc &31));
-            }
+            bus::set_data();
+            if(pin_dc>-1) {
+#if defined(OPTIMIZE_ESP32) 
+                if(pin_dc>31) {
+                    GPIO.out1_w1ts.val = (1 << ((pin_dc - 32)&31));
+                } else if(pin_dc>-1) {
+                    GPIO.out_w1ts = (1 << (pin_dc &31));
+                }
 #else // !OPTIMIZE_ESP32
-            digitalWrite(pin_dc,HIGH);
+                digitalWrite(pin_dc,HIGH);
 #endif // !OPTIMIZE_ESP32
+            }
         }
     };
 }

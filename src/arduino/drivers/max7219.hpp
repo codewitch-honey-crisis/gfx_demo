@@ -1,25 +1,14 @@
 #pragma once
 #include <Arduino.h>
 #include <SPI.h>
-#include "bits.hpp"
+#include "gfx_core.hpp"
 #include "gfx_pixel.hpp"
 #include "gfx_positioning.hpp"
-
+#include "common/tft_driver.hpp"
 namespace arduino {
-    template<uint8_t WidthSegments,uint8_t HeightSegments, int8_t PinCS>
+    template<uint8_t WidthSegments,uint8_t HeightSegments, int8_t PinCS,typename Bus>
     struct max7219 final {
-        enum struct result {
-            success = 0,
-            invalid_argument = 1,
-            io_error=2,
-            out_of_memory=3
-        };
-        struct rect {
-            uint16_t x1;
-            uint16_t y1;
-            uint16_t x2;
-            uint16_t y2;
-        };     
+        
         static_assert(WidthSegments>0 && HeightSegments>0,"Not enough segments");
         static_assert(WidthSegments*HeightSegments<=256,"Too many segments");
         
@@ -29,10 +18,10 @@ namespace arduino {
         constexpr static const uint16_t width = WidthSegments*8;
         constexpr static const uint16_t height = HeightSegments*8;
         constexpr static const int8_t pin_cs = PinCS;
+        using bus = Bus;
+        using driver = tft_driver<-1,-1,-1,bus,-1>;
     private:
         bool m_initialized;
-        SPIClass& m_spi;
-        SPISettings m_spi_settings;
         uint8_t m_frame_buffer[segments*8];
         uint16_t m_suspend_x1;
         uint16_t m_suspend_y1;
@@ -45,32 +34,24 @@ namespace arduino {
             return (val >> 8) | (val << 8);
         }
         void spi_write(const uint8_t* data,size_t size) {
-#if defined(ESP8266) || defined(ESP32)
-            m_spi.writeBytes(data, size);
-#else
-            while (size > 0) {
-                m_spi.transfer(*data);
-                ++data;
-                --size;
-            }
-#endif
+            driver::send_data(data,size);
         }
         void spi_start() {
-            if (pin_cs >= 0) digitalWrite(pin_cs, LOW);
-            m_spi.beginTransaction(m_spi_settings);
+            bus::begin_write();
+            bus::start_transaction();
         }
 
         void spi_end() {
-            m_spi.endTransaction();
-            if (pin_cs >= 0) digitalWrite(pin_cs, HIGH);
+            bus::end_transaction();
+            bus::end_write();
         }
         inline void spi_write(uint8_t data) {
-            m_spi.transfer(data);
+            driver::send_data8(data);
         }
         inline void spi_write(uint16_t data) {
-            m_spi.transfer16(data);
+            driver::send_data16(data);
         }
-        static bool normalize_values(rect& bounds,bool check_bounds=true) {
+        static bool normalize_values(gfx::rect16& bounds,bool check_bounds=true) {
             // normalize values
             uint16_t tmp;
             if(bounds.x1>bounds.x2) {
@@ -93,30 +74,28 @@ namespace arduino {
             }
             return true;
         }
-        void line_rect(uint8_t line,rect* out_rect) {
+        void line_rect(uint8_t line,gfx::rect16* out_rect) {
             out_rect->x1 = line % (width/8);
             out_rect->x2 = out_rect->x1 + 7;
             out_rect->y1=out_rect->y2= line / (width/8);
         }
-        result display_update(const rect& bounds) {
-            result r;
+        bool display_update(const gfx::rect16& bounds) {
             int line = 0;
             for(int x = 0;x<width;x+=8) {        
                 for(int y=0;y<height;++y) {
                     if(x<=bounds.x2&&x+7>=bounds.x1&&y<=bounds.y2&&y>=bounds.y1) {
                         const uint8_t* p = m_frame_buffer+(y*width+x)/8;
-                        r=set_line(line,*p);
-                        if(result::success!=r) {
-                            return r;
+                        if(!set_line(line,*p)) {
+                            return false;
                         }
                     }
                     ++line;
                 }
             }
-            return result::success;
+            return true;
         }
-        void buffer_fill(const rect& bounds,bool color) {
-            rect b = bounds;
+        void buffer_fill(const gfx::rect16& bounds,bool color) {
+            gfx::rect16 b = bounds;
             if(!normalize_values(b))
                 return;
             if(0!=m_suspend_count) {
@@ -146,42 +125,41 @@ namespace arduino {
                 bits::set_bits(pbegin,offs%8,w,color);
             }
         }
-        result disable_decode_mode()
+        bool disable_decode_mode()
         {
-            result r = send( 0xFF, (9 << 8) );
-            if(result::success!=r) {
-                return r;
+            if(!send( 0xFF, (9 << 8) )) {
+                return false;
             }
             return clear();
         }
 
-        result set_brightness(uint8_t value)
+        bool set_brightness(uint8_t value)
         {
             if(value > 15) {
-                return result::invalid_argument;
+                return false;
             }
 
             return send( 0xFF, (10 << 8) | value);
 
         }
 
-        result set_enabled(bool enabled)
+        inline bool set_enabled(bool enabled)
         {
             return send(0xFF, (12 << 8) | enabled);
         }
 
 
-        result clear()
+        bool clear()
         {
             for (uint8_t i = 0; i < 8; i++) {
-                result r = send( 0xFF, ((1 << 8) + ((uint16_t)i << 8)));
-                if(result::success!=r)
-                    return r;
+                if(!send( 0xFF, ((1 << 8) + ((uint16_t)i << 8)))) {
+                    return false;
+                }
             }
-            return result::success;
+            return true;
         }
 
-        result send(uint8_t seg, uint16_t value)
+        bool send(uint8_t seg, uint16_t value)
         {
       
             uint16_t buf[8] = { 0 };
@@ -197,69 +175,17 @@ namespace arduino {
             spi_start();
             spi_write((uint8_t*)buf,segments*2);
             spi_end();
-            return result::success;
+            return true;
             
         }
-        
-        max7219(const max7219& rhs)=delete;
-        max7219& operator=(const max7219& rhs)=delete;
-    public:
-        max7219(SPIClass& spi) : 
-            m_initialized(false),
-            m_spi(spi),
-            m_spi_settings(10*1000*1000,MSBFIRST,SPI_MODE0),
-            m_suspend_first(0),
-            m_suspend_count(0) {
-        }
-        inline bool initialized() const {
-            return m_initialized;
-        }
-        result initialize() {
-            if(!m_initialized) {
-                result r;
-                m_spi.begin();
-                r=set_enabled(false);
-                if(result::success!=r) {
-                    return r;
-                }
-                r=send(0xFF, (15 << 8));
-                if(result::success!=r) {
-                    return r;
-                }
-                r=send(0xFF, (11 << 8) | 7);
-                if(result::success!=r) {
-                    return r;
-                }
-                r=disable_decode_mode();
-                if(result::success!=r) {
-                    return r;
-                }
-                r=set_brightness(0);
-                if(result::success!=r) {
-                    return r;
-                }
-                r=set_enabled(true);
-                if(result::success!=r) {
-                    return r;
-                }
-                
-                m_initialized=true;
-            }
-            return result::success;
-        }
-        
-        ~max7219() {}
-        const uint8_t* frame_buffer() const {
-            return m_frame_buffer;
-        }
-        result set_line(uint8_t line, uint8_t val)
+        bool set_line(uint8_t line, uint8_t val)
         {
-            result r = initialize();
-            if(result::success!=r)
-                return r;
+            if(!initialize()) {
+                return false;
+            }
             if (line >= segments*8)
             {
-                return result::invalid_argument;
+                return false;
             }
 
             uint8_t c = line / 8;
@@ -267,30 +193,30 @@ namespace arduino {
 
             return send(c, ((1 << 8) + ((uint16_t)d << 8)) | val);
         }
-        result pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
+        bool pixel_read(uint16_t x,uint16_t y,bool* out_color) const {
             if(nullptr==out_color)
-                return result::invalid_argument;
+                return false;
             if(x>=width || y>=height) {
                 *out_color = false;
-                return result::success;
+                return true;
             }
             const uint8_t* p = m_frame_buffer+(y*width/8)+x;
             *out_color = 0!=(*p & (1<<(7-(x&7))));
-            return result::success;
+            return true;
         }
-        result frame_fill(const rect& bounds,bool color) {
-            result r = initialize();
-            if(result::success!=r)
-                return r;
+        bool frame_fill(const gfx::rect16& bounds,bool color) {
+            if(!initialize()) {
+                return false;
+            }
             buffer_fill(bounds,color);
             return display_update(bounds);
         }
-        result frame_suspend() {
+        inline bool frame_suspend() {
             m_suspend_first=(m_suspend_count==0);
             ++m_suspend_count;
-            return result::success;
+            return true;
         }
-        result frame_resume(bool force=false) {
+        bool frame_resume(bool force=false) {
             if(0!=m_suspend_count) {
                 --m_suspend_count;
                 if(force)
@@ -300,52 +226,85 @@ namespace arduino {
                 }
                 
             } 
-            return result::success;
+            return true;
         }
+        max7219(const max7219& rhs)=delete;
+        max7219& operator=(const max7219& rhs)=delete;
+    public:
+        max7219() : 
+            m_initialized(false),
+            m_suspend_first(0),
+            m_suspend_count(0) {
+        }
+        inline bool initialized() const {
+            return m_initialized;
+        }
+        bool initialize() {
+            if(!m_initialized) {
+                if(!driver::initialize()) {
+                    return false;
+                }
+                if(!set_enabled(false)) {
+                    return false;
+                }
+                if(!send(0xFF, (15 << 8))) {
+                    return false;
+                }
+                if(!send(0xFF, (11 << 8) | 7)) {
+                    return false;
+                }
+                if(!disable_decode_mode()) {
+                    return false;
+                }
+                if(!set_brightness(0)) {
+                    return false;
+                }
+                if(!set_enabled(true)) {
+                    return false;
+                }
+                
+                m_initialized=true;
+            }
+            return true;
+        }
+        
+        ~max7219() {
+            if(m_initialized) {
+                driver::deinitialize();
+            }
+        }
+        const uint8_t* frame_buffer() const {
+            return m_frame_buffer;
+        }
+    public:
         // GFX Bindings
         using type = max7219;
         using pixel_type = gfx::gsc_pixel<1>;
         using caps = gfx::gfx_caps< false,false,false,false,true,true,false>;
-    private:
-        static gfx::gfx_result xlt_err(result r) {
-            switch(r) {
-                case result::io_error:
-                    return gfx::gfx_result::device_error;
-                case result::out_of_memory:
-                    return gfx::gfx_result::out_of_memory;
-                case result::success:
-                    return gfx::gfx_result::success;
-                case result::invalid_argument:
-                    return gfx::gfx_result::invalid_argument;
-                default:
-                    return gfx::gfx_result::unknown_error;
-            }
-        }
- public:
+    
         constexpr inline gfx::size16 dimensions() const {return gfx::size16(width,height);}
         constexpr inline gfx::rect16 bounds() const { return dimensions().bounds(); }
         // gets a point 
         gfx::gfx_result point(gfx::point16 location,pixel_type* out_color) const {
             bool col=false;
-            result r = pixel_read(location.x,location.y,&col);
-            if(result::success!=r)
-                return xlt_err(r);
+            if(!pixel_read(location.x,location.y,&col)) {
+                return gfx::gfx_result::io_error;
+            }
             pixel_type p(!!col);
             *out_color=p;
             return gfx::gfx_result::success;
        }
         // sets a point to the specified pixel
-        gfx::gfx_result point(gfx::point16 location,pixel_type color) {
-            result r = frame_fill({location.x,location.y,location.x,location.y},color.native_value!=0);
-            if(result::success!=r)
-                return xlt_err(r);
+        inline gfx::gfx_result point(gfx::point16 location,pixel_type color) {
+            if(!frame_fill({location.x,location.y,location.x,location.y},color.native_value!=0)) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
-        gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
-            
-            result r = frame_fill({rect.x1,rect.y1,rect.x2,rect.y2},color.native_value!=0);
-            if(result::success!=r)
-                return xlt_err(r);
+        inline gfx::gfx_result fill(const gfx::rect16& rect,pixel_type color) {
+            if(!frame_fill(rect,color.native_value!=0)) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
         
@@ -355,15 +314,15 @@ namespace arduino {
             return fill(rect,p);
         }
         inline gfx::gfx_result suspend() {
-            result r =frame_suspend();
-            if(result::success!=r)
-                return xlt_err(r);
+            if(!frame_suspend()) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
         inline gfx::gfx_result resume(bool force=false) {
-            result r =frame_resume(force);
-            if(result::success!=r)
-                return xlt_err(r);
+            if(!frame_resume(force)) {
+                return gfx::gfx_result::io_error;
+            }
             return gfx::gfx_result::success;
         }
     };   

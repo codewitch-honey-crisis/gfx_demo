@@ -1,18 +1,30 @@
 #include <Arduino.h>
-#include "drivers/ssd1306_i2c.hpp"
+#include "drivers/common/tft_io.hpp"
+#include "drivers/ssd1306.hpp"
 #include "gfx_cpp14.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ATI_9x16.h"
 using namespace arduino;
 using namespace gfx;
 
-
 // ensure the following is configured for your setup
+#ifdef I2C
 #define LCD_PORT 0
-#define PIN_SDA 21
-#define PIN_SCL 22
-#define PIN_RST -1
+#define PIN_NUM_SDA 21
+#define PIN_NUM_SCL 22
+#define PIN_NUM_RST -1
+#define PIN_NUM_DC -1
 #define I2C_FREQ 400000
+#else
+#define LCD_HOST VSPI
+#define PIN_NUM_CS 5
+#define PIN_NUM_MOSI 23
+#define PIN_NUM_MISO -1
+#define PIN_NUM_CLK 18
+#define PIN_NUM_DC 2
+#define PIN_NUM_RST 4
+#endif
+
 
 #define LCD_WIDTH 128
 #define LCD_HEIGHT 64
@@ -38,10 +50,18 @@ using namespace gfx;
 // the difference
 #define SUSPEND_RESUME
 
-using lcd_type = 
-    ssd1306_i2c< LCD_WIDTH,LCD_HEIGHT,0x3C,LCD_VDC_3_3,PIN_RST>;
+#ifdef I2C
+using bus_type = tft_i2c<LCD_PORT,0x3C,PIN_NUM_SDA,PIN_NUM_SCL,0x0,0x40,I2C_FREQ>;
+#else
+using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,20*1000*1000,20*1000*1000,false
+#ifdef OPTIMIZE_DMA
+,(LCD_WIDTH*LCD_HEIGHT)/8+8
+#endif
+>;
+#endif
 
-lcd_type lcd(Wire1);
+using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,LCD_VDC_3_3,PIN_NUM_DC,PIN_NUM_RST,true>;
+lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;
 
@@ -232,7 +252,6 @@ void intro() {
 }
 void setup() {
     Serial.begin(115200);
-    Wire1.begin(PIN_SDA,PIN_SCL,I2C_FREQ);
     intro();
     while(true) {
         lines_demo();

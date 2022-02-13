@@ -3,9 +3,8 @@
   #define SUPPORT_TRANSACTIONS
 #endif
 #include <Arduino.h>
-#include "tft_io.hpp"
+#include "tft_core.hpp"
 // The parallel code only works on the ESP32. The generic code for Arduino that is in place is non-functional in my tests. I'm not sure why, but it might be a timing issue.
-
 
 #define FORCE_INLINE __attribute((always_inline))
 namespace arduino {
@@ -395,6 +394,8 @@ namespace arduino {
 #endif // !OPTIMIZE_ESP32
             wr_high();
         }
+        inline static void set_command() FORCE_INLINE {}
+        inline static void set_data() FORCE_INLINE {}
         inline static bool dma_busy() FORCE_INLINE { return false; }
         inline static void dma_wait() FORCE_INLINE { }
         static void write_raw8_repeat(uint8_t value, size_t count) {
@@ -419,6 +420,27 @@ namespace arduino {
 #else
                 while(length--) {
                     write_raw8(*buffer++);
+                }
+#endif
+            }
+        }
+        
+        static void write_raw_pgm(const uint8_t* buffer, size_t length) {
+            if(length) {
+#if 1
+                uint8_t old=*buffer;
+                write_raw8(pgm_read_byte(buffer++));
+                while(--length) {
+                    if(old==*buffer) {
+                        wr_low(); wr_high();
+                    } else {
+                        write_raw8(pgm_read_byte(buffer++));
+                    }
+                    old = *buffer++;
+                }
+#else
+                while(length--) {
+                    write_raw8(pgm_read_byte(buffer++));
                 }
 #endif
             }

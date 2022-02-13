@@ -1,11 +1,11 @@
 SPI Displays:
 CS 5 (MAX7219 is on 15)
-CLK 18
-MOSI 23
+CLK/SCK/D0 18
+MOSI/SDA/D1/DIN 23
 MISO 19 (not all devices)
 
-DC 2
-RST 4
+DC/A0 2
+RST/RES 4
 BKL 15 (lcd devices)
 BUSY 15 (e-paper devices)
 

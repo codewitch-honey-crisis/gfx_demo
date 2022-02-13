@@ -38,11 +38,7 @@
 #include <stdio.h>
 #include <SPIFFS.h>
 #include <SPI.h>
-#ifdef PARALLEL8
-#include "drivers/common/tft_parallel8.hpp"
-#else
-#include "drivers/common/tft_spi.hpp"
-#endif
+#include "drivers/common/tft_io.hpp"
 #include "drivers/ili9341.hpp"
 #include "gfx_cpp14.hpp"
 #include "pretty_effect.hpp"

@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include "drivers/max7219.hpp"
+#include "drivers/common/tft_io.hpp"
 #include "gfx_cpp14.hpp"
+#include "drivers/max7219.hpp"
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace arduino;
 using namespace gfx;
@@ -15,16 +16,14 @@ using namespace gfx;
 #define LCD_WIDTH 32
 #define LCD_HEIGHT 8
 
-SPIClass spi(LCD_HOST);
-
-using matrix_type = max7219<LCD_WIDTH/8,LCD_HEIGHT/8,PIN_NUM_CS> ;
+using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,0,10*1000*1000,10*1000*1000,false>;
+using matrix_type = max7219<LCD_WIDTH/8,LCD_HEIGHT/8,PIN_NUM_CS,bus_type> ;
 using matrix_color = color<typename matrix_type::pixel_type>;
 using bmp_type = bitmap<typename matrix_type::pixel_type>;
     
-matrix_type matrix(spi);
+matrix_type matrix;
 void setup() {
     Serial.begin(115200);
-    spi.begin(PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI,PIN_NUM_CS);
     
     const char* text = "ESP32 GFX Demo - MAX7219 ** Copyright (C) 2021 by honey the codewitch   ";
     size_t len = strlen(text);

@@ -15,6 +15,7 @@ using namespace gfx;
 #define PIN_NUM_RST -1
 #define PIN_NUM_DC -1
 #define I2C_FREQ 400000
+#define I2C_DEFAULT_FREQ 100000
 #else
 #define LCD_HOST VSPI
 #define PIN_NUM_CS 5
@@ -51,7 +52,7 @@ using namespace gfx;
 #define SUSPEND_RESUME
 
 #ifdef I2C
-using bus_type = tft_i2c<LCD_PORT,0x3C,PIN_NUM_SDA,PIN_NUM_SCL,0x0,0x40,I2C_FREQ>;
+using bus_type = tft_i2c<LCD_PORT,0x3C,PIN_NUM_SDA,PIN_NUM_SCL,0x0,0x40,I2C_FREQ,I2C_DEFAULT_FREQ>;
 #else
 using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,20*1000*1000,20*1000*1000,20*1000,1000,false
 #ifdef OPTIMIZE_DMA

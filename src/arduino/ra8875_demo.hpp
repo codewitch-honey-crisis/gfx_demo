@@ -2,23 +2,13 @@
 #include <stdio.h>
 #include <SPIFFS.h>
 #include <SPI.h>
+#include "drivers/common/tft_io.hpp"
 #include "drivers/ra8875.hpp"
 #include "gfx_cpp14.hpp"
 #include "pretty_effect.hpp"
 #include "../fonts/Bm437_ATI_9x16.h"
 #include "../fonts/Bm437_Verite_9x16.h"
 
-#if defined(ESP_WROVER_KIT)
-#define LCD_HOST    HSPI
-#define PIN_NUM_MISO 25
-#define PIN_NUM_MOSI 23
-#define PIN_NUM_CLK  19
-#define PIN_NUM_CS   22
-
-#define PIN_NUM_DC   21
-#define PIN_NUM_RST  18
-#define PIN_NUM_BCKL 5
-#else
 #define LCD_HOST    VSPI
 #define PIN_NUM_MISO 19
 #define PIN_NUM_MOSI 23
@@ -28,7 +18,7 @@
 #define PIN_NUM_DC   2
 #define PIN_NUM_RST  4
 #define PIN_NUM_BCKL 15
-#endif
+
 using namespace arduino;
 using namespace gfx;
 
@@ -39,6 +29,7 @@ using namespace gfx;
 #define PIN_CS 5
 #define PIN_RST 15
 #define PIN_INT 2
+
 using lcd_type = ra8875<LCD_WIDTH,LCD_HEIGHT,PIN_CS,PIN_RST, PIN_INT>;
             
 SPIClass spi(LCD_HOST);

@@ -394,6 +394,8 @@ namespace arduino {
 #endif // !OPTIMIZE_ESP32
             wr_high();
         }
+        inline static void begin_initialization() FORCE_INLINE {}
+        inline static void end_initialization() FORCE_INLINE {}
         inline static void set_command() FORCE_INLINE {}
         inline static void set_data() FORCE_INLINE {}
         inline static bool dma_busy() FORCE_INLINE { return false; }

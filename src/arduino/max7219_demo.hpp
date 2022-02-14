@@ -16,7 +16,7 @@ using namespace gfx;
 #define LCD_WIDTH 32
 #define LCD_HEIGHT 8
 
-using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,0,10*1000*1000,10*1000*1000,false>;
+using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,0,10*1000*1000,10*1000*1000,10*1000*1000,false>;
 using matrix_type = max7219<LCD_WIDTH/8,LCD_HEIGHT/8,PIN_NUM_CS,bus_type> ;
 using matrix_color = color<typename matrix_type::pixel_type>;
 using bmp_type = bitmap<typename matrix_type::pixel_type>;

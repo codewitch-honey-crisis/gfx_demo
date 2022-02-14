@@ -58,7 +58,13 @@ using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_C
 #else
 20*1000*1000
 #endif
-,20*1000*1000,true
+,20*1000*1000,
+#if defined(ESP_WROVER_KIT)
+40*1000*1000
+#else
+20*1000*1000
+#endif
+,true
 #ifdef OPTIMIZE_DMA
 ,320*240*2+8
 #endif

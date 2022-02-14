@@ -19,6 +19,7 @@ namespace arduino {
         uint8_t PayloadCommand = 0x0,
         uint8_t PayloadData = 0x40,
         uint32_t I2CSpeed=0,
+        uint32_t I2CInitSpeed=I2CSpeed,
         size_t I2CBufferSize = HTCW_I2C_WIRE_MAX>
     struct tft_i2c {
         constexpr static const uint8_t i2c_host = I2CHost;
@@ -31,13 +32,16 @@ namespace arduino {
         
         constexpr static const uint8_t i2c_address = Address;
         constexpr static const uint32_t i2c_speed = I2CSpeed;
+        constexpr static const uint32_t i2c_init_speed = I2CInitSpeed;
         constexpr static const size_t i2c_buffer_size = I2CBufferSize;
     private:
         
     public:
         static TwoWire i2c;
         static uint8_t payload;
+        static bool is_init;
         static bool initialize() {
+            is_init =false;
             if(i2c.begin(PinSda,PinScl,i2c_speed)) {
                 set_data();
                 return true;
@@ -45,7 +49,13 @@ namespace arduino {
             return false;
 
         }
+        inline static void begin_initialization() FORCE_INLINE { is_init=true; i2c.setClock(i2c_init_speed);}
+        inline static void end_initialization() FORCE_INLINE { is_init=false; i2c.setClock(i2c_speed);}
+        
         static void deinitialize() {
+            if(is_init) {
+                i2c.setClock(i2c_speed);
+            }
         }
         inline static void set_command() FORCE_INLINE {
             payload = payload_command;
@@ -232,8 +242,9 @@ namespace arduino {
         uint8_t PayloadCommand,
         uint8_t PayloadData,
         uint32_t I2CSpeed,
+        uint32_t I2CInitSpeed, 
         size_t I2CBufferSize>
-        uint8_t tft_i2c<I2CHost,Address,PinSda,PinScl,PayloadCommand,PayloadData,I2CSpeed,I2CBufferSize>
+        uint8_t tft_i2c<I2CHost,Address,PinSda,PinScl,PayloadCommand,PayloadData,I2CSpeed,I2CInitSpeed,I2CBufferSize>
     ::payload = PayloadData;
 
     template<uint8_t I2CHost,
@@ -243,9 +254,20 @@ namespace arduino {
         uint8_t PayloadCommand,
         uint8_t PayloadData,
         uint32_t I2CSpeed,
+        uint32_t I2CInitSpeed, 
         size_t I2CBufferSize>
-        TwoWire tft_i2c<I2CHost,Address,PinSda,PinScl,PayloadCommand,PayloadData,I2CSpeed,I2CBufferSize>
+        TwoWire tft_i2c<I2CHost,Address,PinSda,PinScl,PayloadCommand,PayloadData,I2CSpeed,I2CInitSpeed,I2CBufferSize>
     ::i2c(i2c_host);
-
+    template<uint8_t I2CHost,
+        uint8_t Address,
+        uint8_t PinSda,
+        uint8_t PinScl,
+        uint8_t PayloadCommand,
+        uint8_t PayloadData,
+        uint32_t I2CSpeed,
+        uint32_t I2CInitSpeed, 
+        size_t I2CBufferSize>
+        bool tft_i2c<I2CHost,Address,PinSda,PinScl,PayloadCommand,PayloadData,I2CSpeed,I2CInitSpeed,I2CBufferSize>
+    ::is_init = false;
 }
 #undef HTCW_I2C_WIRE_MAX

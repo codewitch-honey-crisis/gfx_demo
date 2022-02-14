@@ -31,6 +31,7 @@ namespace arduino {
         bool initialize() {
             if(!m_initialized) {
                 if(driver::initialize()) {
+                    bus::begin_initialization();
                     bus::begin_write();
                     bus::start_transaction();
                     driver::send_command(0xEF);
@@ -144,6 +145,7 @@ namespace arduino {
                     driver::send_command(0x29);    //Display on
                     bus::end_transaction();
                     bus::end_write();
+                    bus::end_initialization();
                     bus::begin_write();
                     bus::start_transaction();
                     apply_rotation();

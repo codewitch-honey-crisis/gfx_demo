@@ -122,6 +122,7 @@ struct st7735 final {
                     pinMode(pin_bl, OUTPUT);
                     digitalWrite(pin_bl, HIGH);
                 }
+                bus::begin_initialization();
                 bus::begin_write();
                 bus::start_transaction();
 
@@ -137,6 +138,7 @@ struct st7735 final {
                 send_init_commands(generic_st7735_2);
                 bus::end_transaction();
                 bus::end_write();
+                bus::end_initialization();
                 bus::begin_write();
                 bus::start_transaction();
                 apply_rotation();

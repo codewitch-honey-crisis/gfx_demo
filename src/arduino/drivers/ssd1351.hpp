@@ -182,6 +182,7 @@ namespace ssd1351_helpers {
         }
         bool initialize() {
             if(!m_initialized) {
+
                 static const uint8_t generic_ssd1351[] PROGMEM =  {                
      0xFD,
     1, // Set command lock, 1 arg
@@ -250,6 +251,7 @@ namespace ssd1351_helpers {
                     return false;
                 }
                 reset();
+                bus::begin_initialization();
                 bus::begin_write();
                 bus::start_transaction();
                 const uint8_t *addr = generic_ssd1351;
@@ -266,12 +268,14 @@ namespace ssd1351_helpers {
                 delay(20);
                 bus::end_transaction();
                 bus::end_write();
+                bus::end_initialization();
                 bus::begin_write();
                 bus::start_transaction();
                 apply_rotation();
                 bus::end_transaction();
                 bus::end_write();
                 m_initialized = true;
+                
             }
             return true;
         }

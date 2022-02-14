@@ -241,6 +241,8 @@ public:
                 if(reset_before_init) {
                     reset();
                 }
+                bus::begin_initialization();
+                bus::begin_write();
                 uint8_t cmd;
                 // Init sequence
                 static const uint8_t init1[] PROGMEM = {0xAE,
@@ -297,6 +299,8 @@ public:
                     0x2E,
                     0xAF}; // Main screen turn on
                 write_pgm_bytes(init5, sizeof(init5),false);
+                bus::end_write();
+                bus::end_initialization();
                 m_initialized = true;
             }
             return true;

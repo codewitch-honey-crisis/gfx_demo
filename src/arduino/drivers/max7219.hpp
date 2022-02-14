@@ -244,6 +244,7 @@ namespace arduino {
                 if(!driver::initialize()) {
                     return false;
                 }
+                bus::begin_initialization();
                 if(!set_enabled(false)) {
                     return false;
                 }
@@ -262,7 +263,7 @@ namespace arduino {
                 if(!set_enabled(true)) {
                     return false;
                 }
-                
+                bus::end_initialization();
                 m_initialized=true;
             }
             return true;

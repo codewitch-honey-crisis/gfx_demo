@@ -380,8 +380,9 @@ C++
 
 ``` lang-cplusplus
 using bus_type = tft_spi<VSPI,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
-40*1000*1000
-,20*1000*1000,
+40*1000*1000,
+20*1000*1000,
+20*1000*1000,
 true
 ,320*240*2+8>;
 ```

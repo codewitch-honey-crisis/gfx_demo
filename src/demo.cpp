@@ -19,6 +19,8 @@
         #include "arduino/ep4in2_demo.hpp"
     #elif defined(RA8875)
         #include "arduino/ra8875_demo.hpp"
+    #elif defined(ED047TC1)
+        #include "arduino/ed047tc1_demo.hpp"
     #elif defined(TFT_ESPI)
         #include "arduino/tft_espi_demo.hpp"
     #endif

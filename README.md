@@ -1,6 +1,4 @@
-![GFX Forever](https://www.codeproject.com/KB/Articles/5302085/gfx_forever.jpg)
-
-## Introduction
+Introduction
 
 I wanted a graphics library that was faster and better than what I had
 found for various IoT devices. The most popular is probably
@@ -100,7 +98,16 @@ TFT\_eSPI bindings/drivers for superior performance and additional
 device support.
 
 **Update 24:** Added Windows DirectX support for rapid prototyping.
-Fixed compile errors under certain environmen
+Fixed compile errors under certain environments.
+
+**Update 25:** Added new driver structure for arduino drivers with a
+decoupled bus framework, better SPI performance and 8-bit parallel
+support. Currently used by the ili9341 and st7789 drivers until I can
+test the others, which I have to buy again because I gave them away.
+
+**Update 26:** All LCD/TFT/OLED drivers except the RA8875 use the new
+driver framework. For information on these see
+[here](https://www.codeproject.com/Articles/5324976/High-Performance-Decoupled-Buses-for-IoT-Displays).
 
 ### Building this Mess
 
@@ -170,16 +177,19 @@ that you want to use before building:
   - arduino-lilygo-ttgo
   - arduino-lilygo-t5\_v22
   - arduino-ILI9341
+  - arduino-ILI9341-P8
   - arduino-DEPG0290B
+  - arduino-MAX7219\*
   - arduino-GDEH0154Z90
   - arduino-ST7789
   - arduino-SSD1306
+  - arduino-SSD1306-i2c
   - arduino-SSD1351
   - arduino-ST7735
   - arduino-RA8875
   - arduino-TFT\_eSPI
   - windows-DirectX
-  
+
 The MAX7219 CS pin is 15, not 5. Driver is experimental and multiple
 rows of segments does not work, but multiple segments in a single row
 works.
@@ -217,7 +227,23 @@ Here's the process:
 First go to PlatformIO/Quick Access/Miscellaneous/PlatformIO Core
 CLI, open a new console and type:
 
+<div id="premain885084" class="pre-lang">
+
+<div>
+
 BAT
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode885084" class="copy-code" data-index="885084" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
 ``` lang-bat
 pio platform install "windows_x86"
 ```
@@ -264,7 +290,23 @@ a coroutine out of the lines demo.
 In order to run the application, open a console again. Then you need to
 type the following command:
 
+<div id="premain15937" class="pre-lang">
+
+<div>
+
 BAT
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode15937" class="copy-code" data-index="15937" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
 ``` lang-bat
 .pio\build\windows-DirectX\program.exe
 ```
@@ -290,6 +332,104 @@ indicates the pixel type of the color pixel you wish to virtualize.
 
 Keep in mind the higher the virtualized bit depth, the more memory the
 driver will use.
+
+#### Decoupled Bus and 8-bit Parallel Support
+
+Many of the Arduino drivers support the new driver framework and as such
+can operate in I2C, 8-bit parallel or SPI. The SPI is also DMA capable
+and performs better than the older SPI based framework, and can read
+from devices that support it.
+
+Using it requires some additional steps since the driver is independent
+of the bus.
+
+First, include the I/O header:
+
+<div id="premain419175" class="pre-lang">
+
+<div>
+
+C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode419175" class="copy-code" data-index="419175" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
+#include "drivers/common/tft_io.hpp"
+```
+
+You must initialize your bus. Keep in mind there are restrictions on the
+data and DR pins for parallel. To be safe, they should be in the GPIO
+range of 0-31 in order to work. I've included code to make them work
+otherwise but I have not tested it.
+
+To initialize the SPI bus:
+
+<div id="premain37042" class="pre-lang">
+
+<div>
+
+C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode37042" class="copy-code" data-index="37042" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
+using bus_type = tft_spi<VSPI,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
+40*1000*1000
+,20*1000*1000,
+true
+,320*240*2+8>;
+```
+
+The above initializes the bus on VSPI to do 40Mhz writes, 20MHz reads,
+and uses DMA.
+
+Initializing the parallel bus is similar, except all you need are the
+pin numbers.
+
+Once you have the bus type instantiated, you pass it to your driver
+template:
+
+<div id="premain106145" class="pre-lang">
+
+<div>
+
+C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode106145" class="copy-code" data-index="106145" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
+using lcd_type = ili9341<PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL,bus_type,3>;
+```
+
+For information on this see
+[here](https://www.codeproject.com/Articles/5324976/High-Performance-Decoupled-Buses-for-IoT-Displays).
 
 ## Concepts
 
@@ -359,7 +499,7 @@ Pixels in GFX may take any form you can imagine, up to your machine's
 maximum word size. They can have as many as one channel per bit, and
 will take on any binary footprint you specify. If you want a 3 bit RGB
 pixel, you can easily make one, and then create bitmaps in that format -
-where there are 3 pixels every 9 bytes. You'll never have to worry
+where there are 3 pixels every 9 bits. You'll never have to worry
 whether or not this library can support your display driver or file
 format's pixel and color model. With GFX, you can define the binary
 footprint and channels of your pixels, and then extend GFX to support
@@ -648,20 +788,22 @@ specific to the draw source or destination in question.
 The ESP-IDF is capable of doing asynchronous DMA transfers over SPI, but
 right now the overall SPI throughput is less than the Arduino framework.
 I'm investigating why this is. I have related issues that are preventing
-me from supporting certain devices under the ESP-IDF, like the RA8875.
+me from supporting certain devices under the ESP-IDF, like the
+RA8875. The ESP-IDF drivers currently do not support 8-bit parallel.
+This will be added in the future.
 
 ##### Arduino Framework
 
 The Arduino Framework's SPI interop is tightly timed and fast, but
-doesn't support asynchronous DMA transfers - at least not explicitly -
-and doesn't seem to have a facility for returning errors during SPI read
-and write operations. Therefore I think it's less likely for wiring
-problems to be reported with the Arduino versions of the drivers, but
-I'm not exactly sure since I haven't tried to create such a scenario to
-test with. The Arduino framework is more likely to support a device than
-the ESP-IDF due to differences in the SPI communication API
-characteristics and behavior. `XXXX_async` methods will always be
-performed synchronously with the Arduino framework.
+doesn't support asynchronous DMA transfers natively but some ESP32
+drivers will - and doesn't seem to have a facility for returning errors
+during SPI read and write operations. Therefore I think it's less likely
+for wiring problems to be reported with the Arduino versions of the
+drivers, but I'm not exactly sure since I haven't tried to create such a
+scenario to test with. The Arduino framework is more likely to support a
+device than the ESP-IDF due to differences in the SPI communication API
+characteristics and behavior. The Arduino drivers include 8-bit parallel
+support.
 
 ## Using the GFX API
 
@@ -757,8 +899,24 @@ Let's dive into some code. The following draws a classic effect around
 the four edges of the screen in four different colors, with "ESP32 GFX
 Demo" in the center of the screen:
 
+<div id="premain133872" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode133872" class="copy-code" data-index="133872" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const font& f = Bm437_ATI_9x16_FON;
 const char* text = "ESP32 GFX Demo";
@@ -828,8 +986,24 @@ targets that are not double buffered. You don't have to care that much
 about that, because the draws will still work, unbuffered. Anyway,
 here's the code:
 
+<div id="premain660114" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode660114" class="copy-code" data-index="660114" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
 const font& f = Bm437_Acer_VGA_8x8_FON;
 const char* text = "ESP32 GFX";
@@ -887,8 +1061,24 @@ yet.
 Since adding polygon support, I suppose an example of that will be
 helpful. Here it is in practice:
 
+<div id="premain894219" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode894219" class="copy-code" data-index="894219" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 // draw a polygon (a triangle in this case)
 // find the origin:
 const spoint16 porg = srect16(0,0,31,31)
@@ -922,8 +1112,24 @@ create bitmaps in different formats or to declare color pixels for use
 with your particular display driver's native format. In the rare case
 you need to define one manually, you can do something like this:
 
+<div id="premain358165" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode358165" class="copy-code" data-index="358165" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 // declare a 16-bit RGB pixel
 using rgb565 = pixel<channel_traits<channel_name::R,5>,
                     channel_traits<channel_name::G,6>,
@@ -939,8 +1145,24 @@ pixel you typically find on color display adapters for IoT platforms.
 RGB is one of the known color models so there is a shorthand for
 declaring an RGB pixel type of any bit depth:
 
+<div id="premain951748" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode951748" class="copy-code" data-index="951748" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 using rgb565 = rgb_pixel<16>; // declare a 16-bit RGB pixel
 ```
 
@@ -974,8 +1196,24 @@ verification. If the channel does not exist, setting and getting does
 nothing. If you need to translate between real and integer values for a
 channel you can use the channel's `::scale` and `::scaler` values.
 
+<div id="premain634852" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode634852" class="copy-code" data-index="634852" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 // declare a 24-bit rgb pixel
 rgb_pixel<24> rgb888;
 
@@ -1023,8 +1261,24 @@ template will create an RGB pixel with an alpha channel.
 
 Here's an example of using it in the wild:
 
+<div id="premain350304" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode350304" class="copy-code" data-index="350304" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 using bmpa_type = rgba_pixel<32>;
 using bmpa_color = color<bmpa_type>;
 
@@ -1151,8 +1405,24 @@ Anyway, first we have to declare our buffer. I was very careful to make
 my objects `constexpr` enabled so you could do things like the
 following:
 
+<div id="premain919562" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode919562" class="copy-code" data-index="919562" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 using bmp_type = bitmap<rgb_pixel<16>>;
 // the following is for convenience:
 using bmp_color = color<typename bmp_type::pixel_type>; // needs GFX color header
@@ -1160,8 +1430,24 @@ using bmp_color = color<typename bmp_type::pixel_type>; // needs GFX color heade
 
 followed by:
 
+<div id="premain807863" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode807863" class="copy-code" data-index="807863" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 constexpr static const size16 bmp_size(16,16);
 uint8_t bmp_buf[bmp_type::sizeof_buffer(bmp_size)];
 ```
@@ -1178,20 +1464,53 @@ and color resolution.
 
 Now that we have all that, wrapping it with a bitmap is trivial:
 
+<div id="premain179231" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode179231" class="copy-code" data-index="179231" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 bmp_type bmp(bmp_size,bmp_buf);
 // you'll probably want to do this, but not necessary if 
 // you're redrawing the entire bmp anyway:
 bmp.clear(bmp.bounds()); // zero the bmp memory
-``` C++
+```
 
 Now you can call `draw` methods passing `bmp` as the destination:
 
+<div id="premain319921" class="pre-lang">
+
+<div>
+
 C++
-``` C++
-// draw a happy face
- // bounding info for the face
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode319921" class="copy-code" data-index="319921" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
+ // draw a happy face
+
+// bounding info for the face
 // change the line below if you want a subregion
 srect16 bounds=(srect16)bmp.bounds();
 rect16 ubounds=(rect16)bounds;
@@ -1277,8 +1596,24 @@ that can be rotated or offset. They are used pretty simply, although
 rotation can be tricky because you have to get your rotation `center`
 correct to get the results you expect:
 
+<div id="premain646570" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode646570" class="copy-code" data-index="646570" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 viewport<bmp_type> view(bmp);
 view.rotation(90);    
 view.offset({45,5});
@@ -1321,8 +1656,24 @@ more data at a time is better, but takes more RAM.
 
 The code looks approximately like this under the ESP-IDF at least:
 
+<div id="premain387999" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode387999" class="copy-code" data-index="387999" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 uint16_t *lines[2];
 //Allocate memory for the pixel buffers
 for (int i=0; i<2; i++) {
@@ -1422,8 +1773,24 @@ lot to juggle.
 
 Below `lcd` represents our target on which to draw the image:
 
+<div id="premain556240" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode556240" class="copy-code" data-index="556240" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 draw::image(lcd,(srect16)lcd.bounds(),&fs,rect16(0,0,-1,-1));
@@ -1447,8 +1814,24 @@ a simple function pointer, and then pass your class pointer in as the
 you won't even need a state argument because everything you're after,
 such as the display itself, is available globally:
 
+<div id="premain477765" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode477765" class="copy-code" data-index="477765" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 file_stream fs("/spiffs/image.jpg");
 // TODO: check caps().read to see if the file is opened/readable
 jpeg_image::load(&fs,[](size16 dimensions,
@@ -1500,17 +1883,45 @@ Let's talk about the first method - embedding:
 First, generate a header file from a font file using fontgen under the
 *tools* folder of the GFX library:
 
+<div id="premain801745" class="pre-lang">
+
+<div>
+
 Shell
-``` Shell
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode801745" class="copy-code" data-index="801745" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-shell
 ~$ fontgen myfont.fon > myfont.hpp
 ```
 
 or
 
-Shell
-``` Shell
+<div id="premain400701" class="pre-lang">
+
+<div>
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode400701" class="copy-code" data-index="400701" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
     C:\> fontgen myfont.ttf > myfont.hpp
-```
 
 Note with Windows, it might try to spit it out in UTF-16 which will
 mangle your header file to death. If that happens, open the header in
@@ -1520,8 +1931,24 @@ platform.
 
 Now you can include that in your code:
 
+<div id="premain926034" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode926034" class="copy-code" data-index="926034" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 #include "myfont.hpp"
 ```
 
@@ -1529,8 +1956,24 @@ This allows you to reference the font like this:
 
 ##### Raster Fonts
 
+<div id="premain389164" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode389164" class="copy-code" data-index="389164" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 const font& f = myfont_fon;
 const char* text = "Hello world!";
 srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),
@@ -1547,8 +1990,24 @@ stream, which stores the font around on the heap rather than embedded as
 a `static` `const` array in your code is to just replace the first line
 of code above with this:
 
+<div id="premain694339" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode694339" class="copy-code" data-index="694339" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 file_stream fs("/spiffs/myfon.fon");
 if(!fs.caps().read) {
     printf("Font file not found.\r\n");
@@ -1567,8 +2026,24 @@ ultimate goal, stick with non-transparent font draws.
 
 ##### True Type/Open Type Fonts
 
+<div id="premain875381" class="pre-lang">
+
+<div>
+
 C++
-``` C++
+
+</div>
+
+<div class="pre-action-link">
+
+<span id="copycode875381" class="copy-code" data-index="875381" style="visibility:hidden">Copy
+Code</span>
+
+</div>
+
+</div>
+
+``` lang-cplusplus
 const open_font& f=Maziro_ttf;
 draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
 const char* text = "ESP32 GFX Demo";
@@ -1768,9 +2243,8 @@ async reads but that will change in the future.
 
 The demo projects that ship with this should provide you ample code to
 learn GFX or even build your own drivers. Currently, I'm focused on
-supporting the ESP32 via the ESP-IDF, but GFX itself is not limited by
-platform, and drivers can be written for anything - even DirectX on a
-Windows PC.
+supporting Arduino, but GFX itself is not limited by platform, and
+drivers can be written for anything - even DirectX on a Windows PC.
 
 ## History
 
@@ -1821,5 +2295,12 @@ Windows PC.
     `viewport<>` template
   - 8<sup>th</sup> December, 2021 - Restructure of the library, bugfixes
     and the addition of TFT\_eSPI bindings
+  - 9<sup>th</sup> December, 2021 - Fixed a compiler error compiling
+    under certain environments, added DirectX prototyping support.
+  - 9<sup>th</sup> February, 2022 - Added new driver structure for
+    arduino drivers with a decoupled bus framework, better SPI
+    performance and 8-bit parallel support.
+  - 13<sup>th</sup> February, 2022 - Ported every other display except
+    E-Paper and the RA8875 for arduino to the new driver code.
 
 </div>

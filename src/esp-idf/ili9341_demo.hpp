@@ -392,7 +392,11 @@ static void display_pretty_colors()
 
 void app_main(void)
 {
-    
+    // we'll be loading the font from SPIFFs.
+    // To embed the font instead, run the lib/gfx/tools/fontgen tool to create a header.
+    // then include that header. The font will be precreated with the same name as the header
+    // sans extension.
+
     // check to make sure SPI was initialized successfully
     if(!spi_host.initialized()) {
         printf("SPI host initialization error.\r\n");
@@ -407,6 +411,7 @@ void app_main(void)
     conf.partition_label="storage";
     ret=esp_vfs_spiffs_register(&conf);
     ESP_ERROR_CHECK(ret);   
+    
     gfx_result rr;
     rr=pretty_effect_init("/spiffs/image.jpg",336,256,320,240);
     if(gfx_result::success!=rr) {

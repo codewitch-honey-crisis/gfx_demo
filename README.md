@@ -237,9 +237,6 @@ BAT
 
 <div class="pre-action-link">
 
-<span id="copycode885084" class="copy-code" data-index="885084" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -300,9 +297,6 @@ BAT
 
 <div class="pre-action-link">
 
-<span id="copycode15937" class="copy-code" data-index="15937" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -355,9 +349,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode419175" class="copy-code" data-index="419175" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -382,9 +373,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode37042" class="copy-code" data-index="37042" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -416,9 +404,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode106145" class="copy-code" data-index="106145" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -909,9 +894,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode133872" class="copy-code" data-index="133872" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -996,8 +978,7 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode660114" class="copy-code" data-index="660114" style="visibility:hidden">Copy
-Code</span>
+
 
 </div>
 
@@ -1071,11 +1052,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode894219" class="copy-code" data-index="894219" style="visibility:hidden">Copy
-Code</span>
-
-</div>
-
 </div>
 
 ``` lang-cplusplus
@@ -1122,9 +1098,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode358165" class="copy-code" data-index="358165" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1154,9 +1127,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode951748" class="copy-code" data-index="951748" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1205,9 +1175,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode634852" class="copy-code" data-index="634852" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1271,8 +1238,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode350304" class="copy-code" data-index="350304" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1415,9 +1380,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode919562" class="copy-code" data-index="919562" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1439,9 +1401,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode807863" class="copy-code" data-index="807863" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1474,9 +1433,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode179231" class="copy-code" data-index="179231" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1499,9 +1455,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode319921" class="copy-code" data-index="319921" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1606,9 +1559,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode646570" class="copy-code" data-index="646570" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1665,10 +1615,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode387999" class="copy-code" data-index="387999" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1783,9 +1729,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode556240" class="copy-code" data-index="556240" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1823,9 +1766,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode477765" class="copy-code" data-index="477765" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1893,9 +1833,6 @@ Shell
 
 <div class="pre-action-link">
 
-<span id="copycode801745" class="copy-code" data-index="801745" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1913,9 +1850,6 @@ or
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode400701" class="copy-code" data-index="400701" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1941,9 +1875,6 @@ C++
 
 <div class="pre-action-link">
 
-<span id="copycode926034" class="copy-code" data-index="926034" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -1965,9 +1896,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode389164" class="copy-code" data-index="389164" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 
@@ -1999,10 +1927,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode694339" class="copy-code" data-index="694339" style="visibility:hidden">Copy
-Code</span>
-
 </div>
 
 </div>
@@ -2035,9 +1959,6 @@ C++
 </div>
 
 <div class="pre-action-link">
-
-<span id="copycode875381" class="copy-code" data-index="875381" style="visibility:hidden">Copy
-Code</span>
 
 </div>
 

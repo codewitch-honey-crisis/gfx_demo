@@ -379,17 +379,16 @@ struct st7735 final {
         }
     }
     static void set_window(const gfx::rect16& bounds, bool read = false) {
-        bus::busy_check();
-        driver::dc_command();
+       driver::dc_command();
         bus::write_raw8(0x2A);
         driver::dc_data();
-        bus::write_raw16(bounds.x1 + x_start);
-        bus::write_raw16(bounds.x2 + x_start);
+        bus::write_raw16(column_start+bounds.x1);
+        bus::write_raw16(column_start+bounds.x2);
         driver::dc_command();
         bus::write_raw8(0x2B);
         driver::dc_data();
-        bus::write_raw16(bounds.y1 + y_start);
-        bus::write_raw16(bounds.y2 + y_start);
+        bus::write_raw16(row_start+bounds.y1);
+        bus::write_raw16(row_start+bounds.y2);
         driver::dc_command();
         bus::write_raw8(read ? 0x2E : 0x2C);
         driver::dc_data();

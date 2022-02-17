@@ -93,18 +93,35 @@ constexpr static const uint8_t dma_channel =
         inline static SPIClass& spi() FORCE_INLINE {
 #if defined(ESP32) || defined(ARDUINO_ARCH_STM32)
             return ispi;
-#elif defined(ARDUINO_ARCH_SAMD)
+#else
+
+ #if SPI_INTERFACES_COUNT > 1
             if(SpiHost==1) {
                 return SPI1;
             }
+#endif
+#if SPI_INTERFACES_COUNT > 2
             if(SpiHost==2) {
                 return SPI2;
             }
+#endif
+#if SPI_INTERFACES_COUNT > 3
             if(SpiHost==3) {
                 return SPI3;
             }
 #endif
+#if SPI_INTERFACES_COUNT > 4
+            if(SpiHost==4) {
+                return SPI4;
+            }
+#endif
+#if SPI_INTERFACES_COUNT > 5
+            if(SpiHost==5) {
+                return SPI5;
+            }
+#endif
             return SPI;
+#endif
         }
     public:
         static bool initialize() {
@@ -168,10 +185,13 @@ constexpr static const uint8_t dma_channel =
             return true;
         
         }
-        static inline void set_command() FORCE_INLINE {
+        static inline void set_address(uint8_t address) FORCE_INLINE {
+            
+        }
+        static inline void set_command(uint8_t payload) FORCE_INLINE {
 
         }
-        static inline void set_data() FORCE_INLINE {
+        static inline void set_data(uint8_t payload) FORCE_INLINE {
 
         }
         static void deinitialize_dma() {

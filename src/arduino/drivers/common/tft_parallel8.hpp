@@ -396,8 +396,9 @@ namespace arduino {
         }
         inline static void begin_initialization() FORCE_INLINE {}
         inline static void end_initialization() FORCE_INLINE {}
-        inline static void set_command() FORCE_INLINE {}
-        inline static void set_data() FORCE_INLINE {}
+        static inline void set_address(uint8_t address) FORCE_INLINE {}
+        inline static void set_command(uint8_t payload) FORCE_INLINE {}
+        inline static void set_data(uint8_t payload) FORCE_INLINE {}
         inline static bool dma_busy() FORCE_INLINE { return false; }
         inline static void dma_wait() FORCE_INLINE { }
         static void write_raw8_repeat(uint8_t value, size_t count) {

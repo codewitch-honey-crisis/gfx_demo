@@ -2,16 +2,21 @@
 #include <Arduino.h>
 #include "tft_io.hpp"
 namespace arduino {
-    template<int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus, int16_t SoftResetCommand = 0x01>
+    template<int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus, int16_t SoftResetCommand = 0x01,uint8_t Address=0,uint8_t CommandPayload=0x00,uint8_t DataPayload=0x40>
     struct tft_driver {
+        static_assert(Bus::type!=tft_io_type::i2c || Address!=0,"I2C must have a valid address");
         constexpr static const int8_t pin_dc = PinDC;
         constexpr static const int8_t pin_rst = PinRst;
         constexpr static const int8_t pin_bl = PinBL;
         constexpr static const int16_t swrst_command = SoftResetCommand;
+        constexpr static const uint8_t address = Address;
+        constexpr static const uint8_t command_payload = CommandPayload;
+        constexpr static const uint8_t data_payload = DataPayload;
         using bus = Bus;
         static bool initialize() {
             if(bus::initialize()) {
-                
+                bus::set_address(address);
+                bus::set_data(data_payload);
                 if(pin_dc>-1) {
                     pinMode(pin_dc, OUTPUT);
                     digitalWrite(pin_dc, HIGH);
@@ -121,7 +126,7 @@ namespace arduino {
             return result;
         }
         inline static void dc_command() FORCE_INLINE {
-            bus::set_command();
+            bus::set_command(command_payload);
             if(pin_dc>-1) {
 #if defined(OPTIMIZE_ESP32) 
                 if(pin_dc>31) {
@@ -135,7 +140,7 @@ namespace arduino {
             }
         }
         inline static void dc_data() FORCE_INLINE {
-            bus::set_data();
+            bus::set_data(data_payload);
             if(pin_dc>-1) {
 #if defined(OPTIMIZE_ESP32) 
                 if(pin_dc>31) {

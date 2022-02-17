@@ -52,7 +52,7 @@ using namespace gfx;
 #define SUSPEND_RESUME
 
 #ifdef I2C
-using bus_type = tft_i2c<LCD_PORT,0x3C,PIN_NUM_SDA,PIN_NUM_SCL,0x0,0x40,I2C_FREQ,I2C_DEFAULT_FREQ>;
+using bus_type = tft_i2c<LCD_PORT,PIN_NUM_SDA,PIN_NUM_SCL,I2C_FREQ,I2C_DEFAULT_FREQ>;
 #else
 using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,20*1000*1000,20*1000*1000,20*1000,1000,false
 #ifdef OPTIMIZE_DMA
@@ -61,7 +61,7 @@ using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_C
 >;
 #endif
 
-using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,LCD_VDC_3_3,PIN_NUM_DC,PIN_NUM_RST,true>;
+using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,0x3C,LCD_VDC_3_3,PIN_NUM_DC,PIN_NUM_RST,true>;
 lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;

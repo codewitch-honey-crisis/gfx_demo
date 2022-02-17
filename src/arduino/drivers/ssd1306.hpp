@@ -6,6 +6,7 @@ namespace arduino {
     template<uint16_t Width,
             uint16_t Height,
             typename Bus,
+            uint8_t Address = 0x3C,
             bool Vdc3_3=true,
             int8_t PinDC=-1,
             int8_t PinRst=-1,
@@ -14,12 +15,13 @@ namespace arduino {
         
         constexpr static const uint16_t width=Width;
         constexpr static const uint16_t height=Height;
+        constexpr static const uint8_t address = Address;
         constexpr static const bool vdc_3_3 = Vdc3_3;
         constexpr static const int8_t pin_rst = PinRst;
         constexpr static const bool reset_before_init = ResetBeforeInit;
 private:
         using bus = Bus;
-        using driver = tft_driver<PinDC,PinRst,-1,Bus,-1>;
+        using driver = tft_driver<PinDC,PinRst,-1,Bus,-1,0x3C,0x00,0x40>;
         unsigned int m_initialized;
         unsigned int m_suspend_x1;
         unsigned int m_suspend_y1;
@@ -104,7 +106,7 @@ private:
                 const uint8_t on_mask = uint8_t(uint8_t(0xFF<<((r.y1%8))) & uint8_t(0xFF>>(7-(r.y2%8))));
                 const uint8_t set_mask = uint8_t(~on_mask);
                 const uint8_t value_mask = uint8_t(on_mask*color);
-                for(int x=r.x1;x<=r.x2;++x) {
+                for(unsigned int x=r.x1;x<=r.x2;++x) {
                     uint8_t* p = m_frame_buffer+(y/8*width)+x;
                     *p&=set_mask;
                     *p|=value_mask;
@@ -117,7 +119,7 @@ private:
                 const uint8_t on_mask = uint8_t(uint8_t(0xFF<<((r.y1%8))));
                 const uint8_t set_mask = uint8_t(~on_mask);
                 const uint8_t value_mask = uint8_t(on_mask*color);
-                for(int x=r.x1;x<=r.x2;++x) {
+                for(unsigned int x=r.x1;x<=r.x2;++x) {
                     uint8_t* p = m_frame_buffer+(y/8*width)+x;
                     *p&=set_mask;
                     *p|=value_mask;
@@ -126,8 +128,8 @@ private:
                 y=r.y1+(8-m);
             }
             
-            int be = r.y2/8;
-            int b = y/8;
+            unsigned int be = r.y2/8;
+            unsigned int b = y/8;
             
             while(b<be) {
                 // we can do a faster fill for this part
@@ -144,7 +146,7 @@ private:
                 const uint8_t set_mask = uint8_t(~on_mask);
                 const uint8_t value_mask = uint8_t(on_mask*color);
                 uint8_t* p = m_frame_buffer+(y/8*width)+r.x1;
-                for(int x=r.x1;x<=r.x2;++x) {
+                for(unsigned int x=r.x1;x<=r.x2;++x) {
                     *p&=set_mask;
                     *p|=value_mask;
                     ++p;

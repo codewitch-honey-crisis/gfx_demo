@@ -9,11 +9,11 @@
 
 namespace arduino {
     template<uint8_t SpiHost,
-        int8_t PinCS, 
+        int8_t PinCS=-1, 
 #ifdef ASSIGNABLE_SPI_PINS
-        int8_t PinMosi, 
-        int8_t PinMiso, 
-        int8_t PinSClk, 
+        int8_t PinMosi=-1, 
+        int8_t PinMiso=-1, 
+        int8_t PinSClk=-1, 
 #endif // ASSIGNABLE_SPI_PINS
         uint8_t SpiMode = 0, 
         uint32_t SpiWriteSpeed=26*1000*1000, 
@@ -23,7 +23,7 @@ namespace arduino {
         ,bool SdaRead = (PinMiso < 0)
 #endif // !ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
-    ,size_t DmaSize = 4120
+    ,size_t DmaSize = 4096+8
     ,uint8_t DmaChannel = 
     #ifdef ESP32
         1
@@ -187,7 +187,7 @@ constexpr static const uint8_t dma_channel =
         
         }
         static inline void set_address(uint8_t address) FORCE_INLINE {
-            
+
         }
         static inline void set_command(uint8_t payload) FORCE_INLINE {
 

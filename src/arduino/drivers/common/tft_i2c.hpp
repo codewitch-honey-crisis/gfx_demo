@@ -15,8 +15,8 @@
 namespace arduino {
     template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
-        uint8_t PinSda,
-        uint8_t PinScl,
+        int8_t PinSda=-1,
+        int8_t PinScl=-1,
 #endif
         uint32_t I2CSpeed=0,
         uint32_t I2CDefaultSpeed=I2CSpeed,
@@ -272,8 +272,8 @@ namespace arduino {
     };
     template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
-        uint8_t PinSda,
-        uint8_t PinScl,
+        int8_t PinSda,
+        int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         uint32_t I2CSpeed,
         uint32_t I2CDefaultSpeed,
@@ -287,8 +287,8 @@ namespace arduino {
     ::address = 0;
     template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
-        uint8_t PinSda,
-        uint8_t PinScl,
+        int8_t PinSda,
+        int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         uint32_t I2CSpeed,
         uint32_t I2CDefaultSpeed,
@@ -303,8 +303,8 @@ namespace arduino {
 #if defined(ESP32)
         template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
-        uint8_t PinSda,
-        uint8_t PinScl,
+        int8_t PinSda,
+        int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         uint32_t I2CSpeed,
         uint32_t I2CDefaultSpeed,
@@ -319,8 +319,8 @@ namespace arduino {
 #endif
         template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
-        uint8_t PinSda,
-        uint8_t PinScl,
+        int8_t PinSda,
+        int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         uint32_t I2CSpeed,
         uint32_t I2CDefaultSpeed,

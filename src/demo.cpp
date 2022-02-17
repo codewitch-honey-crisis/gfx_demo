@@ -23,6 +23,8 @@
         #include "arduino/ed047tc1_demo.hpp"
     #elif defined(TFT_ESPI)
         #include "arduino/tft_espi_demo.hpp"
+    #elif defined(WIO_TERMINAL)
+        #include "arduino/wio_terminal_demo.hpp"
     #endif
 #elif defined(FRAMEWORK_ESP_IDF)
     #if defined(ILI9341)

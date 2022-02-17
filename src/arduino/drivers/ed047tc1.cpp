@@ -1,3 +1,4 @@
+#ifdef ESP32
 #include "ed047tc1.hpp"
 const DRAM_ATTR uint32_t lut_1bpp_arr[256] = {
     0x0000, 0x0001, 0x0004, 0x0005, 0x0010, 0x0011, 0x0014, 0x0015, 0x0040,
@@ -43,3 +44,4 @@ namespace arduino {
     
     }
 }
+#endif

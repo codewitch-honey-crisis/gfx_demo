@@ -1,3 +1,5 @@
+#pragma once
+#ifdef ESP32
 #include <driver/gpio.h>
 #include <driver/rmt.h>
 #include <esp_attr.h>
@@ -612,3 +614,4 @@ namespace arduino {
         0, 0, 0, 0, 0, 0, 0, 0};
 
 }  // namespace arduino
+#endif

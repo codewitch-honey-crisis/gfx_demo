@@ -120,8 +120,9 @@ constexpr static const uint8_t dma_channel =
                 return SPI5;
             }
 #endif
-            return SPI;
+
 #endif
+            return SPI;
         }
     public:
         static bool initialize() {

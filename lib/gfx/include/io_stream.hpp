@@ -7,6 +7,9 @@
 #ifdef SAMD_SERIES 
     #define IO_NO_FS
 #endif
+#ifdef ARDUINO_ARCH_STM32
+    #define IO_NO_FS
+#endif
 
 #ifndef IO_NO_FS
     #ifdef IO_ARDUINO_SD_FS

@@ -1652,7 +1652,7 @@ namespace gfx {
                 const bool dhas_alpha = tdhas_alpha::value;
                 if(has_alpha && !dhas_alpha) {
                     using tindexA = typename PixelType::template channel_index_by_name<channel_name::A>;
-                    const size_t chiA = tindexA::value;
+                    const int chiA = tindexA::value;
                     using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
                     auto alp = color.template channel_unchecked<chiA>();
                     if(alp!=tchA::max) {
@@ -1751,7 +1751,7 @@ namespace gfx {
                 const bool dhas_alpha = tdhas_alpha::value;
                 if(has_alpha && !dhas_alpha) {
                     using tindexA = typename PixelType::template channel_index_by_name<channel_name::A>;
-                    const size_t chiA = tindexA::value;
+                    const int chiA = tindexA::value;
                     using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
                     auto alp = color.template channel_unchecked<chiA>();
                     if(alp!=tchA::max) {
@@ -2004,8 +2004,8 @@ namespace gfx {
             
             float xinc,yinc,x,y,ox,oy;
             float dx,dy,e;
-            dx=std::abs(r.x2-r.x1);
-            dy=std::abs(r.y2-r.y1);
+            dx=abs(r.x2-r.x1);
+            dy=abs(r.y2-r.y1);
             if(r.x1<r.x2)
                 xinc=1;
             else

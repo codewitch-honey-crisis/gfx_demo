@@ -35,7 +35,7 @@ namespace arduino {
         constexpr static const size_t i2c_buffer_size = I2CBufferSize;
     private:
         inline static TwoWire& i2c() FORCE_INLINE {
-#if defined(ESP32) || defined(ARDUINO_ARCH_STM32)
+#if defined(ESP32)
             return ii2c;
 #else
 #if WIRE_INTERFACES_COUNT > 1
@@ -68,7 +68,9 @@ namespace arduino {
             return Wire;
         }
     public:
+#ifdef ESP32
         static TwoWire ii2c;
+#endif
         static uint8_t address;
         static uint8_t payload;
         static bool is_init;
@@ -298,7 +300,7 @@ namespace arduino {
 #endif // ASSIGNABLE_SPI_PINS
         ,I2CSpeed,I2CDefaultSpeed,I2CInitSpeed,I2CBufferSize>
     ::payload = 0;
-#if defined(ESP32) || defined(ARDUINO_ARCH_STM32)
+#if defined(ESP32)
         template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
         uint8_t PinSda,

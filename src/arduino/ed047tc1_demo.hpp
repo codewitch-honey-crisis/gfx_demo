@@ -1,21 +1,21 @@
 #include <Arduino.h>
 
-//#include "arduino/drivers/ed047tc1.hpp"
+#include "arduino/drivers/ed047tc1.hpp"
 #include <gfx_cpp14.hpp>
-//using namespace arduino;
+using namespace arduino;
 using namespace gfx;
-/* Config Reggister Control */
-#define PIN_NUM_DC 23
-#define PIN_NUM_CLK 18
-#define PIN_NUM_WR 0
+
+/* Config Register Control */
+#define PIN_NUM_CFG_DATA 23
+#define PIN_NUM_CFG_CLK 18
+#define PIN_NUM_CFG_STR 0
 
 /* Control Lines */
-//#define CKV GPIO_NUM_25
-//#define STH GPIO_NUM_26
+#define PIN_NUM_CKV 25
+#define PIN_NUM_STH 26
 
 /* Edges */
-#define CKH GPIO_NUM_5
-
+#define PIN_NUM_CKH 5
 /* Data Lines */
 #define PIN_NUM_D7 22
 #define PIN_NUM_D6 21
@@ -25,8 +25,8 @@ using namespace gfx;
 #define PIN_NUM_D2 4
 #define PIN_NUM_D1 32
 #define PIN_NUM_D0 33
-//using ep_type = ed047tc1<PIN_NUM_D0,PIN_NUM_D1,PIN_NUM_D2,PIN_NUM_D3,PIN_NUM_D4,PIN_NUM_D5,PIN_NUM_D6,PIN_NUM_D7,PIN_NUM_CLK,PIN_NUM_WR,PIN_NUM_DC>;
-//ep_type ep;
+using ep_type = ed047tc1<960,540,PIN_NUM_CFG_DATA,PIN_NUM_CFG_CLK,PIN_NUM_CFG_STR,PIN_NUM_CKV,PIN_NUM_STH,PIN_NUM_CKH,PIN_NUM_D0,PIN_NUM_D1,PIN_NUM_D2,PIN_NUM_D3,PIN_NUM_D4,PIN_NUM_D5,PIN_NUM_D6,PIN_NUM_D7>;
+ep_type ep;
 
 // better to keep these global rather than waste stack
 font my_font;

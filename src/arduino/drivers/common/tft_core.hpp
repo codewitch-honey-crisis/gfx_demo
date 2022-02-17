@@ -3,6 +3,8 @@
 #if defined(ESP32)
    #define OPTIMIZE_ESP32
    #define OPTIMIZE_DMA
+   #define ASSIGNABLE_SPI_PINS
+   #define ASSIGNABLE_I2C_PINS
 #endif
 #if defined(__AVR__)
     #define OPTIMIZE_AVR

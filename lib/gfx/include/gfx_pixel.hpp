@@ -279,11 +279,11 @@ namespace gfx {
         struct channel_index_by_name_impl;
         template<size_t Count,typename Name>
         struct channel_index_by_name_impl<Count,Name> {
-            static constexpr size_t value=-1;
+            static constexpr int value=-1;
         };
         template<size_t Count,typename Name, typename ChannelTrait, typename ...ChannelTraits>
         struct channel_index_by_name_impl<Count,Name, ChannelTrait, ChannelTraits...> {
-            static constexpr size_t value = is_same<Name, typename ChannelTrait::name_type>::value ? Count : channel_index_by_name_impl<Count+1,Name, ChannelTraits...>::value;            
+            static constexpr int value = is_same<Name, typename ChannelTrait::name_type>::value ? Count : channel_index_by_name_impl<Count+1,Name, ChannelTraits...>::value;            
         };
 
         template <typename PixelType, typename... ChannelTraits>

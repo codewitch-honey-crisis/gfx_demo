@@ -10,17 +10,21 @@
 namespace arduino {
     template<uint8_t SpiHost,
         int8_t PinCS, 
+#ifdef ASSIGNABLE_SPI_PINS
         int8_t PinMosi, 
         int8_t PinMiso, 
         int8_t PinSClk, 
+#endif // ASSIGNABLE_SPI_PINS
         uint8_t SpiMode = 0, 
         uint32_t SpiWriteSpeed=26*1000*1000, 
-        uint32_t SpiReadSpeed=20*1000*1000, 
-        uint32_t SpiInitSpeed = 26*1000*1000,
-        bool SdaRead = (PinMiso < 0)
+        uint32_t SpiReadSpeed=20*1000*1000 
+        ,uint32_t SpiInitSpeed = 26*1000*1000
+#ifdef ASSIGNABLE_SPI_PINS
+        ,bool SdaRead = (PinMiso < 0)
+#endif // !ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
-    , size_t DmaSize = 4120
-    , uint8_t DmaChannel = 
+    ,size_t DmaSize = 4120
+    ,uint8_t DmaChannel = 
     #ifdef ESP32
         1
     #else
@@ -30,8 +34,12 @@ namespace arduino {
     >
     struct tft_spi {
         constexpr static const tft_io_type type = tft_io_type::spi;
+#ifdef ASSIGNABLE_SPI_PINS
         constexpr static const bool readable = PinMiso > -1 || SdaRead;
         constexpr static const bool sda_read = PinMiso < 0 && SdaRead;
+#else // !ASSIGNABLE_SPI_PINS
+        constexpr static const bool readable = true;
+#endif // !ASSIGNABLE_SPI_PINS
         constexpr static const size_t dma_size =
 #ifdef OPTIMIZE_DMA
         DmaSize
@@ -53,12 +61,15 @@ constexpr static const uint8_t dma_channel =
         constexpr static const uint32_t spi_read_speed = SpiReadSpeed;
         constexpr static const uint32_t spi_init_speed = SpiInitSpeed;
         constexpr static const int8_t pin_cs = PinCS;
+#ifdef ASSIGNABLE_SPI_PINS
         constexpr static const int8_t pin_mosi = PinMosi;
         constexpr static const int8_t pin_miso = PinMiso;
         constexpr static const int8_t pin_sclk = PinSClk;
+#endif // ASSIGNABLE_SPI_PINS
     private:
+#if defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
         constexpr static const uint8_t spi_host_real = (HSPI==SpiHost)?1:(VSPI==SpiHost)?2:0;
-        static SPIClass spi;
+#endif
         static bool lock_transaction;
         static bool in_transaction;
         static bool locked;
@@ -75,11 +86,35 @@ constexpr static const uint8_t dma_channel =
         static uint8_t spi_busy_check;
         #endif
 #endif // OPTIMIZE_ESP32
+#if defined(ESP32) || defined(ARDUINO_ARCH_STM32)
+        static SPIClass ispi;
+#endif
+
+        inline static SPIClass& spi() FORCE_INLINE {
+#if defined(ESP32) || defined(ARDUINO_ARCH_STM32)
+            return ispi;
+#elif defined(ARDUINO_ARCH_SAMD)
+            if(SpiHost==1) {
+                return SPI1;
+            }
+            if(SpiHost==2) {
+                return SPI2;
+            }
+            if(SpiHost==3) {
+                return SPI3;
+            }
+#endif
+            return SPI;
+        }
     public:
         static bool initialize() {
             pinMode(pin_cs,OUTPUT);
             digitalWrite(pin_cs,HIGH);
-            spi.begin(pin_sclk,pin_miso,pin_mosi,-1);
+#ifdef ASSIGNABLE_SPI_PINS
+            spi().begin(pin_sclk,pin_miso,pin_mosi,-1);
+#else // !ASSIGNABLE_SPI_PINS
+            spi().begin();
+#endif // !ASSIGNABLE_SPI_PINS
             lock_transaction = false;
             in_transaction = false;
             locked = true;
@@ -207,7 +242,7 @@ constexpr static const uint8_t dma_channel =
             SPDR=(C); 
             while (!(SPSR&_BV(SPIF)));
 #else // !OPTIMIZE_ESP32
-            spi.transfer(value);
+            spi().transfer(value);
 #endif // !OPTIMIZE_ESP32
         }
         static void write_raw8_repeat(uint16_t value, size_t count) {
@@ -255,7 +290,7 @@ constexpr static const uint8_t dma_channel =
             write_raw8(value>>8);
             write_raw8(value);
 #else // !OPTIMIZE_ESP32
-            spi.transfer16(value);
+            spi().transfer16(value);
 #endif // !OPTIMIZE_ESP32
         }
         static void write_raw16_repeat(uint16_t value, size_t count) {
@@ -301,8 +336,9 @@ constexpr static const uint8_t dma_channel =
         }
         static uint8_t read_raw8() {
 #if defined(OPTIMIZE_ESP32)
-            return spi.transfer(0);
+            return spi().transfer(0);
 #else // !OPTIMIZE_ESP32
+#ifdef ASSIGNABLE_SPI_PINS
             if(sda_read) {
                 uint8_t  ret = 0;
                 for (uint8_t i = 0; i < 8; i++) {  // read results
@@ -313,8 +349,11 @@ constexpr static const uint8_t dma_channel =
                 }
                 return ret;
             } else {
-                return spi.transfer(0);
+                return spi().transfer(0);
             }
+#else // !ASSIGNABLE_SPI_PINS
+    return spi().transfer(0);
+#endif // ASSIGNABLE_SPI_PINS
 #endif // !OPTIMIZE_ESP32
         }
         static void begin_write(bool lock=false) {
@@ -324,7 +363,7 @@ constexpr static const uint8_t dma_channel =
             }
             if (locked) {
                 locked = false; // Flag to show SPI access now unlocked
-                spi.beginTransaction(SPISettings(is_init?spi_init_speed:spi_write_speed, MSBFIRST, spi_mode)); // RP2040 SDK -> 68us delay!
+                spi().beginTransaction(SPISettings(is_init?spi_init_speed:spi_write_speed, MSBFIRST, spi_mode)); // RP2040 SDK -> 68us delay!
                 cs_low();
 #if defined(OPTIMIZE_ESP32)
                 if(spi_mode==1||spi_mode==2) {
@@ -348,7 +387,7 @@ constexpr static const uint8_t dma_channel =
                     while (*_spi_cmd&SPI_USR);
 #endif // OPTIMIZE_ESP32
                     cs_high();
-                    spi.endTransaction();
+                    spi().endTransaction();
                 }
 #if defined(OPTIMIZE_ESP32)
                 if(spi_mode==1||spi_mode==2) {
@@ -365,7 +404,7 @@ constexpr static const uint8_t dma_channel =
             dma_wait();
             if (locked) {
                 locked = false;
-                spi.beginTransaction(SPISettings(is_init?spi_init_speed:spi_read_speed, MSBFIRST, spi_mode)); // RP2040 SDK -> 68us delay!
+                spi().beginTransaction(SPISettings(is_init?spi_init_speed:spi_read_speed, MSBFIRST, spi_mode)); // RP2040 SDK -> 68us delay!
                 cs_low();
             }
 #if defined(OPTIMIZE_ESP32)
@@ -381,7 +420,7 @@ constexpr static const uint8_t dma_channel =
                 if(!locked) {
                     locked = true;
                     cs_high();
-                    spi.endTransaction();
+                    spi().endTransaction();
                 }
 #if defined(OPTIMIZE_ESP32)
                 if(spi_mode==1||spi_mode==2) {
@@ -459,7 +498,8 @@ constexpr static const uint8_t dma_channel =
             digitalWrite(pin_cs,HIGH);
 #endif // !OPTIMIZE_ESP32
         }
-        inline static void sclk_low() FORCE_INLINE {
+#ifdef ASSIGNABLE_SPI_PINS
+         inline static void sclk_low() FORCE_INLINE {
 #if defined(OPTIMIZE_ESP32)
             if(pin_sclk>31) {
                 GPIO.out1_w1tc.val = (1 << ((pin_sclk - 32)&31));
@@ -481,6 +521,7 @@ constexpr static const uint8_t dma_channel =
             digitalWrite(pin_cs,HIGH);
 #endif // !OPTIMIZE_ESP32
         }
+#endif
     private:
 /*
 #if defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
@@ -502,6 +543,7 @@ constexpr static const uint8_t dma_channel =
 #endif // defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
 */
         static void begin_sda_read() {
+#ifdef ASSIGNABLE_SPI_PINS
             if(sda_read) {
 #if defined(OPTIMIZE_ESP32)
                 pinMatrixOutDetach(pin_mosi, false, false);
@@ -514,9 +556,11 @@ constexpr static const uint8_t dma_channel =
                 }
 #endif // OPTIMIZE_ESP32
             }
+#endif // ASSIGNABLE_SPI_PINS
             cs_low();
         }
         static void end_sda_read() {
+#ifdef ASSIGNABLE_SPI_PINS
             if(sda_read) {
 #if defined(OPTIMIZE_ESP32)
                 pinMode(pin_mosi, OUTPUT);
@@ -530,39 +574,83 @@ constexpr static const uint8_t dma_channel =
                 }
 #endif // OPTIMIZE_ESP32
             }
+#endif // ASSIGNABLE_SPI_PINS
         }
+
     };
     
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead
+    template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > bool tft_spi< SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
 #endif
     >::lock_transaction = false;
 
-template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed,uint32_t SpiInitSpeed, bool SdaRead
+template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > bool tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
 #endif
     >::in_transaction = false;
 
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed,uint32_t SpiInitSpeed,  bool SdaRead
+    template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > bool tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
@@ -570,48 +658,104 @@ template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t Pi
     >::locked = true;
 
 #if defined(OPTIMIZE_ESP32)
-template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead
+template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > volatile uint32_t* tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
 #endif
     >::_spi_cmd = (volatile uint32_t*)(SPI_CMD_REG(SpiHost));
 
-template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed,uint32_t SpiInitSpeed,  bool SdaRead
+template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > volatile uint32_t* tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
 #endif
     >::_spi_user = (volatile uint32_t*)(SPI_USER_REG(SpiHost));
 
-template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode,uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed,  uint32_t SpiInitSpeed, bool SdaRead
+template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > volatile uint32_t* tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
 #endif
     >::_spi_mosi_dlen = (volatile uint32_t*)(SPI_MOSI_DLEN_REG(SpiHost));
 
-template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead
+template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
 #ifdef OPTIMIZE_DMA
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
+    > volatile uint32_t* tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
 #ifdef OPTIMIZE_DMA
     ,DmaSize
     ,DmaChannel
@@ -619,47 +763,110 @@ template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t Pi
     >::_spi_w = (volatile uint32_t*)(SPI_W0_REG(SpiHost));
 #endif // OPTIMIZE_ESP32
 
-#ifndef OPTIMIZE_ESP32
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead
-#ifdef OPTIMIZE_DMA
-    , size_t DmaSize
-    , uint8_t DmaChannel
-#endif
-    > uint32_t tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
-#ifdef OPTIMIZE_DMA
-    ,DmaSize
-    ,DmaChannel
-#endif
-    >::cs_pin_mask = digitalPinToBitMask(pin_cs);
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead
-#ifdef OPTIMIZE_DMA
-    , size_t DmaSize
-    , uint8_t DmaChannel
-#endif
-    > uint32_t tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
-#ifdef OPTIMIZE_DMA
-    ,DmaSize
-    ,DmaChannel
-#endif
-    >::sclk_pin_mask = digitalPinToBitMask(pin_sclk);
-#endif
-
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead
-#ifdef OPTIMIZE_DMA
-    , size_t DmaSize
-    , uint8_t DmaChannel
-#endif
-    > SPIClass tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead
-#ifdef OPTIMIZE_DMA
-    ,DmaSize
-    ,DmaChannel
-#endif
-    >::spi(SpiHost);
-
 #if defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead, size_t DmaSize, uint8_t DmaChannel> uint8_t tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead,DmaSize,DmaChannel>::spi_busy_check = 0;
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead, size_t DmaSize, uint8_t DmaChannel> spi_device_handle_t tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead,DmaSize,DmaChannel>::dma_hal = {0};
+    template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
+#ifdef OPTIMIZE_DMA
+    , size_t DmaSize
+    , uint8_t DmaChannel
+#endif
+    > uint8_t tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
+#ifdef OPTIMIZE_DMA
+    ,DmaSize
+    ,DmaChannel
+#endif
+    >::spi_busy_check = 0;
+    template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
+#ifdef OPTIMIZE_DMA
+    , size_t DmaSize
+    , uint8_t DmaChannel
+#endif
+    > spi_device_handle_t tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
+#ifdef OPTIMIZE_DMA
+    ,DmaSize
+    ,DmaChannel
+#endif
+    >::dma_hal = {0};
 #endif // defined(OPTIMIZE_ESP32) && defined(OPTIMIZE_DMA)
-    template<uint8_t SpiHost,int8_t PinCS, int8_t PinMosi, int8_t PinMiso, int8_t PinSClk, uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed, bool SdaRead, size_t DmaSize, uint8_t DmaChannel> bool tft_spi<SpiHost,PinCS,PinMosi,PinMiso,PinSClk,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed,SdaRead,DmaSize,DmaChannel>::is_init = false;
+    template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
+#ifdef OPTIMIZE_DMA
+    , size_t DmaSize
+    , uint8_t DmaChannel
+#endif
+    > bool tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
+#ifdef OPTIMIZE_DMA
+    ,DmaSize
+    ,DmaChannel
+#endif
+    >::is_init = false;
 
+#if defined(ESP32) || defined(ARDUINO_ARCH_STM32)
+    template<uint8_t SpiHost,int8_t PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    , uint8_t SpiMode, uint32_t SpiWriteSpeed, uint32_t SpiReadSpeed, uint32_t SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    , bool SdaRead
+#endif // ASSIGNABLE_SPI_PINS
+#ifdef OPTIMIZE_DMA
+    , size_t DmaSize
+    , uint8_t DmaChannel
+#endif
+    > SPIClass tft_spi<SpiHost,PinCS
+#ifdef ASSIGNABLE_SPI_PINS
+    ,PinMosi,PinMiso,PinSClk
+#endif // ASSIGNABLE_SPI_PINS
+    ,SpiMode,SpiWriteSpeed,SpiReadSpeed,SpiInitSpeed
+#ifdef ASSIGNABLE_SPI_PINS
+    ,SdaRead
+#endif
+#ifdef OPTIMIZE_DMA
+    ,DmaSize
+    ,DmaChannel
+#endif
+    >::ispi(SpiHost);
+
+#endif
 }

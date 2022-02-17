@@ -36,6 +36,8 @@ namespace arduino {
         } i2s_parallel_state_t;
 
         template<uint32_t Width,
+                int8_t PinCfgClk,
+                int8_t PinSth,
                 int8_t PinD0, 
                 int8_t PinD1, 
                 int8_t PinD2,
@@ -43,9 +45,7 @@ namespace arduino {
                 int8_t PinD4,
                 int8_t PinD5,
                 int8_t PinD6,
-                int8_t PinD7,
-                int8_t PinClk,
-                int8_t PinWR>
+                int8_t PinD7>
         struct ed047tc1_i2s final {
             constexpr static const uint32_t width = Width;
             constexpr static const int8_t pin_d0 = PinD0;
@@ -56,8 +56,8 @@ namespace arduino {
             constexpr static const int8_t pin_d5 = PinD5;
             constexpr static const int8_t pin_d6 = PinD6;
             constexpr static const int8_t pin_d7 = PinD7;
-            constexpr static const int8_t pin_clk = PinClk;
-            constexpr static const int8_t pin_wr = PinWR;
+            constexpr static const int8_t pin_cfg_clk = PinCfgClk;
+            constexpr static const int8_t pin_sth = PinSth;
 
             static bool initialize() {
                 // TODO: Why?
@@ -66,8 +66,8 @@ namespace arduino {
                                             (gpio_num_t)pin_d0, (gpio_num_t)pin_d1
                                             };
 
-                gpio_set_direction((gpio_num_t)pin_wr, GPIO_MODE_OUTPUT);
-                gpio_set_level((gpio_num_t)pin_wr, 1);
+                gpio_set_direction((gpio_num_t)pin_sth, GPIO_MODE_OUTPUT);
+                gpio_set_level((gpio_num_t)pin_sth, 1);
                 
                 // Use I2S1 with no signal offset (for some reason the offset seems to be
                 // needed in 16-bit mode, but not in 8 bit mode.
@@ -78,7 +78,7 @@ namespace arduino {
                     gpio_setup_out(I2S_GPIO_BUS[x], signal_base + x, false);
                 }
                 // Invert word select signal
-                gpio_setup_out(pin_clk, I2S1O_WS_OUT_IDX, true);
+                gpio_setup_out(pin_cfg_clk, I2S1O_WS_OUT_IDX, true);
 
                 periph_module_enable(PERIPH_I2S1_MODULE);
 
@@ -247,7 +247,7 @@ namespace arduino {
                 dev->out_link.start = 1;
 
                 // sth is pulled up through peripheral interrupt
-                gpio_set_level(pin_wr, 0);
+                gpio_set_level(pin_sth, 0);
                 dev->conf.tx_start = 1;
             }
             bool IRAM_ATTR is_busy() {
@@ -302,7 +302,7 @@ namespace arduino {
             {
                 i2s_dev_t *dev = &I2S1;
                 if (dev->int_st.out_done) {
-                    gpio_set_level((gpio_num_t)pin_wr, 1);
+                    gpio_set_level((gpio_num_t)pin_sth, 1);
                     output_done = true;
                 }
                 // Clear the interrupt. Otherwise, the whole device would hang.
@@ -310,6 +310,8 @@ namespace arduino {
             }
         };
         template<uint32_t Width,
+                int8_t PinCfgClk,
+                int8_t PinSth,
                 int8_t PinD0, 
                 int8_t PinD1, 
                 int8_t PinD2,
@@ -317,9 +319,9 @@ namespace arduino {
                 int8_t PinD4,
                 int8_t PinD5,
                 int8_t PinD6,
-                int8_t PinD7,
-                int8_t PinClk,
-                int8_t PinWR> int ed047tc1_i2s<Width,
+                int8_t PinD7> int ed047tc1_i2s<Width,
+                                            PinCfgClk,
+                                            PinSth,
                                             PinD0,
                                             PinD1,
                                             PinD2,
@@ -327,10 +329,10 @@ namespace arduino {
                                             PinD4,
                                             PinD5,
                                             PinD6,
-                                            PinD7,
-                                            PinClk,
-                                            PinWR>::current_buffer = 0;
+                                            PinD7>::current_buffer = 0;
         template<uint32_t Width,
+                int8_t PinCfgClk,
+                int8_t PinSth,
                 int8_t PinD0, 
                 int8_t PinD1, 
                 int8_t PinD2,
@@ -338,9 +340,9 @@ namespace arduino {
                 int8_t PinD4,
                 int8_t PinD5,
                 int8_t PinD6,
-                int8_t PinD7,
-                int8_t PinClk,
-                int8_t PinWR> i2s_parallel_state_t ed047tc1_i2s<Width,
+                int8_t PinD7> i2s_parallel_state_t ed047tc1_i2s<Width,
+                                            PinCfgClk,
+                                            PinSth,
                                             PinD0,
                                             PinD1,
                                             PinD2,
@@ -348,10 +350,10 @@ namespace arduino {
                                             PinD4,
                                             PinD5,
                                             PinD6,
-                                            PinD7,
-                                            PinClk,
-                                            PinWR>::i2s_state = {nullptr,nullptr,nullptr,nullptr};
+                                            PinD7>::i2s_state = {nullptr,nullptr,nullptr,nullptr};
         template<uint32_t Width,
+                int8_t PinCfgClk,
+                int8_t PinSth,
                 int8_t PinD0, 
                 int8_t PinD1, 
                 int8_t PinD2,
@@ -359,9 +361,9 @@ namespace arduino {
                 int8_t PinD4,
                 int8_t PinD5,
                 int8_t PinD6,
-                int8_t PinD7,
-                int8_t PinClk,
-                int8_t PinWR> intr_handle_t ed047tc1_i2s<Width,
+                int8_t PinD7> intr_handle_t ed047tc1_i2s<Width,
+                                            PinCfgClk,
+                                            PinSth,
                                             PinD0,
                                             PinD1,
                                             PinD2,
@@ -369,11 +371,11 @@ namespace arduino {
                                             PinD4,
                                             PinD5,
                                             PinD6,
-                                            PinD7,
-                                            PinClk,
-                                            PinWR>::gI2S_intr_handle = nullptr;
+                                            PinD7>::gI2S_intr_handle = nullptr;
 
         template<uint32_t Width,
+                int8_t PinCfgClk,
+                int8_t PinSth,
                 int8_t PinD0, 
                 int8_t PinD1, 
                 int8_t PinD2,
@@ -381,9 +383,9 @@ namespace arduino {
                 int8_t PinD4,
                 int8_t PinD5,
                 int8_t PinD6,
-                int8_t PinD7,
-                int8_t PinClk,
-                int8_t PinWR> volatile bool ed047tc1_i2s<Width,
+                int8_t PinD7> volatile bool ed047tc1_i2s<Width,
+                                            PinCfgClk,
+                                            PinSth,
                                             PinD0,
                                             PinD1,
                                             PinD2,
@@ -391,8 +393,6 @@ namespace arduino {
                                             PinD4,
                                             PinD5,
                                             PinD6,
-                                            PinD7,
-                                            PinClk,
-                                            PinWR>::output_done = true;
+                                            PinD7>::output_done = true;
     }
 }

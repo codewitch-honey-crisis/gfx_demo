@@ -8,6 +8,7 @@
         #define GFX_ARDUINO_NO_FS
     #endif
 #endif
+
 #if !defined(GFX_BIG_ENDIAN) && !defined(GFX_LITTLE_ENDIAN)
     #ifdef ESP_PLATFORM
         #define GFX_LITTLE_ENDIAN
@@ -26,7 +27,7 @@
     #define IO_ARDUINO_SD_FS
 #endif
 #ifdef GFX_ARDUINO_NO_FS
-    #define IO_ARDUINO_NO_FS
+    #define IO_NO_FS
 #endif
 #include "bits.hpp"
 #include "io_stream.hpp"

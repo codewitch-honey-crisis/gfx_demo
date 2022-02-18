@@ -14,8 +14,8 @@ using namespace gfx;
 #define PIN_NUM_SCL 22
 #define PIN_NUM_RST -1
 #define PIN_NUM_DC -1
-#define I2C_FREQ 400000
-#define I2C_DEFAULT_FREQ 100000
+#define LCD_WRITE_SPEED_PERCENT 400
+#define LCD_ADDRESS 0x3C
 #else
 #define LCD_HOST VSPI
 #define PIN_NUM_CS 5
@@ -24,6 +24,7 @@ using namespace gfx;
 #define PIN_NUM_CLK 18
 #define PIN_NUM_DC 2
 #define PIN_NUM_RST 4
+#define LCD_WRITE_SPEED_PERCENT 200
 #endif
 
 
@@ -52,16 +53,16 @@ using namespace gfx;
 #define SUSPEND_RESUME
 
 #ifdef I2C
-using bus_type = tft_i2c<LCD_PORT,PIN_NUM_SDA,PIN_NUM_SCL,I2C_FREQ,I2C_DEFAULT_FREQ>;
+using bus_type = tft_i2c<LCD_PORT,PIN_NUM_SDA,PIN_NUM_SCL>;
 #else
-using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,20*1000*1000,20*1000*1000,20*1000,1000,false
+using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,false
 #ifdef OPTIMIZE_DMA
 ,(LCD_WIDTH*LCD_HEIGHT)/8+8
 #endif
 >;
 #endif
 
-using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,0x3C,LCD_VDC_3_3,PIN_NUM_DC,PIN_NUM_RST,true>;
+using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,LCD_ADDRESS,LCD_VDC_3_3,LCD_WRITE_SPEED_PERCENT,PIN_NUM_DC,PIN_NUM_RST,true>;
 lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;

@@ -38,7 +38,7 @@ namespace arduino {
         }
         void spi_start() {
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
         }
 
         void spi_end() {
@@ -244,6 +244,7 @@ namespace arduino {
                 if(!driver::initialize()) {
                     return false;
                 }
+                bus::set_speed_multiplier(1);
                 bus::begin_initialization();
                 if(!set_enabled(false)) {
                     return false;

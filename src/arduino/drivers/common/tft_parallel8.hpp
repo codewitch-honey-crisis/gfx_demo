@@ -223,11 +223,13 @@ namespace arduino {
         inline static void deinitialize_dma() FORCE_INLINE {}
         inline static void busy_check() FORCE_INLINE {
         }
-        inline static void start_transaction() FORCE_INLINE {
+        inline static void begin_transaction() FORCE_INLINE {
          
         }
         inline static void end_transaction() FORCE_INLINE {
-         
+        }
+        inline static void set_speed_multiplier(float mult) FORCE_INLINE {
+            
         }
         static uint8_t read_raw8() {
             rd_low();

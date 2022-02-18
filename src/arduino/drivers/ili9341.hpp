@@ -5,7 +5,14 @@
 #include <gfx_palette.hpp>
 #include <gfx_positioning.hpp>
 namespace arduino {
-    template<int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus, uint8_t Rotation = 0, bool BacklightHigh=false>
+    template<int8_t PinDC, 
+            int8_t PinRst, 
+            int8_t PinBL, 
+            typename Bus, 
+            uint8_t Rotation = 0, 
+            bool BacklightHigh=false, 
+            unsigned int WriteSpeedPercent = 200,
+            unsigned int ReadSpeedPercent = WriteSpeedPercent>
     struct ili9341 final {
         constexpr static const int8_t pin_dc = PinDC;
         constexpr static const int8_t pin_rst = PinRst;
@@ -13,6 +20,8 @@ namespace arduino {
         constexpr static const uint8_t rotation = Rotation & 3;
         constexpr static const size_t max_dma_size = 320*240*2;
         constexpr static const bool backlight_high = BacklightHigh;
+        constexpr static const float write_speed_multiplier = (WriteSpeedPercent/100.0);
+        constexpr static const float read_speed_multiplier = (ReadSpeedPercent/100.0);
         using type = ili9341;
         using driver = tft_driver<PinDC, PinRst, PinBL, Bus>;
         using bus = Bus;
@@ -32,8 +41,9 @@ namespace arduino {
             if(!m_initialized) {
                 if(driver::initialize()) {
                     bus::begin_initialization();
+                    bus::set_speed_multiplier(write_speed_multiplier);
                     bus::begin_write();
-                    bus::start_transaction();
+                    bus::begin_transaction();
                     driver::send_command(0xEF);
                     driver::send_data8(0x03);
                     driver::send_data8(0x80);
@@ -141,13 +151,13 @@ namespace arduino {
                     bus::end_write();
                     delay(120);
                     bus::begin_write();
-                    bus::start_transaction();
+                    bus::begin_transaction();
                     driver::send_command(0x29);    //Display on
                     bus::end_transaction();
                     bus::end_write();
                     bus::end_initialization();
                     bus::begin_write();
-                    bus::start_transaction();
+                    bus::begin_transaction();
                     apply_rotation();
                     bus::end_transaction();
                     bus::end_write();
@@ -184,12 +194,16 @@ namespace arduino {
                 return gfx::gfx_result::success;
             }
             bus::dma_wait();
+            bus::set_speed_multiplier(read_speed_multiplier);
+            bus::begin_read();
             bus::cs_low();
             set_window({location.x,location.y,location.x,location.y},true);
             bus::direction(INPUT);
             bus::read_raw8(); // throw away
             out_color->native_value = ((bus::read_raw8() & 0xF8) << 8) | ((bus::read_raw8() & 0xFC) << 3) | (bus::read_raw8() >> 3);
             bus::cs_high();
+            bus::end_read();
+            bus::set_speed_multiplier(write_speed_multiplier);
             bus::direction(OUTPUT);
             return gfx::gfx_result::success;
         }
@@ -204,7 +218,7 @@ namespace arduino {
             if(!bounds.intersects(this->bounds())) return gfx::gfx_result::success;
             const gfx::rect16 r = bounds.normalize().crop(this->bounds());
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
             set_window(r);
             bus::write_raw16_repeat(color.native_value,(r.x2-r.x1+1)*(r.y2-r.y1+1));
             bus::end_transaction();
@@ -261,7 +275,7 @@ namespace arduino {
             }
             const gfx::rect16 r = bounds.normalize();
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
             set_window(r);
             m_in_batch = true;
             return gfx::gfx_result::success;
@@ -364,7 +378,7 @@ namespace arduino {
                 uint16_t ww = src.dimensions().width;
                 uint16_t pitch = (srcr.x2 - srcr.x1+1)*2;
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 while(yy<hh-!!async) {
                     gfx::rect16 dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.y1+yy)};
                     set_window(dr);

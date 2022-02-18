@@ -7,7 +7,7 @@
 #include "common/tft_driver.hpp"
 namespace arduino {
 template <int16_t BaseWidth, int16_t BaseHeight, int8_t PinDC, int8_t PinRst,
-          int8_t PinBL, typename Bus, uint8_t Rotation = 0>
+          int8_t PinBL, typename Bus, uint8_t Rotation = 0, unsigned int WriteSpeedPercent = 200,unsigned int ReadSpeedPercent = WriteSpeedPercent>
 struct st7789 final {
     constexpr static const int8_t pin_dc = PinDC;
     constexpr static const int8_t pin_rst = PinRst;
@@ -15,6 +15,9 @@ struct st7789 final {
     constexpr static const uint8_t rotation = Rotation & 3;
     constexpr static const uint16_t base_width = BaseWidth;
     constexpr static const uint16_t base_height = BaseHeight;
+    constexpr static const float write_speed_multiplier = (WriteSpeedPercent/100.0);
+    constexpr static const float read_speed_multiplier = (ReadSpeedPercent/100.0);
+
     constexpr static const size_t max_dma_size = base_width * base_height * 2;
 private:
     constexpr static const uint16_t column_start = (base_width==135)?((rotation&1)?40:52):0;
@@ -41,9 +44,10 @@ public:
     bool initialize() {
         if (!m_initialized) {
             if (driver::initialize()) {
+                bus::set_speed_multiplier(write_speed_multiplier);
                 bus::begin_initialization();
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
 
                 driver::send_command(0x11);  // Sleep out
                 delay(120);
@@ -158,13 +162,13 @@ public:
                 bus::end_write();
                 delay(120);
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 driver::send_command(0x29);  // Display on
                 bus::end_transaction();
                 bus::end_write();
                 bus::end_initialization();
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 apply_rotation();
                 bus::end_transaction();
                 bus::end_write();
@@ -199,6 +203,8 @@ public:
             return gfx::gfx_result::success;
         }
         bus::dma_wait();
+        bus::set_speed_multiplier(read_speed_multiplier);
+        bus::begin_read();
         bus::cs_low();
         set_window({location.x, location.y, location.x, location.y}, true);
         bus::direction(INPUT);
@@ -206,7 +212,9 @@ public:
         out_color->native_value = ((bus::read_raw8() & 0xF8) << 8) |
                                   ((bus::read_raw8() & 0xFC) << 3) |
                                   (bus::read_raw8() >> 3);
+        bus::end_read();
         bus::cs_high();
+        bus::set_speed_multiplier(write_speed_multiplier);
         bus::direction(OUTPUT);
         return gfx::gfx_result::success;
     }
@@ -219,7 +227,7 @@ public:
         if (!bounds.intersects(this->bounds())) return gfx::gfx_result::success;
         const gfx::rect16 r = bounds.normalize().crop(this->bounds());
         bus::begin_write();
-        bus::start_transaction();
+        bus::begin_transaction();
         set_window(r);
         bus::write_raw16_repeat(color.native_value,
                                 (r.x2 - r.x1 + 1) * (r.y2 - r.y1 + 1));
@@ -279,7 +287,7 @@ public:
         }
         const gfx::rect16 r = bounds.normalize();
         bus::begin_write();
-        bus::start_transaction();
+        bus::begin_transaction();
         set_window(r);
         m_in_batch = true;
         return gfx::gfx_result::success;
@@ -389,7 +397,7 @@ public:
             uint16_t ww = src.dimensions().width;
             uint16_t pitch = (srcr.x2 - srcr.x1 + 1) * 2;
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
             while (yy < hh - !!async) {
                 gfx::rect16 dr = {dstr.x1, uint16_t(dstr.y1 + yy), dstr.x2,
                                   uint16_t(dstr.y1 + yy)};

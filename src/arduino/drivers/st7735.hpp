@@ -20,14 +20,15 @@ enum struct st7735_flags {
     hallowing = 0x05
 };
 template <int8_t PinDC, int8_t PinRst, int8_t PinBL, typename Bus,
-          st7735_flags TabFlags = st7735_flags::green, uint8_t Rotation = 0>
+          st7735_flags TabFlags = st7735_flags::green, uint8_t Rotation = 0,unsigned int WriteSpeedPercent = 200,unsigned int ReadSpeedPercent = WriteSpeedPercent>
 struct st7735 final {
     constexpr static const int8_t pin_dc = PinDC;
     constexpr static const int8_t pin_rst = PinRst;
     constexpr static const int8_t pin_bl = PinBL;
     constexpr static const uint8_t rotation = Rotation & 3;
     constexpr static const st7735_flags tab_flags = TabFlags;
-
+    constexpr static const float write_speed_multiplier = (WriteSpeedPercent/100.0);
+    constexpr static const float read_speed_multiplier = (ReadSpeedPercent/100.0);
     using type = st7735;
     using driver = tft_driver<PinDC, PinRst, PinBL, Bus>;
     using bus = Bus;
@@ -122,9 +123,10 @@ struct st7735 final {
                     pinMode(pin_bl, OUTPUT);
                     digitalWrite(pin_bl, HIGH);
                 }
+                bus::set_speed_multiplier(write_speed_multiplier);
                 bus::begin_initialization();
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
 
                 driver::reset();
                 send_init_commands(generic_st7735);
@@ -140,7 +142,7 @@ struct st7735 final {
                 bus::end_write();
                 bus::end_initialization();
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 apply_rotation();
                 bus::end_transaction();
                 bus::end_write();
@@ -177,6 +179,8 @@ struct st7735 final {
             return gfx::gfx_result::success;
         }
         bus::dma_wait();
+        bus::set_speed_multiplier(read_speed_multiplier);
+        bus::begin_read();
         bus::cs_low();
         set_window({location.x, location.y, location.x, location.y}, true);
         bus::direction(INPUT);
@@ -185,6 +189,8 @@ struct st7735 final {
                                   ((bus::read_raw8() & 0xFC) << 3) |
                                   (bus::read_raw8() >> 3);
         bus::cs_high();
+        bus::end_read();
+        bus::set_speed_multiplier(write_speed_multiplier);
         bus::direction(OUTPUT);
         return gfx::gfx_result::success;
     }
@@ -201,7 +207,7 @@ struct st7735 final {
         if (!bounds.intersects(this->bounds())) return gfx::gfx_result::success;
         const gfx::rect16 r = bounds.normalize().crop(this->bounds());
         bus::begin_write();
-        bus::start_transaction();
+        bus::begin_transaction();
         set_window(r);
         bus::write_raw16_repeat(color.native_value,
                                 (r.x2 - r.x1 + 1) * (r.y2 - r.y1 + 1));
@@ -261,7 +267,7 @@ struct st7735 final {
         }
         const gfx::rect16 r = bounds.normalize();
         bus::begin_write();
-        bus::start_transaction();
+        bus::begin_transaction();
         set_window(r);
         m_in_batch = true;
         return gfx::gfx_result::success;
@@ -463,7 +469,7 @@ struct st7735 final {
             uint16_t ww = src.dimensions().width;
             uint16_t pitch = (srcr.x2 - srcr.x1 + 1) * 2;
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
             while (yy < hh - !!async) {
                 gfx::rect16 dr = {dstr.x1, uint16_t(dstr.y1 + yy), dstr.x2,
                                   uint16_t(dstr.y1 + yy)};

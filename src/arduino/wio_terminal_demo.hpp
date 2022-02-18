@@ -6,8 +6,8 @@
 using namespace arduino;
 using namespace gfx;
 
-using bus_type = tft_spi<3,LCD_SS_PIN,SPI_MODE0,40*1000*1000,20*1000*1000,40*1000*1000>;
-using lcd_type = ili9341<LCD_DC,LCD_RESET,LCD_BACKLIGHT,bus_type,3,true>;
+using bus_type = tft_spi<3,LCD_SS_PIN,SPI_MODE0>;
+using lcd_type = ili9341<LCD_DC,LCD_RESET,LCD_BACKLIGHT,bus_type,3,true,400,200>;
 
 using lcd_color = color<typename lcd_type::pixel_type>;
 

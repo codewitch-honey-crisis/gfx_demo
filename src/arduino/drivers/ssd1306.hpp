@@ -8,6 +8,7 @@ namespace arduino {
             typename Bus,
             uint8_t Address = 0x3C,
             bool Vdc3_3=true,
+            uint32_t WriteSpeedPercent=400,
             int8_t PinDC=-1,
             int8_t PinRst=-1,
             bool ResetBeforeInit=false>
@@ -17,6 +18,7 @@ namespace arduino {
         constexpr static const uint16_t height=Height;
         constexpr static const uint8_t address = Address;
         constexpr static const bool vdc_3_3 = Vdc3_3;
+        constexpr static const float write_speed_multiplier = (WriteSpeedPercent/100.0);
         constexpr static const int8_t pin_rst = PinRst;
         constexpr static const bool reset_before_init = ResetBeforeInit;
 private:
@@ -240,6 +242,7 @@ public:
                 if(!driver::initialize()) {
                     return false;
                 }
+                bus::set_speed_multiplier(write_speed_multiplier);
                 if(reset_before_init) {
                     reset();
                 }

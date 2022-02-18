@@ -109,7 +109,7 @@ namespace ssd1351_helpers {
                 uint16_t ww = src.dimensions().width;
                 uint16_t pitch = (srcr.x2 - srcr.x1+1)*2;
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 while(yy<hh-!!async) {
                     gfx::rect16 dr = {dstr.x1,uint16_t(dstr.y1+yy),dstr.x2,uint16_t(dstr.y1+yy)};
                     set_window(dr);
@@ -253,7 +253,7 @@ namespace ssd1351_helpers {
                 reset();
                 bus::begin_initialization();
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 const uint8_t *addr = generic_ssd1351;
                 uint8_t cmd, x, numArgs;
                 while ((cmd = pgm_read_byte(addr++)) > 0) { // '0' command ends list
@@ -270,7 +270,7 @@ namespace ssd1351_helpers {
                 bus::end_write();
                 bus::end_initialization();
                 bus::begin_write();
-                bus::start_transaction();
+                bus::begin_transaction();
                 apply_rotation();
                 bus::end_transaction();
                 bus::end_write();
@@ -333,7 +333,7 @@ namespace ssd1351_helpers {
             if(!bounds.intersects(this->bounds())) return gfx::gfx_result::success;
             const gfx::rect16 r = bounds.normalize().crop(this->bounds());
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
             set_window(r);
             bus::write_raw16_repeat(color.native_value,(r.x2-r.x1+1)*(r.y2-r.y1+1));
             bus::end_transaction();
@@ -390,7 +390,7 @@ namespace ssd1351_helpers {
             }
             const gfx::rect16 r = bounds.normalize();
             bus::begin_write();
-            bus::start_transaction();
+            bus::begin_transaction();
             set_window(r);
             m_in_batch = true;
             return gfx::gfx_result::success;

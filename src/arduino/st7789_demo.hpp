@@ -40,8 +40,8 @@ using namespace gfx;
 #define PIN_NUM_RST  -1
 #define PIN_NUM_BCKL 12
 #else
-#define LCD_WIDTH 320
-#define LCD_HEIGHT 240
+#define LCD_WIDTH 240
+#define LCD_HEIGHT 320
 #define LCD_HOST    VSPI
 #define DMA_CHAN    2
 #define PIN_NUM_MISO -1
@@ -51,7 +51,7 @@ using namespace gfx;
 
 #define PIN_NUM_DC   2
 #define PIN_NUM_RST  4
-#define PIN_NUM_BCKL 15
+#define PIN_NUM_BCKL 1
 #endif
 
 #define PARALLEL_LINES 16
@@ -63,13 +63,13 @@ using namespace gfx;
 using bus_type = tft_p8<PIN_NUM_CS,PIN_NUM_WR,PIN_NUM_RD,PIN_NUM_D0,PIN_NUM_D1,PIN_NUM_D2,PIN_NUM_D3,PIN_NUM_D4,PIN_NUM_D5,PIN_NUM_D6,PIN_NUM_D7>;
 #else
 using bus_type = tft_spi<VSPI,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,
-20*1000*1000,20*1000*1000,20*1000*1000,true
+true
 #ifdef OPTIMIZE_DMA
 ,LCD_WIDTH*LCD_HEIGHT*2+8
 #endif
 >;
 #endif
-using lcd_type = st7789<LCD_WIDTH,LCD_HEIGHT,PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL,bus_type,3>;
+using lcd_type = st7789<LCD_WIDTH,LCD_HEIGHT,PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_BCKL,bus_type,1>;
 
 lcd_type lcd;
 

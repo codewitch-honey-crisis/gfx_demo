@@ -18,9 +18,6 @@ namespace arduino {
         int8_t PinSda=-1,
         int8_t PinScl=-1,
 #endif
-        uint32_t I2CSpeed=0,
-        uint32_t I2CDefaultSpeed=I2CSpeed,
-        uint32_t I2CInitSpeed=I2CSpeed,
         size_t I2CBufferSize = HTCW_I2C_WIRE_MAX>
     struct tft_i2c {
         constexpr static const uint8_t i2c_host = I2CHost;
@@ -28,10 +25,7 @@ namespace arduino {
         constexpr static const bool readable = true;
         constexpr static const size_t dma_size = 0;
         constexpr static const uint8_t dma_channel = 0;
-        
-        constexpr static const uint32_t i2c_speed = I2CSpeed;
-        constexpr static const uint32_t i2c_default_speed = I2CDefaultSpeed;
-        constexpr static const uint32_t i2c_init_speed = I2CInitSpeed;
+        constexpr static const uint32_t base_speed = 100*1000;
         constexpr static const size_t i2c_buffer_size = I2CBufferSize;
     private:
         inline static TwoWire& i2c() FORCE_INLINE {
@@ -71,17 +65,19 @@ namespace arduino {
 #ifdef ESP32
         static TwoWire ii2c;
 #endif
+        static uint32_t speed;
         static uint8_t address;
         static uint8_t payload;
         static bool is_init;
         static bool initialize() {
+            speed = base_speed;
             is_init =false;
 #ifdef ASSIGNABLE_I2C_PINS
             i2c().begin(PinSda,PinScl);
 #else // !ASSIGNABLE_I2C_PINS
             i2c().begin(i2c_host);
 #endif // !ASSIGNABLE_I2C_PINS
-            i2c().setClock(i2c_default_speed);
+            i2c().setClock(base_speed);
             return true;
                 
         }
@@ -90,7 +86,7 @@ namespace arduino {
         
         static void deinitialize() {
             if(is_init) {
-                i2c().setClock(i2c_speed);
+                i2c().setClock(base_speed);
             }
         }
         inline static void set_address(uint8_t addr) FORCE_INLINE {
@@ -249,15 +245,17 @@ namespace arduino {
             i2c().endTransmission(true);
         }
         static inline void begin_write() FORCE_INLINE {
-            i2c().setClock(is_init?i2c_init_speed:i2c_speed);
+            i2c().setClock(speed);
         }
         static inline void end_write() FORCE_INLINE {
-            i2c().setClock(i2c_default_speed);
+            i2c().setClock(base_speed);
         }
         
         static inline void begin_read() FORCE_INLINE {
+            i2c().setClock(speed);
         }
         static inline void end_read() FORCE_INLINE {
+            i2c().setClock(base_speed);
         }
         
         static inline void direction(uint8_t direction) FORCE_INLINE {
@@ -267,7 +265,9 @@ namespace arduino {
         }
         inline static void cs_high() FORCE_INLINE {
         }
-        
+        inline static void set_speed_multiplier(float mult) {
+            speed = mult*base_speed;
+        }
     private:
     };
     template<uint8_t I2CHost,
@@ -275,30 +275,24 @@ namespace arduino {
         int8_t PinSda,
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
-        uint32_t I2CSpeed,
-        uint32_t I2CDefaultSpeed,
-        uint32_t I2CInitSpeed,
         size_t I2CBufferSize>
         uint8_t tft_i2c<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
-        ,I2CSpeed,I2CDefaultSpeed,I2CInitSpeed,I2CBufferSize>
+        ,I2CBufferSize>
     ::address = 0;
     template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
         int8_t PinSda,
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
-        uint32_t I2CSpeed,
-        uint32_t I2CDefaultSpeed,
-        uint32_t I2CInitSpeed,
         size_t I2CBufferSize>
         uint8_t tft_i2c<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
-        ,I2CSpeed,I2CDefaultSpeed,I2CInitSpeed,I2CBufferSize>
+        ,I2CBufferSize>
     ::payload = 0;
 #if defined(ESP32)
         template<uint8_t I2CHost,
@@ -306,31 +300,37 @@ namespace arduino {
         int8_t PinSda,
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
-        uint32_t I2CSpeed,
-        uint32_t I2CDefaultSpeed,
-        uint32_t I2CInitSpeed,
         size_t I2CBufferSize>
         TwoWire tft_i2c<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
-        ,I2CSpeed,I2CDefaultSpeed,I2CInitSpeed,I2CBufferSize>
+        ,I2CBufferSize>
     ::ii2c(i2c_host);
 #endif
+    template<uint8_t I2CHost,
+#ifdef ASSIGNABLE_I2C_PINS
+        int8_t PinSda,
+        int8_t PinScl,
+#endif // ASSIGNABLE_SPI_PINS
+        size_t I2CBufferSize>
+        uint32_t tft_i2c<I2CHost
+#ifdef ASSIGNABLE_I2C_PINS
+        ,PinSda,PinScl
+#endif // ASSIGNABLE_SPI_PINS
+        ,I2CBufferSize>
+    ::speed = base_speed;
         template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
         int8_t PinSda,
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
-        uint32_t I2CSpeed,
-        uint32_t I2CDefaultSpeed,
-        uint32_t I2CInitSpeed,
         size_t I2CBufferSize>
         bool tft_i2c<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
-        ,I2CSpeed,I2CDefaultSpeed,I2CInitSpeed,I2CBufferSize>
+        ,I2CBufferSize>
     ::is_init = false;
 }
 #undef HTCW_I2C_WIRE_MAX

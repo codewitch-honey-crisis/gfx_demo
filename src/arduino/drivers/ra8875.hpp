@@ -449,7 +449,11 @@ namespace arduino {
                 //Serial.println("Passed INT pin check");
                 if(reg(RA8875_INTC2) & RA8875_INTC2_TP) {
                     //Serial.println("Passed touched reg check");
-                    return recv_touch(out_point);
+                    bool res= recv_touch(out_point);
+                    if(clock_speed>10*1000*1000) {
+                       m_spi_settings._clock = clock_speed;
+                    }
+                    return res;
                 }
                 if(clock_speed>10*1000*1000) {
                     m_spi_settings._clock = clock_speed;

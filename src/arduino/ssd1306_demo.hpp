@@ -24,6 +24,7 @@ using namespace gfx;
 #define PIN_NUM_CLK 18
 #define PIN_NUM_DC 2
 #define PIN_NUM_RST 4
+#define LCD_ADDRESS 0
 #define LCD_WRITE_SPEED_PERCENT 200
 #endif
 

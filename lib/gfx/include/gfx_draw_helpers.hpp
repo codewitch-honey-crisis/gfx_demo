@@ -17,6 +17,28 @@ namespace gfx {
                 return destination.point(pt,px);
             }
         };
+        
+        template<typename Source, typename Destination,bool CanRead> struct blend_helper {
+            static constexpr gfx_result do_blend(const Source& src, typename Source::pixel_type spx,Destination& dst, point16 dstpnt,typename Destination::pixel_type* out_px) {
+                return convert_palette(dst,src,spx,out_px,nullptr);
+            }
+        };
+        
+        template<typename Source, typename Destination> struct blend_helper<Source,Destination,true> {
+            static constexpr gfx_result do_blend(const Source& src, typename Source::pixel_type spx,Destination& dst, point16 dstpnt,typename Destination::pixel_type* out_px) {
+                gfx_result r=gfx_result::success;
+                typename Destination::pixel_type bgpx;
+                r=dst.point(point16(dstpnt),&bgpx);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+                r=convert_palette(dst,src,spx,out_px,&bgpx);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+                return gfx_result::success;
+            }
+        };
         template<typename Destination,typename Source> 
         struct blender<Destination,Source,true> {
             static gfx_result point(Destination& destination,point16 pt,Source& source,point16 spt, typename Source::pixel_type pixel) {

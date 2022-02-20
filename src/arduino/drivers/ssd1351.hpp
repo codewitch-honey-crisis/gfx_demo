@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include "common/tft_driver.hpp"
-#include "gfx_pixel.hpp"
-#include "gfx_palette.hpp"
-#include "gfx_positioning.hpp"
-
+#include <gfx_pixel.hpp>
+#include <gfx_palette.hpp>
+#include <gfx_positioning.hpp>
+#include <gfx_draw_helpers.hpp>
 namespace arduino {
 namespace ssd1351_helpers {
     }
@@ -11,7 +11,8 @@ namespace ssd1351_helpers {
     // the driver for an SSD1351 display
     template<int8_t PinDC,
             int8_t PinRst,
-            typename Bus
+            typename Bus,
+            unsigned int WriteSpeedPercent = 200
             >
     struct ssd1351 final {
         // the DC pin
@@ -20,11 +21,13 @@ namespace ssd1351_helpers {
         constexpr static const int8_t pin_rst = PinRst;
         constexpr static const uint8_t rotation = 0;
         constexpr static const size_t max_dma_size = 128*128*2;
+        constexpr static const float write_speed_multiplier =
+        (WriteSpeedPercent / 100.0);
         using type = ssd1351;
         using driver = tft_driver<PinDC, PinRst,-1,Bus>;
         using bus = Bus;
         using pixel_type = gfx::rgb_pixel<16>;
-        using caps = gfx::gfx_caps<false,(bus::dma_size>0),true,true,false,bus::readable,false>;
+        using caps = gfx::gfx_caps<false,(bus::dma_size>0),true,true,false,false,false>;
         
     private:
         bool m_initialized;
@@ -252,6 +255,7 @@ namespace ssd1351_helpers {
                 }
                 reset();
                 bus::begin_initialization();
+                bus::set_speed_multiplier(write_speed_multiplier);
                 bus::begin_write();
                 bus::begin_transaction();
                 const uint8_t *addr = generic_ssd1351;
@@ -305,23 +309,7 @@ namespace ssd1351_helpers {
         inline gfx::gfx_result point_async(gfx::point16 location, pixel_type color) {
             return point(location,color);
         }
-        gfx::gfx_result point(gfx::point16 location, pixel_type* out_color) const {
-            if(out_color==nullptr) return gfx::gfx_result::invalid_argument;
-            if(!m_initialized || m_in_batch) return gfx::gfx_result::invalid_state;
-            if(!bounds().intersects(location)) {
-                *out_color = pixel_type();
-                return gfx::gfx_result::success;
-            }
-            bus::dma_wait();
-            bus::cs_low();
-            set_window({location.x,location.y,location.x,location.y},true);
-            bus::direction(INPUT);
-            bus::read_raw8(); // throw away
-            out_color->native_value = ((bus::read_raw8() & 0xF8) << 8) | ((bus::read_raw8() & 0xFC) << 3) | (bus::read_raw8() >> 3);
-            bus::cs_high();
-            bus::direction(OUTPUT);
-            return gfx::gfx_result::success;
-        }
+        
         gfx::gfx_result fill(const gfx::rect16& bounds, pixel_type color) {
             if(!initialize()) return gfx::gfx_result::device_error;
             else bus::dma_wait();
@@ -371,6 +359,7 @@ namespace ssd1351_helpers {
             }
             return copy_from_impl(src_rect,src,location,true);
         }
+        
         gfx::gfx_result commit_batch() {
             if(m_in_batch) {
                 bus::end_transaction();
@@ -410,6 +399,7 @@ namespace ssd1351_helpers {
             return gfx::gfx_result::success;
         }
         
-        
+    private:
+       
     };
 }

@@ -377,6 +377,30 @@ constexpr static const uint8_t dma_channel =
 #endif // ASSIGNABLE_SPI_PINS
 #endif // !OPTIMIZE_ESP32
         }
+        static void read_raw(uint8_t* buffer,size_t size) {
+#if defined(OPTIMIZE_ESP32)
+            spi().transfer(buffer,size);
+#else // !OPTIMIZE_ESP32
+#ifdef ASSIGNABLE_SPI_PINS
+            if(sda_read) {
+                while(size--) {
+                    uint8_t  ret = 0;
+                    for (uint8_t i = 0; i < 8; i++) {  // read results
+                        ret <<= 1;
+                        sclk_low();
+                        if (digitalRead(pin_mosi)) ret |= 1;
+                        sclk_high();
+                    }
+                    *buffer++=ret;
+                }
+            } else {
+                spi().transfer(buffer,size);
+            }
+#else // !ASSIGNABLE_SPI_PINS
+            spi().transfer(buffer,size);
+#endif // ASSIGNABLE_SPI_PINS
+#endif // !OPTIMIZE_ESP32
+        }
         static void begin_write(bool lock=false) {
             if(lock) {
                 lock_transaction  =true;

@@ -304,7 +304,20 @@ namespace gfx {
     struct draw {
 
     private:
-        
+        template<typename Destination,typename Source,bool CopyTo> struct copy_to_fast {};
+        template<typename Destination,typename Source> struct copy_to_fast<Destination,Source,false> {
+            static gfx_result do_copy(Destination& dst, const Source& src,const rect16& src_rect,point16 location) {
+                helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(dst);
+                return copy_from_impl_helper<Destination,Source,Destination::caps::batch,Destination::caps::async>::do_draw(dst,src_rect,src,location);
+            }
+        };
+        template<typename Destination, typename Source> struct copy_to_fast<Destination,Source,true> {
+            static gfx_result do_copy(Destination& dst, const Source& src,const rect16& src_rect,point16 location) {
+                // suspend if we can
+                helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(dst);
+                return src.copy_to(src_rect,dst,location);
+            }
+        };
         template<typename Destination,typename Source,bool CopyFrom,bool CopyTo,bool BltDst,bool BltSrc,bool Async> 
         struct draw_bmp_caps_helper {
             
@@ -1693,16 +1706,42 @@ namespace gfx {
             }
             return gfx_result::success;
         }
-        template<typename Destination,typename PixelType,bool Async>
+        
+        template<typename Destination,bool Indexed> struct rect_blend_helper {
+            static inline gfx_result do_blend(const Destination& dst,typename Destination::pixel_type px,float ratio,typename Destination::pixel_type bpx,typename Destination::pixel_type* out_px) {
+                return px.blend(bpx,ratio,out_px);
+            }
+        };
+        template<typename Destination> struct rect_blend_helper<Destination,true> {
+            static inline gfx_result do_blend(const Destination& dst,typename Destination::pixel_type px,float ratio,typename Destination::pixel_type bpx,typename Destination::pixel_type* out_px) {
+                rgb_pixel<HTCW_MAX_WORD> tmp;
+                gfx_result r = convert_palette_to(dst,px,&tmp);
+                if(r!=gfx_result::success) {
+                    return r;
+                }
+                rgb_pixel<HTCW_MAX_WORD> btmp;
+                r = convert_palette_to(dst,bpx,&btmp);
+                if(r!=gfx_result::success) {
+                    return r;
+                }
+                r=tmp.blend(btmp,ratio,&tmp);
+                if(r!=gfx_result::success) {
+                    return r;
+                }
+                return convert_palette_from(dst,tmp,out_px);
+                
+            }
+        };
+        template<typename Destination,typename PixelType,bool CopyTo,bool Async>
         struct draw_filled_rect_helper {
         };
         template<typename Destination,typename PixelType>
-        struct draw_filled_rect_helper<Destination,PixelType,true> {
+        struct draw_filled_rect_helper<Destination,PixelType,false,true> {
             static gfx_result do_draw(Destination& destination,const rect16& rect,PixelType color,bool async) {
                 gfx_result r;
                 // suspend if we can
                 helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(destination,async);
-                if(!async) return draw_filled_rect_helper<Destination,PixelType,false>::do_draw(destination,rect,color,false);
+                if(!async) return draw_filled_rect_helper<Destination,PixelType,Destination::caps::copy_to&&!Destination::caps::blt,false>::do_draw(destination,rect,color,false);
                 typename Destination::pixel_type dpx;
                 // TODO: recode to use an async read when finally implemented
                 using thas_alpha=typename PixelType::template has_channel_names<channel_name::A>;
@@ -1713,15 +1752,33 @@ namespace gfx {
                     using tindexA = typename PixelType::template channel_index_by_name<channel_name::A>;
                     const size_t chiA = tindexA::value;
                     using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
-                    const auto alp = color.template channel_unchecked<chiA>();
+                    auto alp = color.template channel_unchecked<chiA>();
+                    const float ar = alp*tchA::scaler;
+                    typename Destination::pixel_type cpx;
+                    typename Destination::pixel_type bpx,obpx,bbpx;
+                    bool first=true;
                     if(alp!=tchA::max) {
                         if(alp==tchA::min) {
                             return gfx_result::success;
                         }
                         rect16 rr = rect.normalize();
+                        r=convert_palette_from(destination,color,&cpx);
+                        
                         for(int y=rr.y1;y<=rr.y2;++y) {
                             for(int x=rr.x1;x<=rr.x2;++x) {
-                                r=point_impl(destination,spoint16(x,y),color,nullptr,true);
+                                r= read_point_helper<Destination,Destination::caps::read>::do_read(destination,{uint16_t(x),uint16_t(y)},&bpx);
+                                if(gfx_result::success!=r) {
+                                    return r;
+                                }
+                                if(first||bpx.native_value!=obpx.native_value) {
+                                    first = false;
+                                    r=rect_blend_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::do_blend( destination,cpx,ar,bpx,&bbpx);
+                                    if(gfx_result::success!=r) {
+                                        return r;
+                                    }
+                                }
+                                obpx=bpx;
+                                r=destination.point({uint16_t(x),uint16_t(y)},bbpx);
                                 if(gfx_result::success!=r) {
                                     return r;
                                 }
@@ -1730,7 +1787,7 @@ namespace gfx {
                         return gfx_result::success;
                     }
                 }
-                r=convert_palette_to(destination,color,&dpx);
+                r=convert_palette_from(destination,color,&dpx);
                 if(gfx_result::success!=r) {
                     return r;
                 }
@@ -1738,7 +1795,7 @@ namespace gfx {
             }
         };
         template<typename Destination,typename PixelType>
-        struct draw_filled_rect_helper<Destination,PixelType,false> {
+        struct draw_filled_rect_helper<Destination,PixelType,false,false> {
             static gfx_result do_draw(Destination& destination,const rect16& rect,PixelType color,bool async) {
                 gfx_result r;
                 // suspend if we can
@@ -1754,18 +1811,239 @@ namespace gfx {
                     const int chiA = tindexA::value;
                     using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
                     auto alp = color.template channel_unchecked<chiA>();
+                    const float ar = alp*tchA::scaler;
+                    typename Destination::pixel_type cpx;
+                    typename Destination::pixel_type bpx,obpx,bbpx;
+                    bool first=true;
                     if(alp!=tchA::max) {
                         if(alp==tchA::min) {
                             return gfx_result::success;
                         }
+                        
+                        r=convert_palette_from(destination,color,&cpx);
+                        
                         rect16 rr = rect.normalize();
                         for(int y=rr.y1;y<=rr.y2;++y) {
                             for(int x=rr.x1;x<=rr.x2;++x) {
-                                r = point_impl(destination,spoint16(x,y),color,nullptr,false);
+                                r= read_point_helper<Destination,Destination::caps::read>::do_read(destination,{uint16_t(x),uint16_t(y)},&bpx);
+                                if(gfx_result::success!=r) {
+                                    return r;
+                                }
+                                if(first||bpx.native_value!=obpx.native_value) {
+                                    first = false;
+                                    r=rect_blend_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::do_blend( destination,cpx,ar,bpx,&bbpx);
+                                    if(gfx_result::success!=r) {
+                                        return r;
+                                    }
+                                }
+                                obpx=bpx;
+                                r=destination.point({uint16_t(x),uint16_t(y)},bbpx);
                                 if(gfx_result::success!=r) {
                                     return r;
                                 }
                             }
+                        }
+                    
+                        return gfx_result::success;
+                    }
+                    
+                }
+                r=convert_palette_from(destination,color,&dpx);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+                return destination.fill(rect,dpx);
+            }
+        };
+        template<typename Destination,typename PixelType>
+        struct draw_filled_rect_helper<Destination,PixelType,true,true> {
+            static gfx_result do_draw(Destination& destination,const rect16& rect,PixelType color,bool async) {
+                gfx_result r;
+                // suspend if we can
+                helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(destination,async);
+                if(!async) return draw_filled_rect_helper<Destination,PixelType,Destination::caps::copy_to&&!Destination::caps::blt,false>::do_draw(destination,rect,color,false);
+                typename Destination::pixel_type dpx;
+                // TODO: recode to use an async read when finally implemented
+                using thas_alpha=typename PixelType::template has_channel_names<channel_name::A>;
+                using tdhas_alpha=typename Destination::pixel_type::template has_channel_names<channel_name::A>;
+                const bool has_alpha = thas_alpha::value;
+                const bool dhas_alpha = tdhas_alpha::value;
+                if(has_alpha && !dhas_alpha) {
+                    using tindexA = typename PixelType::template channel_index_by_name<channel_name::A>;
+                    const size_t chiA = tindexA::value;
+                    using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
+                    auto alp = color.template channel_unchecked<chiA>();
+                    const float ar = alp*tchA::scaler;
+                    typename Destination::pixel_type cpx;
+                    typename Destination::pixel_type bpx,obpx,bbpx;
+                    bool first=true;
+                    if(alp!=tchA::max) {
+                        if(alp==tchA::min) {
+                            return gfx_result::success;
+                        }
+                        r=convert_palette_from(destination,color,&cpx);
+                        
+                        rect16 rr = rect.normalize();
+                        for(int y=rr.y1;y<=rr.y2;++y) {
+                            for(int x=rr.x1;x<=rr.x2;++x) {
+                                r=read_point_helper<Destination,Destination::caps::read>::do_read(destination,{uint16_t(x),uint16_t(y)},&bpx);
+                                //r=destination.point({uint16_t(x),uint16_t(y)},&bpx);
+                                if(first||bpx.native_value!=obpx.native_value) {
+                                    first = false;
+                                    r=rect_blend_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::do_blend( destination,cpx,ar,bpx,&bbpx);
+                                    if(gfx_result::success!=r) {
+                                        return r;
+                                    }
+                                }
+                                obpx=bpx;
+                                r=destination.point({uint16_t(x),uint16_t(y)},bbpx);
+                                if(gfx_result::success!=r) {
+                                    return r;
+                                }
+                            }
+                        }
+                        return gfx_result::success;
+                    }
+                }
+                r=convert_palette_from(destination,color,&dpx);
+                if(gfx_result::success!=r) {
+                    return r;
+                }
+                return destination.fill_async(rect,dpx);
+            }
+        };
+        template<typename Destination,typename PixelType>
+        struct draw_filled_rect_helper<Destination,PixelType,true,false> {
+            static gfx_result do_draw(Destination& destination,const rect16& rect,PixelType color,bool async) {
+                gfx_result r;
+                // suspend if we can
+                helpers::suspender<Destination,Destination::caps::suspend,Destination::caps::async> stok(destination,async);
+                typename Destination::pixel_type dpx;
+                // TODO: recode to use an async read when finally implemented
+                using thas_alpha=typename PixelType::template has_channel_names<channel_name::A>;
+                using tdhas_alpha=typename Destination::pixel_type::template has_channel_names<channel_name::A>;
+                const bool has_alpha = thas_alpha::value;
+                const bool dhas_alpha = tdhas_alpha::value;
+                if(has_alpha && !dhas_alpha) {
+                    using tindexA = typename PixelType::template channel_index_by_name<channel_name::A>;
+                    const int chiA = tindexA::value;
+                    using tchA = typename PixelType::template channel_by_index_unchecked<chiA>;
+                    auto alp = color.template channel_unchecked<chiA>();
+                    const float ar = alp*tchA::scaler;
+                    typename Destination::pixel_type bpx,obpx,bbpx;
+                    bool first=true;
+                    if(alp!=tchA::max) {
+                        if(alp==tchA::min) {
+                            return gfx_result::success;
+                        }
+                        typename Destination::pixel_type cpx;
+                        r=convert_palette_from(destination,color,&cpx);
+                        if(r!=gfx_result::success) {
+                            return r;
+                        }
+                        rect16 rr = rect.normalize();
+                        
+                        uint8_t* buf = nullptr;
+                        size16 sz= rr.dimensions();
+                        using dstpt = typename Destination::pixel_type;
+                        constexpr static const bool indexed = dstpt::template has_channel_names<typename channel_name::index>::value;
+                        using bmp_type = typename helpers::bitmap_from_helper<Destination,indexed>::type;
+                        size_t buflen = bmp_type::sizeof_buffer(sz);
+                        bool entire = true;
+                        if(sz.width>2 && !Destination::caps::blt) {
+                            buf = (uint8_t*)malloc(buflen);
+                            if(nullptr==buf) {
+                                entire = false;
+                                sz = {uint16_t(rr.x2-rr.x1+1),1};
+                                buflen = bmp_type::sizeof_buffer(sz);
+                                buf = (uint8_t*)malloc(buflen);
+                            }
+                        }
+                        if(buf==nullptr) {
+                            for(int y=rr.y1;y<=rr.y2;++y) {
+                                for(int x=rr.x1;x<=rr.x2;++x) {
+                                    r= read_point_helper<Destination,Destination::caps::read>::do_read(destination,{uint16_t(x),uint16_t(y)},&bpx);
+                                    if(gfx_result::success!=r) {
+                                        return r;
+                                    }
+                                    if(first||bpx.native_value!=obpx.native_value) {
+                                        first = false;
+                                        r=rect_blend_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::do_blend( destination,cpx,ar,bpx,&bbpx);
+                                        if(gfx_result::success!=r) {
+                                            free(buf);
+                                            return r;
+                                        }
+                                    }
+                                    obpx=bpx;
+                                    r=destination.point({uint16_t(x),uint16_t(y)},bbpx);
+                                    if(gfx_result::success!=r) {
+                                        return r;
+                                    }
+                                }
+                            }
+                        } else {
+                            bmp_type bmp=helpers::bitmap_from_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::create_from(destination,sz,buf);
+                            if(r!=gfx_result::success) {
+                                free(buf);
+                                return r;
+                            }
+                            if(entire) {
+                                r=destination.copy_to(rr,bmp,{0,0});
+                                if(gfx_result::success!=r) {
+                                    free(buf);
+                                    return r;
+                                }
+                                for(int y=rr.y1;y<=rr.y2;++y) {
+                                    for(int x = 0;x<bmp.dimensions().width;++x) {
+                                        point16 pt = {uint16_t(x),uint16_t(y-rr.y1)};
+                                        bmp.point(pt,&bpx);
+                                        if(first||bpx.native_value!=obpx.native_value) {
+                                            first = false;
+                                            r=rect_blend_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::do_blend( destination,cpx,ar,bpx,&bbpx);
+                                            if(gfx_result::success!=r) {
+                                                free(buf);
+                                                return r;
+                                            }
+                                        }
+                                        obpx=bpx;
+                                        r=bmp.point(pt,bbpx);
+                                        if(gfx_result::success!=r) {
+                                            free(buf);
+                                            return r;
+                                        }
+                                    }
+                                }
+                                r=copy_to_fast<Destination,bmp_type,true>::do_copy(destination,bmp,bmp.bounds(),rr.top_left());
+                                if(gfx_result::success!=r) {
+                                    free(buf);
+                                    return r;
+                                }
+                            } else {
+                                for(int y=rr.y1;y<=rr.y2;++y) {
+                                    r=destination.copy_to({rr.x1,uint16_t(y),rr.x2,uint16_t(y)},bmp,{0,0});
+                                    if(gfx_result::success!=r) {
+                                        free(buf);
+                                        return r;
+                                    }
+                                    for(int x = 0;x<bmp.dimensions().width;++x) {
+                                        bmp.point({uint16_t(x),0},&bpx);
+                                        if(first||bpx.native_value!=obpx.native_value) {
+                                            first = false;
+                                            r=rect_blend_helper<Destination,Destination::pixel_type::template has_channel_names<channel_name::index>::value>::do_blend( destination,cpx,ar,bpx,&bbpx);
+                                            if(gfx_result::success!=r) {
+                                                return r;
+                                            }
+                                        }
+                                        obpx=bpx;
+                                        r=destination.point({uint16_t(x+rr.x1),uint16_t(y)},bbpx);
+                                        if(gfx_result::success!=r) {
+                                            free(buf);
+                                            return r;
+                                        }
+                                    }
+                                }
+                            }
+                            free(buf);
                         }
                         return gfx_result::success;
                     }
@@ -1797,8 +2075,8 @@ namespace gfx {
                 return gfx_result::success;
             r=r.crop(destination.bounds());
             if(async)
-                return draw_filled_rect_helper<Destination,PixelType,Destination::caps::async>::do_draw(destination,r,color,true);
-            return draw_filled_rect_helper<Destination,PixelType,false>::do_draw(destination,r,color,false);
+                return draw_filled_rect_helper<Destination,PixelType,Destination::caps::copy_to,Destination::caps::async>::do_draw(destination,r,color,true);
+            return draw_filled_rect_helper<Destination,PixelType,Destination::caps::copy_to,false>::do_draw(destination,r,color,false);
         }
         template<typename Destination,typename PixelType, bool Batch>
         struct draw_font_batch_helper {

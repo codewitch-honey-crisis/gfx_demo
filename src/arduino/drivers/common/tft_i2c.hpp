@@ -208,6 +208,11 @@ namespace arduino {
             i2c().endTransmission(true);
             return b;
         }
+        static void read_raw(uint8_t* buffer,size_t size) {
+            while(size--) {
+                *buffer++=read_raw8();
+            }
+        }
         static void write_raw(const uint8_t* data, size_t length) {
             if(0==length) return;           
             i2c().beginTransmission(address);

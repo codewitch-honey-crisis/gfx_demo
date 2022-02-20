@@ -4,7 +4,7 @@
 #include <gfx_palette.hpp>
 #include <gfx_pixel.hpp>
 #include <gfx_positioning.hpp>
-
+#include <gfx_draw_helpers.hpp>
 #include "common/tft_driver.hpp"
 
 namespace arduino {
@@ -34,7 +34,7 @@ struct st7735 final {
     using bus = Bus;
     using pixel_type = gfx::rgb_pixel<16>;
     using caps = gfx::gfx_caps<false, (bus::dma_size > 0), true, true, false,
-                               bus::readable, false>;
+                               bus::readable, bus::readable>;
     st7735()
         : m_initialized(false), m_dma_initialized(false), m_in_batch(false) {}
     ~st7735() {
@@ -258,6 +258,28 @@ struct st7735 final {
         }
         return gfx::gfx_result::success;
     }
+    template <typename Destination>
+    inline gfx::gfx_result copy_to(const gfx::rect16& src_rect,
+                                   Destination& dst,
+                                   gfx::point16 location) const {
+        if (!src_rect.intersects(bounds())) return gfx::gfx_result::success;
+        gfx::rect16 srcr = src_rect.crop(bounds());
+        gfx::rect16 dstr =
+            gfx::rect16(location, srcr.dimensions()).crop(dst.bounds());
+        srcr = gfx::rect16(srcr.location(), dstr.dimensions());
+        return copy_to_helper<Destination,
+                              !(pixel_type::template has_channel_names<
+                                  gfx::channel_name::A>::value)>::copy_to(*this,
+                                                                          srcr,
+                                                                          dst,
+                                                                          dstr);
+    }
+    template <typename Destination>
+    inline gfx::gfx_result copy_to_async(const gfx::rect16& src_rect,
+                                         Destination& dst,
+                                         gfx::point16 location) const {
+        return copy_to(src_rect, dst, location);
+    }
     inline gfx::gfx_result commit_batch_async() { return commit_batch(); }
     gfx::gfx_result begin_batch(const gfx::rect16& bounds) {
         if (!initialize()) return gfx::gfx_result::device_error;
@@ -288,6 +310,236 @@ struct st7735 final {
     }
 
    private:
+   template <typename Destination, bool AllowBlt = true>
+    struct copy_to_helper {
+        inline static gfx::gfx_result copy_to(const type& src,
+                                              const gfx::rect16& srcr,
+                                              Destination& dst,
+                                              const gfx::rect16& dstr) {
+            if (gfx::helpers::template is_same<typename Destination::pixel_type,
+                                               pixel_type>::value &&
+                dstr.top_left() == gfx::point16(0, 0)) {
+                if (AllowBlt && dstr.width() == srcr.width() &&
+                    dstr.height() == srcr.height()) {
+                    if (dstr.top_left() == gfx::point16(0, 0)) {
+                        return copy_to_fast_helper<Destination>::do_copy(srcr,
+                                                                         dst);
+                    }
+                }
+            }
+
+            size_t dy = 0, dye = dstr.height();
+            size_t dx, dxe = dstr.width();
+            gfx::gfx_result r;
+            gfx::helpers::suspender<Destination, Destination::caps::suspend,
+                                    false>
+                sustok(dst);
+            r = gfx::helpers::batcher<Destination, Destination::caps::batch,
+                                      false>::begin_batch(dst, dstr, false);
+            if (gfx::gfx_result::success != r) {
+                return r;
+            }
+            int sox = srcr.left(), soy = srcr.top();
+            int dox = dstr.left(), doy = dstr.top();
+            while (dy < dye) {
+                dx = 0;
+
+                while (dx < dxe) {
+                    pixel_type spx;
+                    r = src.point(gfx::point16(sox + dx, soy + dy), &spx);
+                    if (gfx::gfx_result::success != r) return r;
+                    typename Destination::pixel_type dpx;
+                    if (pixel_type::template has_channel_names<
+                            gfx::channel_name::A>::value) {
+                        r = gfx::helpers::blend_helper<
+                            type, Destination,
+                            Destination::caps::read>::do_blend(src, spx, dst,
+                                                               gfx::point16(
+                                                                   dox + dx,
+                                                                   doy + dy),
+                                                               &dpx);
+                        if (gfx::gfx_result::success != r) {
+                            return r;
+                        }
+                    } else {
+                        r = convert_palette(dst, src, spx, &dpx, nullptr);
+                        if (gfx::gfx_result::success != r) {
+                            return r;
+                        }
+                    }
+                    r = gfx::helpers::batcher<
+                        Destination, Destination::caps::batch,
+                        false>::write_batch(dst,
+                                            gfx::point16(dox + dx, doy + dy),
+                                            dpx, false);
+                    if (gfx::gfx_result::success != r) return r;
+                    ++dx;
+                }
+                ++dy;
+            }
+            return gfx::helpers::batcher<Destination, Destination::caps::batch,
+                                         false>::commit_batch(dst, false);
+        }
+    };
+    template <typename Destination>
+    struct copy_to_fast_helper {
+        static gfx::gfx_result do_copy(const gfx::rect16& src_rect,
+                                       Destination& dst) {
+            gfx::rect16 r = src_rect.normalize();
+            bool entire = false;
+            gfx::size16 bssz = r.dimensions();
+            size_t bsz = bssz.width * bssz.height * 3;
+            uint8_t* buf = (uint8_t*)malloc(bsz);
+            if (buf != nullptr) {
+                entire = true;
+            } else {
+                bsz = bssz.width * 3;
+                buf = (uint8_t*)malloc(bsz);
+            }
+            if (buf != nullptr) {
+                free(buf);
+                buf = nullptr;
+            }
+            using batch =
+                gfx::helpers::batcher<Destination, Destination::caps::batch,
+                                      Destination::caps::async>;
+            if (buf == nullptr) {
+                gfx::helpers::suspender<Destination, Destination::caps::suspend,
+                                        Destination::caps::async>
+                    stok(dst, false);
+                gfx::gfx_result rr = batch::begin_batch(
+                    dst,
+                    {0, 0, uint16_t(r.width() - 1), uint16_t(r.height() - 1)},
+                    false);
+                if (rr != gfx::gfx_result::success) {
+                    return rr;
+                }
+                pixel_type px;
+                for (int y = r.y1; y <= r.y2; ++y) {
+                    for (int x = r.x1; x <= r.x2; ++x) {
+                        uint8_t buf3[3];
+                        buf = buf3;
+                        fetch_buffer({uint16_t(x), uint16_t(y), uint16_t(x),
+                                      uint16_t(y)},
+                                     buf, 3);
+                        px.native_value = (((*buf) & 0xF8) << 8);
+                        ++buf;
+                        px.native_value |= (((*buf) & 0xFC) << 3);
+                        ++buf;
+                        px.native_value |= (*buf >> 3);
+                        batch::write_batch(
+                            dst, {uint16_t(x - r.x1), uint16_t(y - r.y1)}, px,
+                            false);
+                    }
+                }
+                rr = batch::commit_batch(dst, false);
+                if (rr != gfx::gfx_result::success) {
+                    return rr;
+                }
+                buf = nullptr;
+            } else {
+                if (entire) {
+                    fetch_buffer(r, buf, bsz);
+                    gfx::helpers::suspender<Destination,
+                                            Destination::caps::suspend,
+                                            Destination::caps::async>
+                        stok(dst, false);
+                    gfx::gfx_result rr =
+                        batch::begin_batch(dst,
+                                           {0, 0, uint16_t(r.width() - 1),
+                                            uint16_t(r.height() - 1)},
+                                           false);
+                    if (rr != gfx::gfx_result::success) {
+                        free(buf);
+                        return rr;
+                    }
+                    uint8_t* bbuf = buf;
+                    while (bsz) {
+                        pixel_type px;
+                        uint16_t x, y;
+                        x = 0;
+                        y = 0;
+                        px.native_value = (((*bbuf) & 0xF8) << 8);
+                        ++bbuf;
+                        px.native_value |= (((*bbuf) & 0xFC) << 3);
+                        ++bbuf;
+                        px.native_value |= (*bbuf >> 3);
+                        ++bbuf;
+                        ++x;
+                        if (x > r.x2 - r.x1) {
+                            x = 0;
+                            ++y;
+                        }
+                        batch::write_batch(dst, {x, y}, px, false);
+                        bsz -= 3;
+                    }
+                    rr = batch::commit_batch(dst, false);
+                    if (rr != gfx::gfx_result::success) {
+                        free(buf);
+                        return rr;
+                    }
+                } else {
+                    gfx::helpers::suspender<Destination,
+                                            Destination::caps::suspend,
+                                            Destination::caps::async>
+                        stok(dst, false);
+                    for (int y = r.y1; y <= r.y2; ++y) {
+                        fetch_buffer(r, buf, bsz);
+                        gfx::gfx_result rr =
+                            batch::begin_batch(dst,
+                                               {0, 0, uint16_t(r.width() - 1),
+                                                uint16_t(r.height() - 1)},
+                                               false);
+                        if (rr != gfx::gfx_result::success) {
+                            free(buf);
+                            return rr;
+                        }
+                        size_t bbsz = bsz;
+                        uint8_t* bbuf = buf;
+                        while (bbsz) {
+                            pixel_type px;
+                            uint16_t x = 0;
+                            px.native_value = (((*bbuf) & 0xF8) << 8);
+                            ++bbuf;
+                            px.native_value |= (((*bbuf) & 0xFC) << 3);
+                            ++bbuf;
+                            px.native_value |= (*bbuf >> 3);
+                            ++bbuf;
+                            ++x;
+                            batch::write_batch(dst, {x, uint16_t(y - r.y1)}, px,
+                                               false);
+                            bbsz -= 3;
+                        }
+                        rr = batch::commit_batch(dst, false);
+                        if (rr != gfx::gfx_result::success) {
+                            free(buf);
+                            return rr;
+                        }
+                    }
+                }
+            }
+            if (buf != nullptr) {
+                free(buf);
+            }
+            return gfx::gfx_result::success;
+        }
+
+        static void fetch_buffer(const gfx::rect16& r, uint8_t* buf,
+                                 size_t len) {
+            bus::dma_wait();
+            bus::set_speed_multiplier(read_speed_multiplier);
+            bus::begin_read();
+            bus::cs_low();
+            set_window(r, true);
+            bus::direction(INPUT);
+            bus::read_raw8();  // throw away
+            bus::read_raw(buf, len);
+            bus::cs_high();
+            bus::end_read();
+            bus::set_speed_multiplier(write_speed_multiplier);
+            bus::direction(OUTPUT);
+        }
+    };
     constexpr static inline uint16_t compute_native_width() {
         uint16_t result = 128;
         switch (rotation) {

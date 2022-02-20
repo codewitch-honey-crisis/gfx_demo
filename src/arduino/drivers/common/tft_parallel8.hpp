@@ -376,6 +376,11 @@ namespace arduino {
             rd_high();
             return b;
         }
+        static void read_raw(uint8_t* buffer,size_t size) {
+            while(size--) {
+                *buffer++=read_raw8();
+            }
+        }
         inline static void write_raw8(uint8_t value) FORCE_INLINE {
 #ifdef OPTIMIZE_ESP32
             if(has_data_low_pins) {

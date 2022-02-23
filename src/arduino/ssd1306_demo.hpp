@@ -54,9 +54,9 @@ using namespace gfx;
 #define SUSPEND_RESUME
 
 #ifdef I2C
-using bus_type = tft_i2c<LCD_PORT,PIN_NUM_SDA,PIN_NUM_SCL>;
+using bus_type = tft_i2c_ex<LCD_PORT,PIN_NUM_SDA,PIN_NUM_SCL>;
 #else
-using bus_type = tft_spi<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,false
+using bus_type = tft_spi_ex<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,false
 #ifdef OPTIMIZE_DMA
 ,(LCD_WIDTH*LCD_HEIGHT)/8+8
 #endif

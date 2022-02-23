@@ -19,7 +19,7 @@ namespace arduino {
         int8_t PinScl=-1,
 #endif
         size_t I2CBufferSize = HTCW_I2C_WIRE_MAX>
-    struct tft_i2c {
+    struct tft_i2c_ex {
         constexpr static const uint8_t i2c_host = I2CHost;
         constexpr static const tft_io_type type = tft_io_type::i2c;
         constexpr static const bool readable = true;
@@ -276,12 +276,21 @@ namespace arduino {
     private:
     };
     template<uint8_t I2CHost,
+        size_t I2CBufferSize
+    >
+#ifdef ASSIGNABLE_I2C_PINS
+    using tft_i2c = tft_i2c_ex<I2CHost,-1,-1,I2CBufferSize>;
+#else
+    using tft_i2c = tft_i2c_ex<I2CHost,I2CBufferSize>;
+#endif
+
+    template<uint8_t I2CHost,
 #ifdef ASSIGNABLE_I2C_PINS
         int8_t PinSda,
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         size_t I2CBufferSize>
-        uint8_t tft_i2c<I2CHost
+        uint8_t tft_i2c_ex<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
@@ -293,7 +302,7 @@ namespace arduino {
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         size_t I2CBufferSize>
-        uint8_t tft_i2c<I2CHost
+        uint8_t tft_i2c_ex<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
@@ -306,7 +315,7 @@ namespace arduino {
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         size_t I2CBufferSize>
-        TwoWire tft_i2c<I2CHost
+        TwoWire tft_i2c_ex<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
@@ -319,7 +328,7 @@ namespace arduino {
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         size_t I2CBufferSize>
-        uint32_t tft_i2c<I2CHost
+        uint32_t tft_i2c_ex<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS
@@ -331,7 +340,7 @@ namespace arduino {
         int8_t PinScl,
 #endif // ASSIGNABLE_SPI_PINS
         size_t I2CBufferSize>
-        bool tft_i2c<I2CHost
+        bool tft_i2c_ex<I2CHost
 #ifdef ASSIGNABLE_I2C_PINS
         ,PinSda,PinScl
 #endif // ASSIGNABLE_SPI_PINS

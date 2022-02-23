@@ -29,7 +29,8 @@ namespace arduino {
     #endif // ESP32
 #endif // OPTIMIZE_DMA
     >
-    struct tft_spi {
+    struct tft_spi_ex final
+    {
         constexpr static const tft_io_type type = tft_io_type::spi;
 #ifdef ASSIGNABLE_SPI_PINS
         constexpr static const bool readable = PinMiso > -1 || SdaRead;
@@ -623,6 +624,32 @@ constexpr static const uint8_t dma_channel =
         }
 
     };
+    template<uint8_t SpiHost,
+        int8_t PinCS=-1, 
+        uint8_t SpiMode = SPI_MODE0
+#ifdef OPTIMIZE_DMA
+    ,size_t DmaSize = 4096+8
+    ,uint8_t DmaChannel = 
+    #ifdef ESP32
+        1
+    #else
+    0
+    #endif // ESP32
+#endif // OPTIMIZE_DMA
+    >
+#ifdef ASSIGNABLE_SPI_PINS
+    using tft_spi = tft_spi_ex<SpiHost,PinCS,-1,-1,-1,SpiMode,false
+#ifdef OPTIMIZE_DMA    
+    ,DmaSize,DmaChannel
+#endif
+    >;
+#else
+    using tft_spi = tft_spi_ex<SpiHost,PinCS,SpiMode
+#ifdef OPTIMIZE_DMA
+    ,DmaSize,DmaChannel
+#endif
+    >;
+#endif
     template<uint8_t SpiHost,int8_t PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     , int8_t PinMosi, int8_t PinMiso, int8_t PinSClk
@@ -635,7 +662,7 @@ constexpr static const uint8_t dma_channel =
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > uint32_t tft_spi< SpiHost,PinCS
+    > uint32_t tft_spi_ex< SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -660,7 +687,7 @@ constexpr static const uint8_t dma_channel =
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi< SpiHost,PinCS
+    > bool tft_spi_ex< SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -686,7 +713,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi<SpiHost,PinCS
+    > bool tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -712,7 +739,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi<SpiHost,PinCS
+    > bool tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -739,7 +766,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS
+    > volatile uint32_t* tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -765,7 +792,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS
+    > volatile uint32_t* tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -791,7 +818,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS
+    > volatile uint32_t* tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -817,7 +844,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > volatile uint32_t* tft_spi<SpiHost,PinCS
+    > volatile uint32_t* tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -845,7 +872,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > uint8_t tft_spi<SpiHost,PinCS
+    > uint8_t tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -870,7 +897,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > spi_device_handle_t tft_spi<SpiHost,PinCS
+    > spi_device_handle_t tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -896,7 +923,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > bool tft_spi<SpiHost,PinCS
+    > bool tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS
@@ -923,7 +950,7 @@ template<uint8_t SpiHost,int8_t PinCS
     , size_t DmaSize
     , uint8_t DmaChannel
 #endif
-    > SPIClass tft_spi<SpiHost,PinCS
+    > SPIClass tft_spi_ex<SpiHost,PinCS
 #ifdef ASSIGNABLE_SPI_PINS
     ,PinMosi,PinMiso,PinSClk
 #endif // ASSIGNABLE_SPI_PINS

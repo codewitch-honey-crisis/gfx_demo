@@ -1379,9 +1379,11 @@ namespace gfx {
                         r=line_impl(destination,srect16(-x + xc, y + yc+y_adj,x + xc+x_adj, y + yc+y_adj),color,clip,async);
                         if(r!=gfx_result::success)
                             return r;
-                        r=line_impl(destination,srect16(-x + xc, -y + yc,x + xc+x_adj, -y + yc),color,clip,async);
-                        if(r!=gfx_result::success)
-                            return r;
+                        if(y!=0 || 1==y_adj) {
+                            r=line_impl(destination,srect16(-x + xc, -y + yc,x + xc+x_adj, -y + yc),color,clip,async);
+                            if(r!=gfx_result::success)
+                                return r;
+                        }
                     }
                 } else {
                     if(oy!=y || ox!=x) {

@@ -8,14 +8,26 @@
 #include <hal/rmt_ll.h>
 #endif
 #include <Arduino.h>
-#include <esp_timer.h>
 #include <string.h>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
+
+#include <esp_assert.h>
+#include <esp_heap_caps.h>
+#include <esp_log.h>
+#include <esp_types.h>
+#include <xtensa/core-macros.h>
+#include <esp_timer.h>
+
 #include <xtensa/core-macros.h>
 
 #include <gfx_core.hpp>
 #include <gfx_pixel.hpp>
 #include <gfx_positioning.hpp>
-
+#include "common/framebuffer_driver.hpp"
 #include "ed047tc1_i2s.hpp"
 
 namespace arduino {
@@ -53,7 +65,7 @@ namespace arduino {
             int8_t PinCfgStr, int8_t PinCkv, int8_t PinSth, int8_t PinCkh,
             int8_t PinD0, int8_t PinD1, int8_t PinD2, int8_t PinD3, int8_t PinD4,
             int8_t PinD5, int8_t PinD6, int8_t PinD7>
-    class ed047tc1 final {
+    class ed047tc1 final : public framebuffer_driver<Width,Height,gfx::gsc_pixel<4>> {
         constexpr static const uint16_t width = Width;
         constexpr static const uint16_t height = Height;
         constexpr static const int8_t pin_cfg_data = PinCfgData;
@@ -70,33 +82,33 @@ namespace arduino {
         constexpr static const int8_t pin_d5 = PinD5;
         constexpr static const int8_t pin_d6 = PinD6;
         constexpr static const int8_t pin_d7 = PinD7;
-        using pixel_type = gfx::gsc_pixel<4>;
+   
     #ifndef ESP32
         static_assert(false, "This driver only works with an ESP32");
     #endif
         using bus = ed047tc1_helpers::ed047tc1_i2s<width + 32, pin_cfg_clk, pin_sth,
                                                 pin_d0, pin_d1, pin_d2, pin_d3,
                                                 pin_d4, pin_d5, pin_d6, pin_d7>;
-
-    private:
-        bool m_initialized;
-
+    protected:
+        using base = framebuffer_driver<Width,Height,gfx::gsc_pixel<4>>;
+        virtual void deinitialize_driver() {
+            bus::deinitialize();
+        }
+        virtual bool initialize_driver() {
+            bus::initialize();
+            return true;
+        }
+        virtual gfx::gfx_result update_display_framebuffer(const gfx::rect16& bounds) {
+            return gfx::gfx_result::device_error;
+        }
     public:
-        ed047tc1() : m_initialized(false) {}
-        ~ed047tc1() {
-            if (m_initialized) {
-                bus::deinitialize();
-            }
+        ed047tc1(void*(allocator)(size_t)=::ps_malloc,void(deallocator)(void*)=::free)
+        : base(allocator,deallocator){}
+        virtual ~ed047tc1() {
+            this->deinitialize();
+            
         }
-        inline bool initialized() const { return m_initialized; }
-        bool initialize() {
-            if (!m_initialized) {
-                bus::initialize();
-                m_initialized = true;
-            }
-            return m_initialized;
-        }
-
+        
     private:
         static intr_handle_t gRMT_intr_handle;  // = NULL;
 

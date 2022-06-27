@@ -1,7 +1,7 @@
 #pragma once
-#include "bits.hpp"
-#include "gfx_pixel.hpp"
-#include "gfx_positioning.hpp"
+#include <htcw_bits.hpp>
+#include <gfx_pixel.hpp>
+#include <gfx_positioning.hpp>
 #include "common/spi_master.hpp"
 namespace espidf {
     template<uint8_t WidthSegments,uint8_t HeightSegments, spi_host_device_t HostId,gpio_num_t PinCS>

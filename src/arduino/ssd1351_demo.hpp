@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include "drivers/ssd1351.hpp"
-#include "gfx_cpp14.hpp"
+#include <tft_io.hpp>
+#include <ssd1351.hpp>
+#include <gfx_cpp14.hpp>
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ACM_VGA_9x16.h"
 #include "../fonts/Bm437_ATI_9x16.h"

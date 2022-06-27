@@ -38,9 +38,9 @@
 #include <stdio.h>
 #include <SPIFFS.h>
 #include <SPI.h>
-#include "drivers/common/tft_io.hpp"
-#include "drivers/ili9341.hpp"
-#include "gfx_cpp14.hpp"
+#include <tft_io.hpp>
+#include <ili9341.hpp>
+#include <gfx_cpp14.hpp>
 #include "pretty_effect.hpp"
 #include "../fonts/Bm437_ATI_9x16.h"
 #include "../fonts/Bm437_Verite_9x16.h"
@@ -195,6 +195,7 @@ void scroll_text_demo() {
         draw::text(lcd,text_rect,text,f,lcd_color::old_lace,lcd_color::black,false);
         if(text_rect.x2>=320){
             draw::text(lcd,text_rect.offset(-320,0),text,f,lcd_color::old_lace,lcd_color::black,false);
+            delay(1);
         }
         if(text_rect.x1>=320) {
             text_rect=text_rect.offset(-320,0);
@@ -213,17 +214,19 @@ void lines_demo() {
     open_font::open(&fs,&f);
     draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
     const char* text = "ESP32 GFX";
+    open_font_cache fcache;
     float scale = f.scale(60);
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),{0,0},
-                            text,scale).bounds();
+                            text,scale,0,gfx_encoding::utf8,&fcache).bounds();
     draw::text(lcd,
             text_rect.center((srect16)lcd.bounds()),
             {0,0},
             text,
             f,scale,
-            lcd_color::dark_blue,lcd_color::white,false);
+            lcd_color::dark_blue,lcd_color::white,false,false,0,gfx_encoding::utf8,nullptr,&fcache);
     // free the font
     file.close();
+    fcache.clear();
     for(int i = 1;i<100;i+=2) {
         // calculate our extents
         srect16 r(i*(lcd.dimensions().width/100.0),
@@ -282,7 +285,7 @@ static void display_pretty_colors()
                 print_source(sending_bmp);
             }
 #endif
-            draw::bitmap_async(lcd,(srect16)src_bounds.offset(0,y),sending_bmp,src_bounds);
+            draw::bitmap_async(lcd,src_bounds.offset(0,y),sending_bmp,src_bounds);
             
         }
         if(0==frame%50) {
@@ -319,7 +322,7 @@ static void display_pretty_colors()
             }
             
             File fs = SPIFFS.open((0==pid)?"/image.jpg":(1==pid)?"/image2.jpg":"/image3.jpg");
-            draw::image(pixels,(srect16)pixels.bounds(),&fs,rect16(0,0,-1,-1));
+            draw::image(pixels,pixels.bounds(),&fs,rect16(0,0,-1,-1));
             fs.close();
 #ifdef ASCII_JPEGS
             print=true;

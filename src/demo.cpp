@@ -11,18 +11,16 @@
         #include "arduino/st7735_demo.hpp"
     #elif defined(MAX7219)
         #include "arduino/max7219_demo.hpp"
-    #elif defined(DEPG0290B)
-        #include "arduino/depg0290b_demo.hpp"
-    #elif defined(GDEH0154Z90)
-        #include "arduino/gdeh0154z90_demo.hpp"
-    #elif defined(EP4IN2)
-        #include "arduino/ep4in2_demo.hpp"
     #elif defined(RA8875)
         #include "arduino/ra8875_demo.hpp"
-    #elif defined(ED047TC1)
-        #include "arduino/ed047tc1_demo.hpp"
     #elif defined(WS5IN65)
         #include "arduino/waveshare5in65_demo.hpp"
+    #elif defined(WS2IN13)
+        #include "arduino/waveshare2in13_demo.hpp"
+    #elif defined(WS1IN54BV2)
+        #include "arduino/waveshare1in54bv2_demo.hpp"
+    #elif defined(WS4IN2GSC)
+        #include "arduino/waveshare4in2gsc_demo.hpp"
     #elif defined(TFT_ESPI)
         #include "arduino/tft_espi_demo.hpp"
     #elif defined(WIO_TERMINAL)

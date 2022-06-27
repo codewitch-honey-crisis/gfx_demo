@@ -198,7 +198,7 @@ void scroll_text_demo() {
     // resample<bmp_type,gsc_pixel<8>>(bmp);
     // uncomment to downsample
     // resample<bmp_type,rgb_pixel<8>>(bmp);
-    srect16 new_bounds(0,0,63,63);
+    rect16 new_bounds(0,0,63,63);
 
     // try using different values here. Bicubic yields the best visual result, but it's pretty slow. 
     // Bilinear is faster but better for shrinking images or changing sizes small amounts
@@ -207,7 +207,7 @@ void scroll_text_demo() {
          bitmap_resize::resize_bicubic;
         // bitmap_resize::resize_bilinear;
         //bitmap_resize::resize_fast;
-    draw::bitmap(lcd,new_bounds.center_horizontal((srect16)lcd.bounds()).flip_vertical(),bmp,bmp.bounds(),resize_type);
+    draw::bitmap(lcd,new_bounds.center_horizontal(lcd.bounds()).flip_vertical(),bmp,bmp.bounds(),resize_type);
 
     const font& f = Bm437_ATI_9x16_FON;
     const char* text = "copyright (C) 2021\r\nby honey the codewitch";
@@ -256,7 +256,7 @@ void scroll_text_demo() {
 }
 void lines_demo() {
     const open_font& f=Maziro_ttf;
-    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
+    draw::filled_rectangle(lcd,lcd.bounds(),lcd_color::white);
     const char* text = "ESP32 GFX Demo";
     float scale = f.scale(40);
     srect16 text_rect = f.measure_text((ssize16)lcd.dimensions(),{5,-7},
@@ -334,7 +334,7 @@ static void display_pretty_colors()
                 print_source(sending_bmp);
             }
 #endif
-            draw::bitmap_async(lcd,(srect16)src_bounds.offset(0,y),sending_bmp,src_bounds);
+            draw::bitmap_async(lcd,src_bounds.offset(0,y),sending_bmp,src_bounds);
             //The line set is queued up for sending now; the actual sending happens in the
             //background. We can go on to calculate the next line set as long as we do not
             //touch lines[sending_line] or the bitmap for it; 
@@ -382,7 +382,7 @@ static void display_pretty_colors()
             }
             
             file_stream fs((0==pid)?"/spiffs/image.jpg":(1==pid)?"/spiffs/image2.jpg":"/spiffs/image3.jpg");
-            draw::image(pixels,(srect16)pixels.bounds(),&fs,rect16(0,0,-1,-1));
+            draw::image(pixels,pixels.bounds(),&fs,rect16(0,0,-1,-1));
 #ifdef ASCII_JPEGS
             print=true;
 #endif

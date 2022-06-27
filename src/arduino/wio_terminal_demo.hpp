@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "gfx_cpp14.hpp"
-#include "arduino/drivers/common/tft_io.hpp"
-#include "arduino/drivers/ili9341.hpp"
+#include <tft_io.hpp>
+#include <ili9341.hpp>
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace arduino;
 using namespace gfx;

@@ -1,7 +1,8 @@
 #include <Arduino.h>
-#include "drivers/common/tft_io.hpp"
-#include "drivers/ssd1306.hpp"
-#include "gfx_cpp14.hpp"
+#include <tft_io.hpp>
+#include <ssd1306.hpp>
+#include <gfx_cpp14.hpp>
+#include <SPIFFS.h>
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ATI_9x16.h"
 using namespace arduino;
@@ -63,7 +64,7 @@ using bus_type = tft_spi_ex<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NU
 >;
 #endif
 
-using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,LCD_ADDRESS,LCD_VDC_3_3,LCD_WRITE_SPEED_PERCENT,PIN_NUM_DC,PIN_NUM_RST,true>;
+using lcd_type = ssd1306<LCD_WIDTH,LCD_HEIGHT,bus_type,0,4,LCD_ADDRESS,LCD_VDC_3_3,LCD_WRITE_SPEED_PERCENT,PIN_NUM_DC,PIN_NUM_RST,true>;
 lcd_type lcd;
 
 using lcd_color = color<typename lcd_type::pixel_type>;
@@ -181,30 +182,47 @@ void scroll_text_demo() {
     }
 }
 
+void image_demo() {
+#ifdef SUSPEND_RESUME
+  draw::suspend(lcd);
+#endif
+  File file = SPIFFS.open("/image3.jpg");
+  file_stream fs2(file);
+  draw::image(lcd,srect16(0,0,335,255).center((srect16)lcd.bounds()),&fs2);
+  fs2.close();
+#ifdef SUSPEND_RESUME
+  draw::resume(lcd);
+#endif
+  delay(2000);
+}
 void lines_demo() {
-    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::black);
-    const font& f = Bm437_Acer_VGA_8x8_FON;
-    const char* text = "ESP32 GFX";
+    draw::filled_rectangle(lcd,(srect16)lcd.bounds(),lcd_color::white);
+    File file = SPIFFS.open("/Maziro.ttf","rb");
+    file_stream fs(file);
+    open_font f;
+    open_font::open(&fs,&f);
+    float scale = f.scale(lcd.dimensions().height/2);
+    const char* text = "GFX DEMO";
     srect16 text_rect = srect16(spoint16(0,0),
-                            f.measure_text((ssize16)lcd.dimensions(),
-                            text));
+                            f.measure_text((ssize16)lcd.dimensions(),{0,0},
+                            text,scale));
                             
-    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),text,f,lcd_color::white);
+    draw::text(lcd,text_rect.center((srect16)lcd.bounds()),{0,0},text,f,scale,lcd_color::blue,lcd_color::white,true,true);
 
     for(int i = 1;i<100;i+=10) {
 #ifdef SUSPEND_RESUME
         draw::suspend(lcd);
 #endif
         // calculate our extents
-        srect16 r(i*(lcd_type::width/100.0),
-                i*(lcd_type::height/100.0),
-                lcd_type::width-i*(lcd_type::width/100.0)-1,
-                lcd_type::height-i*(lcd_type::height/100.0)-1);
+        srect16 r(i*(lcd.dimensions().width/100.0),
+                i*(lcd.dimensions().height/100.0),
+                lcd.dimensions().width-i*(lcd.dimensions().width/100.0)-1,
+                lcd.dimensions().height-i*(lcd.dimensions().height/100.0)-1);
 
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::white);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::white);
-        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::white);
-        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::white);
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd.dimensions().height-1),lcd_color::black);
+        draw::line(lcd,srect16(r.x2,0,lcd.dimensions().width-1,r.y2),lcd_color::gray);
+        draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::gray);
+        draw::line(lcd,srect16(lcd.dimensions().width-1,r.y1,r.x2,lcd.dimensions().height-1),lcd_color::black);
 #ifdef SUSPEND_RESUME
         draw::resume(lcd);
 #endif
@@ -255,13 +273,15 @@ void intro() {
 }
 void setup() {
     Serial.begin(115200);
+    SPIFFS.begin(false);
     intro();
-    while(true) {
-        lines_demo();
-        scroll_text_demo();
-        bmp_demo();
-    }
+    
 }
 void loop() {
-
+    lines_demo();
+    scroll_text_demo();
+    bmp_demo();
+    image_demo();
+    // toggle dithering off and on 
+    lcd.dithering(!lcd.dithering());
 }

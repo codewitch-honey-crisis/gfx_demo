@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include "drivers/common/tft_io.hpp"
-#include "gfx_cpp14.hpp"
-#include "drivers/max7219.hpp"
+#include <tft_io.hpp>
+#include <gfx_cpp14.hpp>
+#include <max7219.hpp>
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 using namespace arduino;
 using namespace gfx;
@@ -11,13 +11,13 @@ using namespace gfx;
 #define PIN_NUM_MISO -1
 #define PIN_NUM_MOSI 23
 #define PIN_NUM_CLK  18
-#define PIN_NUM_CS   15
+#define PIN_NUM_CS   5
 
-#define LCD_WIDTH 32
+#define LCD_WIDTH 64
 #define LCD_HEIGHT 8
 
 using bus_type = tft_spi_ex<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,0,false>;
-using matrix_type = max7219<LCD_WIDTH/8,LCD_HEIGHT/8,PIN_NUM_CS,bus_type> ;
+using matrix_type = max7219< LCD_WIDTH/8,LCD_HEIGHT/8,bus_type,0> ;
 using matrix_color = color<typename matrix_type::pixel_type>;
 using bmp_type = bitmap<typename matrix_type::pixel_type>;
     

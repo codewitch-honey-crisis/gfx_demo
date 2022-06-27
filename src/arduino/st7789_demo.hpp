@@ -1,12 +1,8 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
-#ifdef PARALLEL8
-#include "drivers/common/tft_parallel8.hpp"
-#else
-#include "drivers/common/tft_spi.hpp"
-#endif
-#include "drivers/st7789.hpp"
-#include "gfx_cpp14.hpp"
+#include <tft_io.hpp>
+#include <st7789.hpp>
+#include <gfx_cpp14.hpp>
 #include "../fonts/Bm437_Acer_VGA_8x8.h"
 #include "../fonts/Bm437_ACM_VGA_9x16.h"
 #include "../fonts/Bm437_Verite_9x16.h"

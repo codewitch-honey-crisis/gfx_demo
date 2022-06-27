@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <SPIFFS.h>
 #include <SPI.h>
-#include "drivers/common/tft_io.hpp"
-#include "drivers/ra8875.hpp"
-#include "gfx_cpp14.hpp"
+#include <tft_io.hpp>
+#include <ra8875.hpp>
+#include <gfx_cpp14.hpp>
 #include "pretty_effect.hpp"
 #include "../fonts/Bm437_ATI_9x16.h"
 #include "../fonts/Bm437_Verite_9x16.h"
@@ -24,16 +24,20 @@ using namespace gfx;
 
 #define PARALLEL_LINES 16
 
-#define LCD_WIDTH 800
-#define LCD_HEIGHT 480
+#define LCD_WIDTH 480
+#define LCD_HEIGHT 800
 #define PIN_CS 5
 #define PIN_RST 15
 #define PIN_INT 2
+using bus_type = tft_spi_ex<LCD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0,false
+#ifdef OPTIMIZE_DMA
+,(LCD_WIDTH*LCD_HEIGHT)/8+8
+#endif
+>;
 
-using lcd_type = ra8875<LCD_WIDTH,LCD_HEIGHT,PIN_CS,PIN_RST, PIN_INT>;
-            
-SPIClass spi(LCD_HOST);
-lcd_type lcd(spi);
+using lcd_type = ra8875<LCD_WIDTH,LCD_HEIGHT,PIN_RST,bus_type, PIN_INT,3>;
+
+lcd_type lcd;
 using lcd_color = color<typename lcd_type::pixel_type>;
 using frame_buffer_type = large_bitmap<rgb_pixel<16>>;
 using fb_color = color<typename frame_buffer_type::pixel_type>;
@@ -152,17 +156,17 @@ void scroll_text_demo() {
     while(true) {
 
        draw::filled_rectangle(lcd,text_rect,lcd_color::black);
-        if(text_rect.x2>=lcd_type::width) {
-           draw::filled_rectangle(lcd,text_rect.offset(-lcd_type::width,0),lcd_color::black);
+        if(text_rect.x2>=lcd.dimensions().width) {
+           draw::filled_rectangle(lcd,text_rect.offset(-lcd.dimensions().width,0),lcd_color::black);
         }
 
         text_rect=text_rect.offset(2,0);
         draw::text(lcd,text_rect,text,f,lcd_color::old_lace,lcd_color::black,false);
         if(text_rect.x2>=320){
-            draw::text(lcd,text_rect.offset(-lcd_type::width,0),text,f,lcd_color::old_lace,lcd_color::black,false);
+            draw::text(lcd,text_rect.offset(-lcd.dimensions().width,0),text,f,lcd_color::old_lace,lcd_color::black,false);
         }
         if(text_rect.x1>=320) {
-            text_rect=text_rect.offset(-lcd_type::width,0);
+            text_rect=text_rect.offset(-lcd.dimensions().width,0);
             first=false;
         }
         
@@ -192,15 +196,15 @@ void lines_demo() {
     file.close();
     for(int i = 1;i<100;i+=2) {
         // calculate our extents
-        srect16 r(i*(lcd_type::width/100.0),
-                i*(lcd_type::height/100.0),
-                lcd_type::width-i*(lcd_type::width/100.0)-1,
-                lcd_type::height-i*(lcd_type::height/100.0)-1);
+        srect16 r(i*(lcd.dimensions().width/100.0),
+                i*(lcd.dimensions().height/100.0),
+                lcd.dimensions().width-i*(lcd.dimensions().width/100.0)-1,
+                lcd.dimensions().height-i*(lcd.dimensions().height/100.0)-1);
         // draw the four lines
-        draw::line(lcd,srect16(0,r.y1,r.x1,lcd_type::height-1),lcd_color::light_blue);
-        draw::line(lcd,srect16(r.x2,0,lcd_type::width-1,r.y2),lcd_color::hot_pink);
+        draw::line(lcd,srect16(0,r.y1,r.x1,lcd.dimensions().height-1),lcd_color::light_blue);
+        draw::line(lcd,srect16(r.x2,0,lcd.dimensions().width-1,r.y2),lcd_color::hot_pink);
         draw::line(lcd,srect16(0,r.y2,r.x1,0),lcd_color::pale_green);
-        draw::line(lcd,srect16(lcd_type::width-1,r.y1,r.x2,lcd_type::height-1),lcd_color::yellow);
+        draw::line(lcd,srect16(lcd.dimensions().width-1,r.y1,r.x2,lcd.dimensions().height-1),lcd_color::yellow);
         
     }
 }
@@ -257,12 +261,12 @@ static void display_pretty_colors()
             
             if(pid==1) {
                 for(int i=0;i<60;++i) {
-                    srect16 sr(spoint16(rand()%lcd_type::width,rand()%lcd_type::height),rand()%(lcd_type::width/4));
+                    srect16 sr(spoint16(rand()%lcd.dimensions().width,rand()%lcd.dimensions().height),rand()%(lcd.dimensions().width/4));
                     draw::filled_ellipse(lcd, sr,rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                 }
             } else if(pid==2) {
                 for(int i=0;i<90;++i) {
-                    srect16 sr(spoint16(rand()%lcd_type::width,rand()%lcd_type::height),rand()%(lcd_type::width/4));
+                    srect16 sr(spoint16(rand()%lcd.dimensions().width,rand()%lcd.dimensions().height),rand()%(lcd.dimensions().width/4));
                     if(0!=(rand()%2)) {
                         draw::filled_rectangle(lcd, sr,rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                     } else {
@@ -271,16 +275,16 @@ static void display_pretty_colors()
                 }
             } else {
                 for(int i = 1;i<120;++i) {
-                    draw::line(lcd,srect16(0,i*(lcd_type::height/240.0),lcd_type::width-1,i*(lcd_type::height/240.0)),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(i*(lcd_type::width/240.0),0,i*(lcd_type::width/240.0),lcd_type::height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/240.0)-1,0,lcd_type::width-i*(lcd_type::width/240.0)-1,lcd_type::height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
-                    draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/240.0)-1,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/240.0)-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(0,i*(lcd.dimensions().height/240.0),lcd.dimensions().width-1,i*(lcd.dimensions().height/240.0)),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(i*(lcd.dimensions().width/240.0),0,i*(lcd.dimensions().width/240.0),lcd.dimensions().height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,0,lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,lcd.dimensions().height-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+                    draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1),rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
                 }
                 for(int i = 1;i<120;++i) {
-                    draw::line(lcd,srect16(0,i*(lcd_type::height/240.0),lcd_type::width-1,i*(lcd_type::height/240.0)),lcd_color::black);
-                    draw::line(lcd,srect16(i*(lcd_type::width/240.0),0,i*(lcd_type::width/240.0),lcd_type::height-1),lcd_color::black);
-                    draw::line(lcd,srect16(lcd_type::width-i*(lcd_type::width/240.0)-1,0,lcd_type::width-i*(lcd_type::width/240.0)-1,lcd_type::height-1),lcd_color::black);
-                    draw::line(lcd,srect16(0,lcd_type::height-i*(lcd_type::height/240.0)-1,lcd_type::width-1,lcd_type::height-i*(lcd_type::height/240.0)-1),lcd_color::black);
+                    draw::line(lcd,srect16(0,i*(lcd.dimensions().height/240.0),lcd.dimensions().width-1,i*(lcd.dimensions().height/240.0)),lcd_color::black);
+                    draw::line(lcd,srect16(i*(lcd.dimensions().width/240.0),0,i*(lcd.dimensions().width/240.0),lcd.dimensions().height-1),lcd_color::black);
+                    draw::line(lcd,srect16(lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,0,lcd.dimensions().width-i*(lcd.dimensions().width/240.0)-1,lcd.dimensions().height-1),lcd_color::black);
+                    draw::line(lcd,srect16(0,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1,lcd.dimensions().width-1,lcd.dimensions().height-i*(lcd.dimensions().height/240.0)-1),lcd_color::black);
                 }
             }
             
@@ -298,12 +302,22 @@ static void display_pretty_colors()
 void setup() {
     Serial.begin(115200);
     SPIFFS.begin(false);
-    spi.begin(PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI,PIN_NUM_CS);
-    pretty_effect_init("/image.jpg",336,256,320,240);
-    
-    display_pretty_colors();
-    
+    //pretty_effect_init("/image.jpg",336,256,320,240);
+        
+    //display_pretty_colors();
+    while(true) {
+        lines_demo();
+   /* for(int i=0;i<90;++i) {
+            srect16 sr(spoint16(rand()%lcd.dimensions().width,rand()%lcd.dimensions().height),rand()%(lcd.dimensions().width/4));
+            if(0!=(rand()%2)) {
+                draw::filled_rectangle(lcd, sr,rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+            } else {
+                draw::filled_rounded_rectangle(lcd, sr,(rand()%10)/10.0,rgb_pixel<16>(rand()%32,rand()%64,rand()%32));
+            }
+        }*/
+
+    }
 }
 void loop() {
-
+    
 }

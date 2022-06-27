@@ -1,7 +1,3 @@
-#ifndef BOARD_HAS_PSRAM
-static_assert(false,"PSRAM must be enabled to use this device");
-#endif
-
 #define EPD_HOST    VSPI
 #define PIN_NUM_MISO 19
 #define PIN_NUM_MOSI 23
@@ -14,29 +10,30 @@ static_assert(false,"PSRAM must be enabled to use this device");
 
 #include <Arduino.h>
 #include <SPIFFS.h>
-#include "drivers/common/tft_io.hpp"
-#include "drivers/waveshare5in65.hpp"
+#include <tft_io.hpp>
+#include <waveshare5in65f.hpp>
 #include <gfx_cpp14.hpp>
 using namespace arduino;
 using namespace gfx;
 using epd_bus = tft_spi_ex<EPD_HOST,PIN_NUM_CS,PIN_NUM_MOSI,PIN_NUM_MISO,PIN_NUM_CLK,SPI_MODE0>;
-// ::ps_malloc means use PSRAM for framebuffer - this is required:
-waveshare5in65<PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_WAIT,epd_bus> epd(::ps_malloc);
+// ::ps_malloc/::ps_realloc means use PSRAM for framebuffer - this is required:
+waveshare5in65f<PIN_NUM_DC,PIN_NUM_RST,PIN_NUM_WAIT,epd_bus,16> epd(::ps_malloc,::ps_realloc);
 
 void setup() {
   Serial.begin(115200);
-  
-
+  SPIFFS.begin(false);
+  gfx_result r = epd.initialize();
+  if(r!=gfx_result::success) {
+    Serial.printf("error %d\r\n",(int)r);
+  }
 }
-
-void loop() {
-  using epd0_color = color<rgb_pixel<16>>;
+void lines_demo() {
+    using epd0_color = color<rgb_pixel<16>>;
   // use indexed colors:
   //using epd0ipt = decltype(epd)::pixel_type;
   draw::suspend(epd);
   draw::filled_rectangle(epd,(srect16)epd.bounds(),epd0_color::white);
   const char* text = "ESP32 GFX";
-  SPIFFS.begin(false);
   File file = SPIFFS.open("/Maziro.ttf","rb");
   file_stream fs(file);
   open_font f;
@@ -58,7 +55,7 @@ void loop() {
               epd.dimensions().width-i*(epd.dimensions().width/100.0)-1,
               epd.dimensions().height-i*(epd.dimensions().height/100.0)-1);
       // draw the four lines
-      draw::line(epd,srect16(0,r.y1,r.x1,epd.dimensions().height-1),epd0_color::blue);
+      draw::line(epd,srect16(0,r.y1,r.x1,epd.dimensions().height-1),epd0_color::green);
       draw::line(epd,srect16(r.x2,0,epd.dimensions().width-1,r.y2),epd0_color::red);
       draw::line(epd,srect16(0,r.y2,r.x1,0),epd0_color::yellow);
       draw::line(epd,srect16(epd.dimensions().width-1,r.y1,r.x2,epd.dimensions().height-1),epd0_color::orange);
@@ -80,8 +77,10 @@ void loop() {
   }
   */
   draw::resume(epd);
-  epd.sleep(); // saves power, but takes longer to draw the next frame
-  delay(2000);
+
+}
+void image_demo() {
+  using epd0_color = color<rgb_pixel<16>>;
   draw::suspend(epd);
   draw::filled_rectangle(epd,(srect16)epd.bounds(),epd0_color::black);
   
@@ -96,10 +95,21 @@ void loop() {
           }
       }
   }
-  file = SPIFFS.open("/image.jpg");
+  File file = SPIFFS.open("/image.jpg");
   file_stream fs2(file);
-  draw::image(epd,(srect16)epd.bounds(),&fs2);
+  draw::image(epd,srect16(0,0,335,255).center((srect16)epd.bounds()),&fs2);
   fs2.close();
   draw::resume(epd);
+  
+}
+void loop() {
+  epd.dithering(true);
+  lines_demo();
+  image_demo();
+  epd.dithering(false);
+  lines_demo();
+  delay(2000);
+  epd.sleep(); // saves power, but takes longer to draw the next frame
+  image_demo();
   delay(2000);
 }
